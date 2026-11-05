@@ -50,7 +50,7 @@ def test_ref2va_template_models_and_timeline():
         assert node['widgets_values'][0]==host['widgets_values'][index]==host['widgets_values_named'][slot['name']]==name
         assert model['url'].endswith('/'+model['directory']+'/'+name)
         assert model['url'] in note
-        assert all(model['url'] in (ROOT/doc).read_text(encoding='utf-8') for doc in ('README.md','README_EN.md'))
+        assert all(model['url'] in (ROOT/doc).read_text(encoding='utf-8') for doc in ('README.md','README_JA.md'))
 
 def test_api_workflows_inputs():
     for path in (ROOT/'examples').glob('*.api.json'):
