@@ -1,0 +1,590 @@
+{
+  "id": "a2e82842-cb45-5e2a-822e-a08d348c75cd",
+  "revision": 0,
+  "last_node_id": 10,
+  "last_link_id": 12,
+  "groups": [
+    {
+      "title": "Core Loaders / Sampling (change installed model files here)",
+      "bounding": [
+        0,
+        -50,
+        1850,
+        230
+      ],
+      "color": "#38435b",
+      "font_size": 20,
+      "flags": {}
+    },
+    {
+      "title": "EZ Studio — open the editor; no Run/Take history",
+      "bounding": [
+        410,
+        240,
+        820,
+        420
+      ],
+      "color": "#5c457a",
+      "font_size": 20,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [
+        50,
+        100
+      ]
+    },
+    "H3_EZ_NOTE": "Open Timeline Studio. Select installed model files. Reference images require a compatible REF2VA/hybrid model; no automatic model switching. GPU/browser-in-ComfyUI not accepted in this package validation."
+  },
+  "version": 0.4,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        290,
+        150
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1,
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [
+        310,
+        0
+      ],
+      "size": [
+        290,
+        150
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "minimax",
+        "default"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        620,
+        0
+      ],
+      "size": [
+        290,
+        150
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_int8_convrot.safetensors"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "pos": [
+        930,
+        0
+      ],
+      "size": [
+        290,
+        150
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "minimax_h3_audio_vae_fp32.safetensors"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "KSamplerSelect",
+      "pos": [
+        1240,
+        0
+      ],
+      "size": [
+        290,
+        150
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSamplerSelect",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "res_multistep"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "BasicScheduler",
+      "pos": [
+        1550,
+        0
+      ],
+      "size": [
+        290,
+        150
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicScheduler",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "simple",
+        20,
+        1.0
+      ]
+    },
+    {
+      "id": 7,
+      "type": "H3ContinuumEZTimeline",
+      "pos": [
+        430,
+        290
+      ],
+      "size": [
+        400,
+        230
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "external_prompt",
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "timeline",
+          "type": "H3_EZ_STUDIO_PLAN",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "H3ContinuumEZTimeline"
+      },
+      "widgets_values": [
+        "{\"schema\":1,\"assets\":[],\"reference_slots\":[null,null,null,null,null,null,null,null,null],\"global_refs\":[],\"first_image\":null,\"global_prompt\":\"Cinematic natural lighting, realistic textures, a quiet garden after rain. Keep the same visual identity and coherent environment. Natural birdsong and soft wind. No subtitles, logos or watermark.\",\"shots\":[{\"id\":\"shot-1\",\"label\":\"Shot 1\",\"seconds\":5.0,\"transition\":\"cut\",\"prompt\":\"A slow steady camera moves through the garden.\",\"prompt_mode\":\"append\",\"refs\":null,\"first_image\":null},{\"id\":\"shot-2\",\"label\":\"Shot 2\",\"seconds\":5.0,\"transition\":\"continue\",\"prompt\":\"The camera gently turns toward a flowering tree.\",\"prompt_mode\":\"append\",\"refs\":null,\"first_image\":null},{\"id\":\"shot-3\",\"label\":\"Shot 3\",\"seconds\":5.0,\"transition\":\"continue\",\"prompt\":\"The camera settles into a still view of the flowers.\",\"prompt_mode\":\"append\",\"refs\":null,\"first_image\":null}],\"audio\":[]}"
+      ],
+      "widgets_values_named": {
+        "timeline_json": "{\"schema\":1,\"assets\":[],\"reference_slots\":[null,null,null,null,null,null,null,null,null],\"global_refs\":[],\"first_image\":null,\"global_prompt\":\"Cinematic natural lighting, realistic textures, a quiet garden after rain. Keep the same visual identity and coherent environment. Natural birdsong and soft wind. No subtitles, logos or watermark.\",\"shots\":[{\"id\":\"shot-1\",\"label\":\"Shot 1\",\"seconds\":5.0,\"transition\":\"cut\",\"prompt\":\"A slow steady camera moves through the garden.\",\"prompt_mode\":\"append\",\"refs\":null,\"first_image\":null},{\"id\":\"shot-2\",\"label\":\"Shot 2\",\"seconds\":5.0,\"transition\":\"continue\",\"prompt\":\"The camera gently turns toward a flowering tree.\",\"prompt_mode\":\"append\",\"refs\":null,\"first_image\":null},{\"id\":\"shot-3\",\"label\":\"Shot 3\",\"seconds\":5.0,\"transition\":\"continue\",\"prompt\":\"The camera settles into a still view of the flowers.\",\"prompt_mode\":\"append\",\"refs\":null,\"first_image\":null}],\"audio\":[]}"
+      }
+    },
+    {
+      "id": 8,
+      "type": "H3ContinuumEZEngine",
+      "pos": [
+        900,
+        290
+      ],
+      "size": [
+        310,
+        320
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3
+        },
+        {
+          "name": "video_vae",
+          "type": "VAE",
+          "link": 4
+        },
+        {
+          "name": "audio_vae",
+          "type": "VAE",
+          "link": 5
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 6
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 7
+        },
+        {
+          "name": "timeline",
+          "type": "H3_EZ_STUDIO_PLAN",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            10
+          ]
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            11
+          ]
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "H3ContinuumEZEngine"
+      },
+      "widgets_values": [
+        42,
+        "fixed",
+        0.3,
+        "16:9",
+        736,
+        416
+      ],
+      "widgets_values_named": {
+        "seed": 42,
+        "width": 736,
+        "height": 416
+      }
+    },
+    {
+      "id": 9,
+      "type": "CreateVideo",
+      "pos": [
+        1260,
+        290
+      ],
+      "size": [
+        290,
+        220
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 9
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 10
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 11,
+          "widget": {
+            "name": "fps"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB",
+        "auto",
+        "none"
+      ],
+      "widgets_values_named": {
+        "fps": 24,
+        "bit_depth": "auto",
+        "color_space": "sRGB",
+        "chroma_subsampling": "auto",
+        "codec": "none"
+      }
+    },
+    {
+      "id": 10,
+      "type": "SaveVideo",
+      "pos": [
+        1610,
+        290
+      ],
+      "size": [
+        440,
+        430
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "video/H3_Continuum_EZ_Studio",
+        "auto",
+        "auto"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "video/H3_Continuum_EZ_Studio",
+        "format": "auto",
+        "format.codec": "auto",
+        "codec": "auto"
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      6,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      1,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      2,
+      0,
+      8,
+      1,
+      "CLIP"
+    ],
+    [
+      4,
+      3,
+      0,
+      8,
+      2,
+      "VAE"
+    ],
+    [
+      5,
+      4,
+      0,
+      8,
+      3,
+      "VAE"
+    ],
+    [
+      6,
+      5,
+      0,
+      8,
+      4,
+      "SAMPLER"
+    ],
+    [
+      7,
+      6,
+      0,
+      8,
+      5,
+      "SIGMAS"
+    ],
+    [
+      8,
+      7,
+      0,
+      8,
+      6,
+      "H3_EZ_STUDIO_PLAN"
+    ],
+    [
+      9,
+      8,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      8,
+      1,
+      9,
+      1,
+      "AUDIO"
+    ],
+    [
+      11,
+      8,
+      2,
+      9,
+      2,
+      "FLOAT"
+    ],
+    [
+      12,
+      9,
+      0,
+      10,
+      0,
+      "VIDEO"
+    ]
+  ]
+}

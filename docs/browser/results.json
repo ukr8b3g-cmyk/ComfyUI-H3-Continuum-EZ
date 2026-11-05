@@ -1,0 +1,106 @@
+{
+  "environment": "Chromium standalone DOM fixture; ComfyUI bridge mocked",
+  "checks": [
+    {
+      "name": "Extension button opens actual HTML Studio",
+      "passed": true
+    },
+    {
+      "name": "Three shots and duration ruler rendered",
+      "passed": true
+    },
+    {
+      "name": "Asset thumbnails rendered",
+      "passed": true
+    },
+    {
+      "name": "Long prompt survives shot selection without truncation",
+      "passed": true
+    },
+    {
+      "name": "Prompt focus mode provides large editor",
+      "passed": true
+    },
+    {
+      "name": "Image drag/drop assigns stable per-shot R slot",
+      "passed": true
+    },
+    {
+      "name": "Apply writes complete text and reference plan to node value",
+      "passed": true
+    },
+    {
+      "name": "Drag reorder changes order but retains shot identity",
+      "passed": true
+    },
+    {
+      "name": "Import analysis does not mutate saved node",
+      "passed": true
+    },
+    {
+      "name": "Confirmed import updates only prompt bodies",
+      "passed": true
+    },
+    {
+      "name": "WAV file input decodes duration and adds audio clip",
+      "passed": true
+    },
+    {
+      "name": "Audio source-in and placement are independent numeric edits",
+      "passed": true
+    },
+    {
+      "name": "Audio split creates two adjacent non-destructive source ranges",
+      "passed": true
+    },
+    {
+      "name": "Split maintains original source continuity",
+      "passed": true
+    },
+    {
+      "name": "Overlapping audio edit is rejected without changing clip",
+      "passed": true
+    },
+    {
+      "name": "Mouse edge trim changes audio duration",
+      "passed": true
+    },
+    {
+      "name": "Generate dispatches one standard queue call",
+      "passed": true
+    },
+    {
+      "name": "External live input is clearly read-only with executed preview",
+      "passed": true
+    },
+    {
+      "name": "Disconnect restores untouched internal common prompt",
+      "passed": true
+    },
+    {
+      "name": "Image replacement preserves stable asset ID and R1 assignments",
+      "passed": true
+    },
+    {
+      "name": "Reopening reconstructs shots/assets/audio from serialized node JSON",
+      "passed": true
+    },
+    {
+      "name": "Unsaved close can be cancelled",
+      "passed": true
+    },
+    {
+      "name": "Confirmed discard leaves committed node data intact",
+      "passed": true
+    },
+    {
+      "name": "1366x768 layout retains apply/close/editor controls",
+      "passed": true
+    },
+    {
+      "name": "No browser page errors",
+      "passed": true
+    }
+  ],
+  "page_errors": []
+}

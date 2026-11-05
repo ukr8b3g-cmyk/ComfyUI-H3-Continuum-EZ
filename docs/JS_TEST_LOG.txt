@@ -1,0 +1,106 @@
+TAP version 13
+# Subtest: 5 second initial and continuation use original grid
+ok 1 - 5 second initial and continuation use original grid
+  ---
+  duration_ms: 2.440053
+  type: 'test'
+  ...
+# Subtest: long Japanese prompt is not truncated
+ok 2 - long Japanese prompt is not truncated
+  ---
+  duration_ms: 0.432921
+  type: 'test'
+  ...
+# Subtest: external common does not rewrite draft
+ok 3 - external common does not rewrite draft
+  ---
+  duration_ms: 0.202414
+  type: 'test'
+  ...
+# Subtest: references follow stable slots through reordering
+ok 4 - references follow stable slots through reordering
+  ---
+  duration_ms: 0.201113
+  type: 'test'
+  ...
+# Subtest: inactive reference rejected
+ok 5 - inactive reference rejected
+  ---
+  duration_ms: 0.371579
+  type: 'test'
+  ...
+# Subtest: remove image unlinks without filesystem writes
+ok 6 - remove image unlinks without filesystem writes
+  ---
+  duration_ms: 0.543288
+  type: 'test'
+  ...
+# Subtest: empty explicit refs differs from inherit
+ok 7 - empty explicit refs differs from inherit
+  ---
+  duration_ms: 0.447674
+  type: 'test'
+  ...
+# Subtest: audio split preserves source relationship
+ok 8 - audio split preserves source relationship
+  ---
+  duration_ms: 0.287193
+  type: 'test'
+  ...
+# Subtest: invalid audio split leaves state
+ok 9 - invalid audio split leaves state
+  ---
+  duration_ms: 0.4983
+  type: 'test'
+  ...
+# Subtest: shot split enforces 2 second minimum
+ok 10 - shot split enforces 2 second minimum
+  ---
+  duration_ms: 0.480724
+  type: 'test'
+  ...
+# Subtest: move keeps identity
+ok 11 - move keeps identity
+  ---
+  duration_ms: 0.217277
+  type: 'test'
+  ...
+# Subtest: import parses only explicit shots and does not mutate
+ok 12 - import parses only explicit shots and does not mutate
+  ---
+  duration_ms: 0.300242
+  type: 'test'
+  ...
+# Subtest: import rejects duplicate/out-of-range headers
+ok 13 - import rejects duplicate/out-of-range headers
+  ---
+  duration_ms: 0.161293
+  type: 'test'
+  ...
+# Subtest: History undo/redo and branch invalidation
+ok 14 - History undo/redo and branch invalidation
+  ---
+  duration_ms: 0.185519
+  type: 'test'
+  ...
+# Subtest: reference slots maximum
+ok 15 - reference slots maximum
+  ---
+  duration_ms: 0.107032
+  type: 'test'
+  ...
+# Subtest: audio overlap is blocked
+ok 16 - audio overlap is blocked
+  ---
+  duration_ms: 0.269556
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 73.465691

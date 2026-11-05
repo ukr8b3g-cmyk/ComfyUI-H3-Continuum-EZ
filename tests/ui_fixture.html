@@ -1,0 +1,45 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><title>H3 EZ Studio UI fixture — not live ComfyUI</title><style>body{margin:0;background:#10131b;color:#fff;font-family:system-ui}#fixture-header{padding:10px 20px;background:#202633}#node{margin:40px;padding:15px;width:400px;background:#282e3d;border:1px solid #6b588a;border-radius:10px}button{margin:5px;padding:10px}</style><div id="fixture-header">Standalone browser fixture · ComfyUI API boundary is mocked</div><div id="node"></div><script type="module">
+import {initial,insertShot,executionPlan} from '../web/state.js';
+const p=initial();p.assets=['scene-a.png','scene-b.png','scene-c.png'].map((name,i)=>({id:'image-'+i,label:name,kind:'image',file:{name,subfolder:'tests/assets',type:'input'}}));p.reference_slots[0]='image-0';p.global_refs=[1];p.first_image='image-0';p.global_prompt='A quiet park in soft afternoon light. A calm atmosphere, realistic style.';p.shots[0].prompt='A gentle camera move through a quiet park.';insertShot(p);insertShot(p);p.shots[1].prompt='The character stops walking and looks toward the blossoms. The camera stays steady.\n\nAudio: soft wind and distant birds. No subtitles or logos.';p.shots[2].prompt='The character smiles, holding the pose.';
+p.shots.forEach((s,i)=>s.id='shot-'+(i+1));
+window.fixtureState={saved:null,queued:0,before:0,after:0};window.fixtureQueue={queue_running:[],queue_pending:[]};
+const node={comfyClass:'H3ContinuumEZTimeline',type:'H3ContinuumEZTimeline',id:101,size:[380,210],widgets:[{name:'timeline_json',value:JSON.stringify(p),options:{},callback(){}}],inputs:[{name:'external_prompt',link:null}],graph:{beforeChange(){window.fixtureState.before++},afterChange(){window.fixtureState.after++}},setSize(){},setDirtyCanvas(){},addWidget(type,name,value,callback,options){const w={type,name,value,callback,options:options||{}};this.widgets.push(w);if(type==='button'){const b=document.createElement('button');b.textContent=name;Object.defineProperty(w,'label',{set(value){b.textContent=value;}});b.onclick=callback;document.getElementById('node').append(b);}return w;},addDOMWidget(name,type,element,options){document.getElementById('node').append(element);const w={name,type,element,options};this.widgets.push(w);return w;}};
+window.node=node;
+if(new URLSearchParams(location.search).has('external')){node.inputs[0].link=99;node._h3ez_lastCommon='External scene from the previous execution.';}
+let fixtureLocale=new URLSearchParams(location.search).get('locale')??'ja';
+const fixtureSettings=new EventTarget();
+fixtureSettings.addSetting=()=>{};
+window.fixtureApp={extensionManager:{setting:{get:key=>key==='Comfy.Locale'?fixtureLocale:undefined}},ui:{settings:fixtureSettings},graph:{_nodes:[node],getNodeById:id=>String(id)==='101'?node:null},registerExtension(ext){ext.nodeCreated?.(node);ext.setup?.();},async queuePrompt(){window.fixtureState.queued++;}};
+window.fixtureApi=new EventTarget();
+window.fixtureApi.apiURL=path=>{
+ if(!path.startsWith('/view?'))return path;const q=new URL('http://local'+path).searchParams;
+ if(q.get('type')==='input')return '/tests/assets/'+encodeURIComponent(q.get('filename'));
+ return '/browser-artifacts/'+q.get('type')+'/'+q.get('subfolder')+'/'+q.get('filename');
+};
+window.fixtureApi.fetchApi=async(url,opts)=>{if(url==='/queue')return {ok:true,json:async()=>window.fixtureQueue};const f=opts.body.get('image');return {ok:true,json:async()=>({name:f.name,subfolder:'tests/assets',type:'input'})};};
+await import('../web/extension.js');
+window.openEditor=()=>node.widgets.find(w=>w.name==='Open Timeline Studio').callback();
+window.getSaved=()=>JSON.parse(node.widgets.find(w=>w.name==='timeline_json').value);
+window.openEditor();window.fixtureReady=true;
+if(new URLSearchParams(location.search).has('progress')){
+ const data=await fetch('/browser-artifacts/media.json').then(r=>r.json());let seq=0;
+ const emit=(event,more={})=>window.fixtureApi.dispatchEvent(new CustomEvent('h3ez_progress',{detail:{event,run_id:data.run_id,seq:++seq,node_id:'101',...more}}));
+ const tools=document.createElement('div');tools.style.cssText='display:flex;gap:4px;font-size:11px';
+ const make=(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;tools.append(b);};
+ const job=()=>[1,'test-prompt',{'101':{class_type:'H3ContinuumEZTimeline',inputs:{timeline_json:node.widgets[0].value}},'102':{class_type:'H3ContinuumEZEngine',inputs:{timeline:['101',0]}}},{},['102']];
+ const queueEvent=()=>window.fixtureApi.dispatchEvent(new CustomEvent('status',{detail:{exec_info:{queue_remaining:1}}}));
+ make('Test: queued',()=>{window.fixtureQueue={queue_running:[],queue_pending:[job()]};queueEvent();});
+ make('Test: running',()=>{window.fixtureQueue={queue_running:[job()],queue_pending:[]};queueEvent();});
+ make('Test: idle',()=>{window.fixtureQueue={queue_running:[],queue_pending:[]};queueEvent();});
+ make('Test: start',()=>emit('start',{plan:window.getSaved()}));
+ data.parts.forEach((part,i)=>{
+  const params={shot_id:part.shot_id,part_index:part.part_index,part_count:part.part_count};
+  make('Test: sampling '+(i+1),()=>emit('sampling',params));
+  make('Test: completed '+(i+1),()=>emit('part_complete',{...params,...data.rows[i]}));
+ });
+ make('Test: failed',()=>emit('failed'));
+ make('Test: final',()=>window.fixtureApi.dispatchEvent(new CustomEvent('executed',{detail:{output:{h3ez_video:[{...data.final,node_id:'101',plan:window.getSaved()}]}}})));
+ if(data.portrait)make('Test: portrait',()=>window.fixtureApi.dispatchEvent(new CustomEvent('executed',{detail:{output:{h3ez_video:[{...data.portrait,node_id:'101',plan:window.getSaved()}]}}})));
+ const footer=document.querySelector('.ez-footer');footer.replaceChildren(tools);
+}
+</script></html>

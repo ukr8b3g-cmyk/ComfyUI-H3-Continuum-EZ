@@ -1,0 +1,10 @@
+{
+  "source": "Continuum 3.10.2 local installed source",
+  "sha256": {
+    "storage_settings.py": "53da3ac42f4a66e8adc4560049c7c8e7ada82599be8c61f0573c234342ca36ed",
+    "storage_fs.py": "517662b104ab1507bb927a39f25b8503f092c2ba4c39bc277379ba9d9e31b334",
+    "storage_memory.py": "daeda14d9f5338835661e6738e074a3897d936cd847fe3e78519efabbcdfd0ef",
+    "v3/file_backed_buffer.py": "69bf49d0601edbe51730b9d409b1cde647feabde0bde561e416b0b472a27f4e6",
+    "tools/p20_file_backed_tensor_poc.py": "2743597d289d9eb12334d1f5cdd630497e237814ddf48b17f6f68da299c01150"
+  }
+}

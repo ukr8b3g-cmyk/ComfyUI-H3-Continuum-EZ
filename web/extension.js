@@ -1,0 +1,262 @@
+import {openStorageDialog} from './storage_settings.js';
+import {getLocale,translator,errorText} from './i18n.js';
+import {app} from '../../scripts/app.js';
+import {api} from '../../scripts/api.js';
+import {ensureStudioStyles,openStudio} from './studio.js';
+import {findPreviousVideo,resultVideo} from './result_preview.js';
+import {mergeProgress} from './generation.js';
+import {timelineQueue,graphNodes,normalizeModelChoices} from './queue_status.js';
+import {syncSeedControls} from './seed_controls.js';
+import {read,duration,refsFor,roundEven} from './state.js';
+
+const NODE='H3ContinuumEZTimeline';
+const ENGINE='H3ContinuumEZEngine';
+const mounted=new WeakSet(),editors=new WeakMap();
+const queueEditors=new Map();
+let queueTimer=null,queueRequest=null,queueAgain=false;
+const rootGraph=()=>app.rootGraph||app.graph;
+const seedHosts=new WeakSet();
+function installSeedControls(node){
+  if(!node.subgraph)return;
+  const sync=()=>syncSeedControls(node,translator(getLocale(app))('seedControl'));
+  if(!seedHosts.has(node)){
+    seedHosts.add(node);
+    for(const name of ['onConfigure','onConnectionsChange']){
+      const old=node[name];node[name]=function(...args){const out=old?.apply(this,args);queueMicrotask(sync);return out;};
+    }
+  }
+  sync();
+}
+async function refreshQueue(){
+  if(!queueEditors.size)return;
+  if(queueRequest){queueAgain=true;return queueRequest;}
+  queueRequest=(async()=>{
+    try{
+      const response=await api.fetchApi('/queue');
+      if(!response.ok)throw new Error('Queue HTTP '+response.status);
+      const data=await response.json(),nodes=graphNodes(rootGraph());
+      for(const [node,state] of queueEditors){
+        const ids=nodes.filter(x=>x.node===node).map(x=>x.id);
+        const next=timelineQueue(data,ids,activeWorkflowId(),String(widget(node)?.value));
+        if(next.phase==='idle'&&state.terminal)Object.assign(next,state.terminal);
+        else if(next.jobs.length)state.terminal=null;
+        state.value=next;state.editor.setQueue(next);
+      }
+    }catch(error){for(const state of queueEditors.values())state.editor.setQueue({phase:'offline',jobs:[]});}
+    finally{queueRequest=null;if(queueAgain){queueAgain=false;void refreshQueue();}}
+  })();return queueRequest;
+}
+function watchQueue(node,editor){
+  queueEditors.set(node,{editor,value:null,terminal:null});
+  if(!queueTimer)queueTimer=setInterval(()=>void refreshQueue(),1500);
+  void refreshQueue();
+}
+function unwatchQueue(node){queueEditors.delete(node);if(!queueEditors.size){clearInterval(queueTimer);queueTimer=null;}}
+function queueEnded(phase,detail){
+  if(!detail?.prompt_id)return;
+  for(const state of queueEditors.values())if(state.value?.jobs.some(j=>j.id===detail.prompt_id)){
+    state.terminal={phase,detail:detail.exception_message||''};
+    state.editor.setQueue({...state.value,...state.terminal,running:0});
+  }
+  void refreshQueue();
+}
+function timelineNode(id){
+  let graph=rootGraph(),target;
+  for(const part of String(id).split(':')){target=graph?.getNodeById?.(part);graph=target?.subgraph;}
+  return (target?.comfyClass||target?.type)===NODE?target:null;
+}
+function onProgress({detail}){
+  if(detail?.node_id==null)return;
+  const node=timelineNode(detail.node_id);if(!node)return;
+  if(detail.event==='start'){
+    try{if(JSON.stringify(read(widget(node).value))!==JSON.stringify(detail.plan))return;}catch{return;}
+  }
+  const next=mergeProgress(api,node._h3ez_progress,detail);
+  if(!next||next===node._h3ez_progress)return;
+  node._h3ez_progress=next;editors.get(node)?.setProgress(next);
+}
+function activeWorkflowId(){
+  const workflow=app.extensionManager?.workflow?.activeWorkflow;
+  return workflow?.activeState?.id ?? workflow?.initialState?.id;
+}
+function onVideoExecuted({detail}){
+  if(!detail || (detail.workflow_id && detail.workflow_id!==activeWorkflowId()))return;
+  const record=detail.output?.h3ez_video?.[0];
+  if(record?.node_id!=null){
+    // Use the Timeline's execution id even when the Engine is inside another subgraph.
+    const target=timelineNode(record.node_id);
+    if((target?.comfyClass||target?.type)!==NODE)return;
+    const video=resultVideo(api,record);
+    if(!video)return;
+    target._h3ez_resultVideo=video;
+    target._h3ez_progress=null;
+    editors.get(target)?.setResult(video);
+  }
+  if(detail.output?.h3ez_preview_error)console.error('[H3 EZ] Preview export:',detail.output.h3ez_preview_error[0]);
+}
+function restoreVideo(node,editor,signal){
+  const workflowId=activeWorkflowId();
+  if(!workflowId || node._h3ez_resultVideo || node.graph!==app.graph)return;
+  void findPreviousVideo(api,workflowId,node.id,signal).then(video=>{
+    if(!video || signal.aborted || editors.get(node)!==editor || node._h3ez_resultVideo ||
+        node.graph!==app.graph || activeWorkflowId()!==workflowId)return;
+    node._h3ez_resultVideo=video;
+    editor.setResult(video,{restored:true});
+  }).catch(error=>{
+    if(!signal.aborted)console.debug('[H3 EZ] Preview history unavailable',error);
+  });
+}
+const widget=n=>n.widgets?.find(w=>w.name==='timeline_json');
+const connected=n=>n.inputs?.some(i=>i.name==='external_prompt'&&i.link!=null)||false;
+function mediaUrl(a){const q=new URLSearchParams({filename:a.file.name,subfolder:a.file.subfolder||'',type:'input'});return api.apiURL(`/view?${q}`);}
+async function upload(file,kind,t){
+  let duration,peaks;
+  if(kind==='audio'){
+    // Metadata is streamed by the media element. Long files must not become a
+    // full decoded AudioBuffer merely to draw a small waveform in Studio.
+    const audio=new Audio(),url=URL.createObjectURL(file);
+    try{
+      duration=await new Promise((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(new Error(t('audioDurationMissing'))),30000);
+        audio.onloadedmetadata=()=>{clearTimeout(timer);Number.isFinite(audio.duration)&&audio.duration>0?resolve(audio.duration):reject(new Error(t('audioDurationMissing')));};
+        audio.onerror=()=>{clearTimeout(timer);reject(new Error(t('audioDurationMissing')));};
+        audio.preload='metadata';audio.src=url;
+      });
+    }finally{audio.removeAttribute('src');audio.load();URL.revokeObjectURL(url);}
+    if(duration>120||file.size>32*1024**2)peaks=[];
+    else{
+    const Context=window.AudioContext||window.webkitAudioContext;
+    if(!Context)throw new Error(t('previewUnsupported'));
+    const context=new Context();
+    try{
+      const decoded=await context.decodeAudioData(await file.arrayBuffer());duration=decoded.duration;
+      const data=decoded.getChannelData(0),step=Math.max(1,Math.ceil(data.length/700));peaks=[];
+      for(let i=0;i<data.length;i+=step){let m=0;for(let j=i;j<Math.min(data.length,i+step);j++)m=Math.max(m,Math.abs(data[j]));peaks.push(m);}
+    }catch(e){throw new Error(t('audioPreviewFailed',e.message));}
+    finally{await context.close();}
+    }
+  }
+  const body=new FormData();body.append('image',file);body.append('type','input');body.append('subfolder','h3_continuum_ez');
+  const response=await api.fetchApi('/upload/image',{method:'POST',body});
+  if(!response.ok)throw new Error(t('httpUploadFailed',response.status));
+  const result=await response.json();if(!result.name)throw new Error(t('missingFilename'));
+  return {file:{name:result.name,subfolder:result.subfolder||'',type:'input'},duration,peaks};
+}
+function install(node){
+  if((node.comfyClass||node.type)!==NODE||mounted.has(node))return;
+  const w=widget(node);if(!w)return;
+  mounted.add(node);
+  ensureStudioStyles();
+  w.hidden=true;w.options={...w.options,hidden:true};
+  let summary;
+  if(typeof node.addDOMWidget==='function'){
+    summary=document.createElement('div');summary.className='h3ez-summary';
+    const display=node.addDOMWidget('h3ez_summary','h3ez_summary',summary,{serialize:false,hideOnZoom:true,getMinHeight:()=>101,getMaxHeight:()=>121});
+    display.serialize=false;display.options.serialize=false;
+  }
+  const refresh=()=>{
+    const t=translator(getLocale(app));
+    open.label=t('openStudio');
+    if(!summary)return;summary.replaceChildren();
+    try{
+      const p=read(widget(node).value),line=document.createElement('div');
+      line.textContent=t('nodeSummary',p.shots.length,duration(p).toFixed(2),p.global_refs.length)+(connected(node)&&p.prompt_source!=='studio'?' · '+t('externalBadge'):'');
+      const strip=document.createElement('div');strip.className='ez-thumbs';
+      for(const [i,s] of p.shots.slice(0,5).entries()){
+        const aid=s.first_image||(i===0?p.first_image:null)||p.reference_slots[(refsFor(p,s)[0]||0)-1];
+        const a=p.assets.find(a=>a.id===aid);if(a){const img=document.createElement('img');img.src=mediaUrl(a);img.alt=s.label;strip.append(img);}
+      }
+      summary.append(line,strip);
+    }catch(e){summary.textContent=t('timelineInvalid',errorText(e,t));}
+  };
+  const open=node.addWidget('button','Open Timeline Studio',null,()=>{
+    if(editors.has(node)){editors.get(node).focus();return;}
+    const locale=getLocale(app),t=translator(locale);
+    let baseline=String(widget(node).value);
+    const previewLookup=new AbortController();
+    try{
+      const editor=openStudio({value:baseline,mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
+        onApply:plan=>{
+          if(!node.graph)throw new Error(t('nodeRemoved'));
+          if(String(widget(node).value)!==baseline)throw new Error(t('nodeChanged'));
+          const graph=node.graph;graph.beforeChange?.();try{
+            const text=JSON.stringify(plan);widget(node).value=text;widget(node).callback?.(text);baseline=text;node.setDirtyCanvas?.(true,true);refresh();
+          }finally{graph.afterChange?.();}
+        },
+        onQueue:async()=>{
+          if(typeof app.queuePrompt!=='function')throw new Error(t('useComfyQueue'));
+          const state=queueEditors.get(node);if(state)state.terminal=null;
+          normalizeModelChoices(rootGraph());
+          const accepted=await app.queuePrompt(0,1);
+          if(accepted===false){if(state)state.terminal={phase:'failed',detail:t('queueRejected')};throw new Error(t('queueRejected'));}
+          await refreshQueue();
+        },
+        onClose:()=>{previewLookup.abort();unwatchQueue(node);editors.delete(node);}});
+      editors.set(node,editor);
+      watchQueue(node,editor);
+      restoreVideo(node,editor,previewLookup.signal);
+    }catch(e){console.error('[H3 EZ]',e);alert(`H3 EZ Studio: ${errorText(e,t)}`);}
+  },{serialize:false});open.serialize=false;open.options.serialize=false;
+  const originalCallback=w.callback;w.callback=function(...args){const out=originalCallback?.apply(this,args);refresh();return out;};
+  for(const method of ['onConfigure','onConnectionsChange']){
+    const original=node[method];node[method]=function(...args){const out=original?.apply(this,args);queueMicrotask(()=>{refresh();editors.get(node)?.setExternal?.(connected(node),node._h3ez_lastCommon??null);});return out;};
+  }
+  const executed=node.onExecuted;node.onExecuted=function(message,...rest){const out=executed?.call(this,message,...rest);if(message?.h3ez_external)node._h3ez_lastCommon=message.h3ez_external[0];else if(message?.h3ez_common)node._h3ez_lastCommon=message.h3ez_common[0];editors.get(node)?.setExternal?.(connected(node),node._h3ez_lastCommon??null);return out;};
+  const settings=app.ui?.settings;
+  const refreshLocale=()=>{refresh();node.setDirtyCanvas?.(true,true);};
+  settings?.addEventListener?.('Comfy.Locale.change',refreshLocale);
+  const removed=node.onRemoved;node.onRemoved=function(...args){settings?.removeEventListener?.('Comfy.Locale.change',refreshLocale);editors.get(node)?.close();editors.delete(node);return removed?.apply(this,args);};
+  node.setSize?.([Math.max(380,node.size?.[0]||0),Math.max(210,node.size?.[1]||0)]);refresh();
+}
+function installEngineSize(node){
+  if((node.comfyClass||node.type)!==ENGINE||mounted.has(node))return;
+  const byName=Object.fromEntries((node.widgets||[]).map(w=>[w.name,w]));
+  const {megapixels,aspect,width,height}=byName;
+  if(!megapixels||!aspect||!width||!height)return;
+  mounted.add(node);
+  const isLinked=name=>node.inputs?.some(input=>input.name===name&&input.link!=null);
+  const useLegacyLinks=()=>
+    (isLinked('megapixels')||isLinked('aspect'))&&!isLinked('width')&&!isLinked('height');
+  for(const w of [megapixels,aspect,width,height]){
+    const legacy=w===megapixels||w===aspect;
+    if(legacy){
+      w.hidden=true;
+      w.options={...w.options,hidden:true};
+    }
+    // Keep legacy widgets in workflow JSON, but only send the active inputs to execution.
+    w.serializeValue=()=>legacy===!!useLegacyLinks()?w.value:undefined;
+  }
+  const configure=node.onConfigure;
+  node.onConfigure=function(info,...args){
+    const result=configure?.call(this,info,...args);
+    if(!this.outputs?.some(output=>output.name==='video'))this.addOutput?.('video','VIDEO');
+    if(!this.outputs?.some(output=>output.name==='output_images'))this.addOutput?.('output_images','BOOLEAN');
+    const named=info?.widgets_values_named;
+    const values=info?.widgets_values;
+    const hasDimensions=named?.width!=null||named?.height!=null||values?.length>=6;
+    if(!hasDimensions){
+      const mp=named?.megapixels??values?.[2];
+      const ratio=({'16:9':16/9,'9:16':9/16,'1:1':1,'4:3':4/3,'3:4':3/4})[named?.aspect??values?.[3]];
+      if(Number.isFinite(mp)&&mp>=.1&&mp<=2&&Number.isFinite(ratio)){
+        width.value=Math.max(32,roundEven(Math.sqrt(mp*1e6*ratio)/32)*32);
+        height.value=Math.max(32,roundEven(Math.sqrt(mp*1e6/ratio)/32)*32);
+      }
+    }
+    return result;
+  };
+}
+
+app.registerExtension({
+  name:'h3.continuum.ez.studio.v2',
+  setup(){
+    api.addEventListener('executed',onVideoExecuted);api.addEventListener('h3ez_progress',onProgress);
+    // Standard ComfyUI events; no global patch of loaders, queuePrompt or models.
+    api.addEventListener('promptQueueing',()=>normalizeModelChoices(rootGraph()));
+    for(const name of ['status','promptQueued','execution_start','reconnected'])api.addEventListener(name,()=>void refreshQueue());
+    api.addEventListener('execution_success',({detail})=>queueEnded('complete',detail));
+    api.addEventListener('execution_error',({detail})=>queueEnded('failed',detail));
+    api.addEventListener('execution_interrupted',({detail})=>queueEnded('interrupted',detail));
+  },
+  nodeCreated(node){install(node);installEngineSize(node);installSeedControls(node);},
+  afterConfigureGraph(){for(const {node} of graphNodes(rootGraph())){install(node);installEngineSize(node);installSeedControls(node);}normalizeModelChoices(rootGraph());},
+});

@@ -1,0 +1,19 @@
+{
+  "H3ContinuumEZTimeline": {
+    "inputs": {
+      "external_prompt": {
+        "tooltip": "共通プロンプトの外部入力（任意）。Studioで文章を編集するとStudio入力に切り替わります。再び使う場合はStudioで「外部テキスト」を選びます。"
+      }
+    }
+  },
+  "H3ContinuumEZEngine": {
+    "inputs": {
+      "output_mode": {
+        "tooltip": "StudioがEngineの出力設定を使う場合に適用します。Imagesは全フレームをimages端子に出力し、後段ノードで使えます。Long videoは音声付きMP4を直接保存し、ディスクを使ってRAM消費を抑えます。imagesの接続を外し、video端子かStudioプレビューを使ってください。"
+      },
+      "buffer_backend": {
+        "tooltip": "Imagesモードのバッファ保存先です。Disk-backedはディスクを使いRAM消費を抑えます。Autoは空きメモリに応じてRAMかディスクを選びます。RAMはメモリに保持します。Long videoでは常にディスクを使います。"
+      }
+    }
+  }
+}

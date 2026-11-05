@@ -1,0 +1,13 @@
+{
+  "sources": {
+    "web/state.js": "68f1e0d93e8e177541223fd721f3b56adb5f278cd6795dbda471e1c850020032",
+    "web/studio.js": "a5bdd16a165d35abbc44e50f3b7902e0fe5045537c05c418e72492095169d346",
+    "web/extension.js": "9ead82d8ed5d9f14a921cffb378b609e17e572608e309a6334b6ea00aa75d4aa"
+  },
+  "transforms": [
+    "static imports bound in one test scope",
+    "exports removed for inline script",
+    "stylesheet URL replaced; original CSS embedded",
+    "ComfyUI API mocked; no external network"
+  ]
+}

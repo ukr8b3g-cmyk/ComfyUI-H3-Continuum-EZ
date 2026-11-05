@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-h3-continuum-ez"
+version = "0.9.0"
+description = "Hybrid Timeline Studio with the original H3 Continuum continuation core"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ"
+Releases = "https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --import-mode=importlib"
+python_files = ["test_*.py", "upstream_test_*.py"]

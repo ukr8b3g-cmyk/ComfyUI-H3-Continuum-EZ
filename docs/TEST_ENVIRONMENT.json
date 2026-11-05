@@ -1,0 +1,12 @@
+{
+  "os": "Linux",
+  "python": "3.13.5",
+  "torch": "2.10.0+cpu",
+  "node": "v22.16.0",
+  "chromium": "Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)",
+  "cuda_initialized": false,
+  "pyav_installed": false,
+  "comfyui_runtime_installed": false,
+  "h3_weights_used": false,
+  "test_scope": "CPU and standalone Chromium DOM fixture; ComfyUI API / sampler / VAE boundaries simulated"
+}

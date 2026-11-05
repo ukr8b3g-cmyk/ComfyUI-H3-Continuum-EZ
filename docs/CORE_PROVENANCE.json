@@ -1,0 +1,107 @@
+{
+  "source": "ukr8b3g-cmyk/ComfyUI-H3-Continuum",
+  "source_distribution": "v3.10.2",
+  "archive_sha256": "5696c633584a21dbd67eada39337d2fe0b21f0138b032035eefb13cf1e41b3c8",
+  "algorithm": "reference_context_v1",
+  "files": [
+    {
+      "path": "constants.py",
+      "sha256": "294251c40b1be2e296c5e5f627b68091d087bdb39179e3a0c3cebd2ee8a344f5",
+      "git_blob_sha1": "8abd6f8500f676e156b36dbe753954b0419155b6",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "temporal.py",
+      "sha256": "43ec4023dc06c941e5d7a04db4b8a89fb58d744ceb986f6eb9bf534d4fdcb87b",
+      "git_blob_sha1": "35ffbb91df55f28c167e26b7d7fe7fd0e79e1a82",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "state.py",
+      "sha256": "3a359a0467725cc292ccb4c86cf0c3d30bb6a114d01f5345792b09ea3d45441d",
+      "git_blob_sha1": "45034c3bd8ceca8c46867243cecfaab6d30d114b",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "continuation.py",
+      "sha256": "cf255b8a635471229aebadc926acfdcacb65963adbcb9e0f9505d04eada2c6b5",
+      "git_blob_sha1": "a67266408107037834d76d96529d5726a29bf985",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "compatibility.py",
+      "sha256": "c1ed3a0342730450958fb62fd21854a876991f3a4aefb24e5383b0c73cd2312d",
+      "git_blob_sha1": "40fe39acdcf52076f5edea2c25daa89b16a360f3",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "layout_adapter.py",
+      "sha256": "139546ec1ff459945aa89b50f74b5ee69f62a0e07bbddfcae06936091a409a83",
+      "git_blob_sha1": "74aae0966d002a2f956c4dae48b2d0960ecb5542",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "model_patch.py",
+      "sha256": "d7e613e2cc24110213b477bdd1d390234a41f2af3b1ed006a809066d71d658eb",
+      "git_blob_sha1": "67bc994f87938f07c9b3ce092775820b3b35e6f3",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "version.py",
+      "sha256": "41ba59287eada824f803481629605135bd8eda37d00ae2140f79d6607a308685",
+      "git_blob_sha1": "0e8b120e44b2b26a4d7f2bf249ba322dc0c94533",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "reference.py",
+      "sha256": "caa572ea65dafc86850db99f52433d360ac9c4ab36b854292a3dccd5ba32dc76",
+      "git_blob_sha1": "e53edee54259798d828a0bf79f8ad99c60509b91",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "driving_audio.py",
+      "sha256": "a8c56379abe23b98c8ceed6ea5e60a02ecc3c6d9636232d7371615f4eb306e81",
+      "git_blob_sha1": "b9424985d9b51ef0c825e46b6cde158802a428cf",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "audio_compat.py",
+      "sha256": "7fd122ff08232e114a6ef32171217ea6324e980eb7257d560c466b8177a3d3ec",
+      "git_blob_sha1": "39489a18ecce6a061c3bfb9fe4de3c4d3c6d3def",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "v2/h3_builder.py",
+      "sha256": "2ebff4502381f675d06bba4b127b81bc3201e7579ddcd46fa5051cbdf3facd55",
+      "git_blob_sha1": "a5bd24bc43d3357f3accba4b47c0b532966b7587",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "v2/sampling.py",
+      "sha256": "4080f1875b958b316e8e76852c4be5527a6de5c71d604e7642d3098478eb4a36",
+      "git_blob_sha1": "5b4940922af1d5761e903d6a96476db44205fbe4",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "v2/seeds.py",
+      "sha256": "12cfcc0c71ca087fe39a5ce2922959a62b2bb311bfe664f05c4480affce03708",
+      "git_blob_sha1": "7cec883afb39464658fb7f867ffed03345d02068",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "v2/motion.py",
+      "sha256": "fed4bc3cbff47bd0b16b6e99385680dc2253c745f30b7f686afafbb25f77efb1",
+      "git_blob_sha1": "b95922b335dacec8dc77f61ce172b6621f25b2e7",
+      "mode": "byte-identical"
+    },
+    {
+      "path": "v2/decoder.py",
+      "sha256": "cde27db19b677e318cc4dfb4235be7a11429c19945f4083052a91fe117e74c82",
+      "mode": "function-body extraction",
+      "functions": [
+        "decode_audio",
+        "decode_video"
+      ]
+    }
+  ]
+}
