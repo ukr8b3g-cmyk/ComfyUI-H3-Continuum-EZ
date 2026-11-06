@@ -1,6 +1,8 @@
 """Two public nodes; all long-form editing lives in the HTML Studio."""
 from __future__ import annotations
+from collections import defaultdict
 from pathlib import Path
+import sys
 from .plan import (DEFAULT_JSON, PlanError, normalize_plan, fingerprint, preview_prompts, shot_geometry,
                    DEFAULT_WIDTH, DEFAULT_HEIGHT, MAX_DIMENSION, validate_dimension, common_prompt)
 
@@ -35,13 +37,6 @@ def _is_output_link(value, node_id, slot):
     return isinstance(value, list) and len(value) == 2 and str(value[0]) == str(node_id) and value[1] == slot
 
 
-def _output_consumers(prompt, node_id, slot):
-    for consumer_id, node in prompt.items():
-        for name, value in node.get('inputs', {}).items():
-            if _is_output_link(value, node_id, slot):
-                yield consumer_id, node, name
-
-
 def _is_inactive_switch_input(node, name, engine_id):
     if node.get('class_type') != 'ComfySwitchNode':
         return False
@@ -52,17 +47,27 @@ def _is_inactive_switch_input(node, name, engine_id):
 
 
 def _has_active_image_consumer(prompt, engine_id):
-    for node_id, node, name in _output_consumers(prompt, engine_id, 0):
-        if _is_inactive_switch_input(node, name, engine_id):
+    consumers = defaultdict(list)
+    for target, node in prompt.items():
+        for name, value in node.get('inputs', {}).items():
+            if isinstance(value, list) and len(value) == 2 and isinstance(value[1], (int, float)):
+                if not _is_inactive_switch_input(node, name, engine_id):
+                    consumers[str(value[0])].append((value[1], target))
+
+    # ComfyUI queues output nodes and their dependencies. A disconnected chain
+    # of intermediate nodes will never request the Engine's frames.
+    node_classes = getattr(sys.modules.get('nodes'), 'NODE_CLASS_MAPPINGS', {})
+    pending = [target for slot, target in consumers[str(engine_id)] if slot == 0]
+    seen = set()
+    while pending:
+        target = pending.pop()
+        if target in seen:
             continue
-        if node.get('class_type') == 'CreateVideo' and name == 'images':
-            # Core's CreateVideo is an intermediate node. It only needs frames
-            # if a consumer requests its VIDEO output.
-            consumers = list(_output_consumers(prompt, node_id, 0))
-            if consumers and all(_is_inactive_switch_input(target, field, engine_id)
-                                 for _, target, field in consumers):
-                continue
-        return True
+        seen.add(target)
+        node_class = node_classes.get(prompt[target].get('class_type'))
+        if node_class is None or getattr(node_class, 'OUTPUT_NODE', False) is True:
+            return True
+        pending.extend(child for _, child in consumers[str(target)])
     return False
 
 

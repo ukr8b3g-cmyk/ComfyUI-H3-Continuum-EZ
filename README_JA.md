@@ -1,15 +1,15 @@
 [English](README.md)
 <img width="1892" height="1008" alt="Clip_110" src="https://github.com/user-attachments/assets/5834c705-21c5-4c69-add4-5e10bd78cef4" />
 
-# H3 Continuum EZ Studio 0.9
+# H3 Continuum EZ Studio 0.9.1
 
-[ダウンロード・変更一覧](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.9) · [検証記録](docs/RELEASE_VALIDATION_JA.md)
+[ダウンロード・変更一覧](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.9.1) · [検証記録](docs/RELEASE_VALIDATION_JA.md)
 
 **[H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum)の継続生成エンジンをバックエンドに使った、ComfyUI用のグラフィカルなタイムラインノードです。** 画像や音声を画面で確認しながら、ショットを並べ、文章と尺を決めて、Studioから音声付き動画を書き出せます。画面を見てすぐに使い始められるよう、操作を素材の配置・編集・書き出しに絞っています。
 
 長いショットの分割と継続はエンジンが内部で処理します。チャンク単位のやり直し、途中再開、Second Passなど、通常版Continuumの詳細な生成管理は搭載していません。
 
-初回公開版です。CPU・JavaScriptテスト、分離ブラウザー、Windows上の実ComfyUI Classicでのシード設定を確認しました。実H3 GPUでの受入、Nodes 2.0、長尺時のピークメモリーは未検証です。
+v0.9.1では、Windowsの実ComfyUI Classicで、未使用のIMAGE配線を残したままStudioから実H3モデルで短い動画を生成し、音声付きMP4の保存を確認しました。
 
 ## インストールと更新
 
@@ -32,9 +32,9 @@ git -C custom_nodes/ComfyUI-H3-Continuum-EZ pull --ff-only
 
 ### ZIPでインストール
 
-[v0.9の配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9/ComfyUI-H3-Continuum-EZ-v0.9.zip)を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `custom_nodes/` に入れます。既存のEZがあれば先に `custom_nodes` の外へ退避してください。
+[v0.9.1の配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9.1/ComfyUI-H3-Continuum-EZ-v0.9.1.zip)を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `custom_nodes/` に入れます。既存のEZがあれば先に `custom_nodes` の外へ退避してください。
 
-インストールや更新後はComfyUIを再起動してブラウザーを更新します。[REF2VAテンプレート](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9/H3_EZ_Studio_REF2VA_Template.json)を読み込み、下の表のモデルをサブグラフ上で選択します。「タイムラインStudioを開く」で編集し、「動画を書き出す」で生成します。旧EZ 1.0.0のワークフローは付属のテンプレートに切り替えてください。
+インストールや更新後はComfyUIを再起動してブラウザーを更新します。[REF2VAテンプレート](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9.1/H3_EZ_Studio_REF2VA_Template.json)を読み込み、下の表のモデルをサブグラフ上で選択します。「タイムラインStudioを開く」で編集し、「動画を書き出す」で生成します。旧EZ 1.0.0のワークフローは付属のテンプレートに切り替えてください。
 
 モデルは同梱していません。実行にはMiniMax H3とサブグラフに対応したComfyUIが必要です。テンプレートはComfyUI 0.44.0で保存された構成を使い、EZ以外のカスタムノードや追加のpip依存はありません。音声の圧縮形式の読込はComfyUI環境のPyAV、リサンプリングはCoreの音声処理を使います。ブラウザーがプレビューできない形式はPCM WAVへ変換してください。
 
@@ -149,7 +149,7 @@ python tools/verify_package.py
 ```
 ブラウザー試験は `tools/browser_check.py`。PlaywrightとChromiumがある開発環境用で、通常利用には不要です。fixtureは実エディターを使用しますがComfyUIのAPI接続は模擬します。
 
-[v0.9の検証](docs/RELEASE_VALIDATION_JA.md) · [タイムライン機能](docs/TIMELINE_EVOLUTION_SPEC_JA.md) · [プレビュー・キュー・自動分割](docs/PREVIEW_QUEUE_OPTIONS_JA.md) · [原コードの由来](docs/CORE_PROVENANCE.json)。開発中の固定仕様と当時の検証は[履歴](docs/VALIDATION_JA.md)に収録しています。
+[リリースの検証](docs/RELEASE_VALIDATION_JA.md) · [タイムライン機能](docs/TIMELINE_EVOLUTION_SPEC_JA.md) · [プレビュー・キュー・自動分割](docs/PREVIEW_QUEUE_OPTIONS_JA.md) · [原コードの由来](docs/CORE_PROVENANCE.json)。開発中の固定仕様と当時の検証は[履歴](docs/VALIDATION_JA.md)に収録しています。
 
 ### Studio内の出力サイズ
 

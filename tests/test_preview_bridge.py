@@ -76,6 +76,11 @@ def test_subgraph_switch_uses_actual_engine_output_mode(monkeypatch, tmp_path):
         get_input_directory=lambda: str(tmp_path), get_output_directory=lambda: str(tmp_path)))
     monkeypatch.setitem(sys.modules, 'comfy_api.latest', types.SimpleNamespace(
         InputImpl=types.SimpleNamespace(VideoFromFile=lambda path: path)))
+    monkeypatch.setitem(sys.modules, 'nodes', types.SimpleNamespace(NODE_CLASS_MAPPINGS={
+        'CreateVideo': types.SimpleNamespace(OUTPUT_NODE=False),
+        'ComfySwitchNode': types.SimpleNamespace(OUTPUT_NODE=False),
+        'SaveVideo': types.SimpleNamespace(OUTPUT_NODE=True),
+    }))
     file = {'filename': 'stream.mp4', 'subfolder': 'h3_continuum_ez'}
     frames = object()
     modes = []
@@ -92,6 +97,7 @@ def test_subgraph_switch_uses_actual_engine_output_mode(monkeypatch, tmp_path):
 
     prompt = {
         '18:9': {'class_type': 'CreateVideo', 'inputs': {'images': ['18:8', 0]}},
+        '18:10': {'class_type': 'CreateVideo', 'inputs': {'images': ['18:8', 0]}},
         '18:20': {'class_type': 'ComfySwitchNode', 'inputs': {
             'switch': ['18:8', 5], 'on_false': ['18:8', 4], 'on_true': ['18:9', 0],
         }},
@@ -111,3 +117,19 @@ def test_subgraph_switch_uses_actual_engine_output_mode(monkeypatch, tmp_path):
         node.generate(timeline={'plan': {'output_mode': 'Long video'}},
                       unique_id='18:8', prompt=prompt)
     assert modes == ['Long video', 'Images']
+
+
+def test_image_chain_requires_a_reachable_output_node(monkeypatch):
+    monkeypatch.setitem(sys.modules, 'nodes', types.SimpleNamespace(NODE_CLASS_MAPPINGS={
+        'ImageScale': types.SimpleNamespace(OUTPUT_NODE=False),
+        'CreateVideo': types.SimpleNamespace(OUTPUT_NODE=False),
+        'SaveVideo': types.SimpleNamespace(OUTPUT_NODE=True),
+    }))
+    prompt = {
+        '9': {'class_type': 'ImageScale', 'inputs': {'image': ['8', 0]}},
+        '10': {'class_type': 'CreateVideo', 'inputs': {'images': ['9', 0]}},
+        '11': {'class_type': 'SaveVideo', 'inputs': {'video': ['8', 4]}},
+    }
+    assert not ez_nodes._has_active_image_consumer(prompt, '8')
+    prompt['11']['inputs']['video'] = ['10', 0]
+    assert ez_nodes._has_active_image_consumer(prompt, '8')

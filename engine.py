@@ -273,7 +273,7 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
     if writer:
         video_result.update(writer.finish(final_audio, total_frames))
     report = '\n'.join([
-        'H3 Continuum EZ Studio 0.9.0 — original reference_context_v1',
+        'H3 Continuum EZ Studio 0.9.1 — original reference_context_v1',
         f'{width}x{height}, {total_frames} frames at 24 fps, {total_frames/FPS:.3f}s',
         f'Audio: {"original edited source; no generated audio mixed" if audio_master is not None else "H3 generated"}',
         f'Output: {output_mode}; backend: {backend}; full RGB size: {estimate/2**30:.2f} GiB ({"not allocated" if streaming else "logical size"}). Original Continuum seed derivation retained.',

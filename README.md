@@ -3,9 +3,9 @@
 
 
 
-# H3 Continuum EZ Studio 0.9
+# H3 Continuum EZ Studio 0.9.1
 
-[Download and release notes](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.9) · [Validation (Japanese)](docs/RELEASE_VALIDATION_JA.md)
+[Download and release notes](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.9.1) · [Validation (Japanese)](docs/RELEASE_VALIDATION_JA.md)
 
 **A visual timeline for ComfyUI that uses the [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum) generation engine as its backend.** Arrange shots, see your images and audio in Studio, write a few lines for each shot, and export a video with sound. The two included nodes, **Timeline** and **Engine**, keep the controls focused on editing and export.
 
@@ -32,9 +32,9 @@ git -C custom_nodes/ComfyUI-H3-Continuum-EZ pull --ff-only
 
 ### Install from a ZIP
 
-Extract the [v0.9 install ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9/ComfyUI-H3-Continuum-EZ-v0.9.zip) and place its `ComfyUI-H3-Continuum-EZ` folder in `custom_nodes`. Move an older copy of EZ out of `custom_nodes` first.
+Extract the [v0.9.1 install ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9.1/ComfyUI-H3-Continuum-EZ-v0.9.1.zip) and place its `ComfyUI-H3-Continuum-EZ` folder in `custom_nodes`. Move an older copy of EZ out of `custom_nodes` first.
 
-Restart ComfyUI after installing or updating. Open the [REF2VA workflow template](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9/H3_EZ_Studio_REF2VA_Template.json) and select the models listed below. Workflows from the legacy EZ 1.0 prototype are not migrated.
+Restart ComfyUI after installing or updating. Open the [REF2VA workflow template](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.9.1/H3_EZ_Studio_REF2VA_Template.json) and select the models listed below. Workflows from the legacy EZ 1.0 prototype are not migrated.
 
 ## REF2VA template and model downloads
 
@@ -96,4 +96,4 @@ All editing remains a draft until **Apply to Node**; **Export video** applies an
 
 The original Continuum v3.10.2 low-level continuation/model-layout/state/sampling code is vendored unchanged; the variable-duration orchestrator and Studio are new. Source provenance and MIT notice are included. This is NOT the standalone 22-frame Masked AV engine from EZ 1.0.0.
 
-**Validation:** CPU tests, JavaScript tests and standalone Chromium checks passed. Seed control display and JSON export were verified in a separate test workflow on Windows with ComfyUI frontend 1.57.6 Classic. Real H3 GPU acceptance, Nodes 2.0 and peak memory on long runs remain unverified. See the [v0.9 validation](docs/RELEASE_VALIDATION_JA.md).
+**Validation:** CPU tests, JavaScript tests and standalone Chromium checks passed. Seed control display and JSON export were verified in a separate test workflow on Windows with ComfyUI frontend 1.57.6 Classic. On Windows, Studio exported a short MP4 with H3-generated audio in Long video mode while an unused IMAGE branch remained connected. See the [validation record](docs/RELEASE_VALIDATION_JA.md).

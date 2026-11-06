@@ -1,11 +1,14 @@
 import copy
 import json
 import math
+from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 import pytest
 import torch
+from PIL import Image, ImageOps
 from h3ezstudio.plan import *
-from h3ezstudio.media import render_original_audio, resolve_resolution
+from h3ezstudio.media import load_image, render_original_audio, resolve_resolution
 from h3ezstudio.vendor.continuum.temporal import make_extension_shape
 
 
@@ -68,6 +71,28 @@ def test_symlink_escape_and_content_hash(tmp_path):
     (tmp_path/'a.png').unlink();(tmp_path/'a.png').symlink_to(out)
     with pytest.raises(PlanError):asset_path(a,tmp_path)
     out.unlink()
+
+def test_oversized_image_is_rejected_before_exif_transpose(monkeypatch):
+    header = SimpleNamespace(width=10_000, height=7_000)
+    monkeypatch.setattr(Image, 'open', lambda _: nullcontext(header))
+
+    def unexpected_transpose(_):
+        pytest.fail('EXIF transpose was called before the image size check')
+
+    monkeypatch.setattr(ImageOps, 'exif_transpose', unexpected_transpose)
+    with pytest.raises(PlanError, match='Image exceeds 64 megapixels'):
+        load_image(Path('oversized.png'))
+
+
+def test_load_image_preserves_exif_orientation(tmp_path):
+    path = tmp_path / 'portrait.jpg'
+    with Image.new('RGB', (2, 3)) as source:
+        exif = source.getexif()
+        exif[274] = 6  # Rotate 90 degrees clockwise.
+        source.save(path, exif=exif)
+
+    assert load_image(path).shape == (1, 2, 3, 3)
+
 
 def test_audio_exact_original_source(tmp_path):
     p=default_plan();p['assets']=[audio()];(tmp_path/'music.wav').write_bytes(b'fixture')

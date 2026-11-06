@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1 — 2026-11-06
+
+- Long video follows IMAGE links to output nodes so an unused Create Video branch no longer blocks export.
+- Studio keeps media upload, replacement and audio placement errors visible after the operation ends.
+- Check input image dimensions before EXIF orientation correction.
+- Verified a short H3 GPU render from Studio on Windows with the unused IMAGE branch present and decoded the saved MP4 with its generated stereo audio.
+
 ## 0.9.0 (v0.9) — 2026-11-06
 
 First public release of the Timeline Studio with the original Continuum 3.10.2 continuation core.

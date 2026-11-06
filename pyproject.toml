@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-h3-continuum-ez"
-version = "0.9.0"
+version = "0.9.1"
 description = "Hybrid Timeline Studio with the original H3 Continuum continuation core"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}

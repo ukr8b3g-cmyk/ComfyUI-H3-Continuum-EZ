@@ -16,6 +16,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   const t=translator(locale);
   ensureStudioStyles();let p=read(value),saved=JSON.stringify(p),selected=p.shots[0]?.id,selectedAudio=null,playhead=0,zoom=1,promptTab='shot',focusMode=false,busy=0,closed=false;
   const history=new History(),abort=new AbortController(),waves=new Map(),pendingWaves=new Set(),previousShotRefs=new Map();
+  let mediaError=null;
   let observer=null,monitorObserver=null,monitorFrame=null,monitor=null,videoSize=null,queueState={phase:'checking'},submitting=false;
   let playing=false,frame=0,clock=0,clockStart=0,media=new Audio(),activeAudio=null,audioContext=null,monitorImage=null,head=null,clockLabel=null,timelineWidth=1000;
   media.preload='auto';
@@ -114,14 +115,23 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   settingsTools.append(advanced);
   top.append(editTools,settingsTools,runTools,windowTools);
   footer.append(status,el('span','ez-help',t('previewHelp')));
-  function message(text,error=false){status.textContent=text;status.classList.toggle('error',error);}
+  function message(text,error=false){
+    status.textContent=text;
+    status.title=error?text:'';
+    status.classList.toggle('error',error);
+  }
   function dirty(){return JSON.stringify(p)!==saved;}
   function current(){return p.shots.find(s=>s.id===selected)||p.shots[0];}
   function reconcile(){if(!p.shots.some(s=>s.id===selected))selected=p.shots[0]?.id;if(!p.audio.some(c=>c.id===selectedAudio))selectedAudio=null;playhead=Math.min(playhead,duration(p));}
-  function mutate(fn,{strict=false}={}){
+  function mutate(fn,{strict=false,onError=null}={}){
     const before=clone(p);
     try{fn();if(strict)validate(p);history.record(before);reconcile();render();}
-    catch(e){p=before;reconcile();render();message(errorText(e,t),true);}
+    catch(e){
+      p=before;reconcile();
+      if(onError)onError(e);
+      render();
+      if(!onError)message(errorText(e,t),true);
+    }
   }
   function checks(){
     output.value = p.output_mode ?? '';
@@ -135,7 +145,12 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     undo.disabled=!history.back.length;redo.disabled=!history.forward.length;
     apply.disabled=busy>0;queue.disabled=busy>0||submitting;
     if(busy){message(t('uploading',busy));return;}
-    try{validate(p);if(!externalConnected||p.prompt_source==='studio'||lastExternal!==null)p.shots.forEach((_,i)=>effective(p,i,externalConnected?lastExternal:null));message(t('studioStatus',t(dirty()?'unsaved':'applied'),p.shots.length,duration(p).toFixed(3))+(externalConnected?' · '+t(p.prompt_source==='studio'?'studioCommonStatus':'externalStatus'):''));}
+    try{
+      validate(p);
+      if(!externalConnected||p.prompt_source==='studio'||lastExternal!==null)p.shots.forEach((_,i)=>effective(p,i,externalConnected?lastExternal:null));
+      const summary=t('studioStatus',t(dirty()?'unsaved':'applied'),p.shots.length,duration(p).toFixed(3))+(externalConnected?' · '+t(p.prompt_source==='studio'?'studioCommonStatus':'externalStatus'):'');
+      message(mediaError?.text??summary,mediaError!==null);
+    }
     catch(e){queue.disabled=true;message(errorText(e,t),true);}
   }
   function renderLayout(){shell.classList.toggle('prompt-focus',focusMode);timelineTab.classList.toggle('selected',!focusMode);textTab.classList.toggle('selected',focusMode);renderInspector();}
@@ -148,17 +163,26 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   }
   async function addFiles(files,place='library',at=playhead){
     const accepted=[...files], targetShot=current()?.id;if(!accepted.length)return;
+    if(!busy)mediaError=null;
     for(const file of accepted){
       const kind=/^image\//.test(file.type)||/\.(png|jpe?g|webp|bmp)$/i.test(file.name)?'image':/^audio\//.test(file.type)||/\.(wav|mp3|flac|m4a|ogg|aac)$/i.test(file.name)?'audio':null;
-      if(!kind){message(t('mediaOnly',file.name),true);continue;}
-      busy++;checks();
+      if(!kind){retainMediaError(t('mediaOnly',file.name));checks();continue;}
+      busy++;
       try{
+        checks();
         const uploaded=await upload(file,kind);
         if(closed)break;
         const asset={id:uid('asset'),label:file.name,kind,file:uploaded.file};
         if(kind==='audio'){asset.duration=uploaded.duration;if(!Number.isFinite(asset.duration)||asset.duration<=0)throw new Error(t('audioDurationMissing'));}
-        mutate(()=>{p.assets.push(asset);if(uploaded.peaks)waves.set(asset.id,uploaded.peaks);if(kind==='audio')placeAudio(asset.id,at);else if(place==='first')p.first_image=asset.id;else if(place==='shot'){const target=p.shots.find(s=>s.id===targetShot);if(target)assignImage(asset.id,target);}else if(place==='newshot'){const s=insertShot(p);assignImage(asset.id,s);selected=s.id;}});
-      }catch(e){if(!closed)message(t('uploadFailed',errorText(e,t)),true);}
+        mutate(()=>{
+          p.assets.push(asset);
+          if(kind==='audio')placeAudio(asset.id,at);
+          else if(place==='first')p.first_image=asset.id;
+          else if(place==='shot'){const target=p.shots.find(s=>s.id===targetShot);if(target)assignImage(asset.id,target);}
+          else if(place==='newshot'){const s=insertShot(p);assignImage(asset.id,s);selected=s.id;}
+          if(uploaded.peaks)waves.set(asset.id,uploaded.peaks);
+        },{onError:e=>retainMediaError(errorText(e,t))});
+      }catch(e){if(!closed)retainMediaError(t('uploadFailed',errorText(e,t)));}
       finally{busy--;if(!closed)checks();}
     }
   }
@@ -173,12 +197,26 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     if(available<.001)throw new Error(t('noAudioSpace'));
     const c={id:uid('audio'),asset_id:id,start,source_in:0,duration:Math.min(available,a.duration)};p.audio.push(c);selectedAudio=c.id;
   }
+  function retainMediaError(text){mediaError={text};}
+  function placeExistingAudio(id,at,strict=false){
+    if(!busy)mediaError=null;
+    mutate(()=>placeAudio(id,at),{strict,onError:e=>retainMediaError(errorText(e,t))});
+  }
   async function replaceFile(asset,file){
-    if(!file)return;busy++;checks();
+    if(!file)return;
+    if(!busy)mediaError=null;
+    busy++;
+    const fail=e=>{if(!closed)retainMediaError(t('replaceFailed',errorText(e,t)));};
     try{
+      checks();
       const result=await upload(file,asset.kind);if(closed)return;
-      mutate(()=>{const a=mediaAsset(asset.id);if(!a)return;a.file=result.file;a.label=file.name;if(a.kind==='audio')a.duration=result.duration;waves.delete(a.id);if(result.peaks)waves.set(a.id,result.peaks);},{strict:true});
-    }catch(e){message(t('replaceFailed',errorText(e,t)),true);}finally{busy--;if(!closed)checks();}
+      mutate(()=>{
+        const a=mediaAsset(asset.id);if(!a)return;
+        a.file=result.file;a.label=file.name;if(a.kind==='audio')a.duration=result.duration;
+        validate(p);
+        waves.delete(a.id);if(result.peaks)waves.set(a.id,result.peaks);
+      },{onError:fail});
+    }catch(e){fail(e);}finally{busy--;if(!closed)checks();}
   }
   function replacePicker(asset){const f=el('input');f.type='file';f.accept=asset.kind==='image'?'image/png,image/jpeg,image/webp,image/bmp':'audio/*,.flac,.m4a';f.onchange=()=>replaceFile(asset,f.files[0]);f.click();}
   function renderLibrary(){
@@ -195,7 +233,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
         name.onpointerdown=e=>e.stopPropagation();name.ondblclick=e=>e.stopPropagation();name.ondragstart=e=>e.preventDefault();card.append(name);
       }else card.append(el('span','ez-asset-name',a.label));
       const rm=btn('×',e=>{e.stopPropagation();if(confirm(t('removeMediaConfirm')))mutate(()=>removeAsset(p,a.id));},'ez-remove');rm.title=t('unlinkMedia');card.append(rm);const replace=btn('↻',e=>{e.stopPropagation();replacePicker(a);},'ez-replace');replace.title=t('replaceMedia');replace.setAttribute('aria-label',t('replaceAssetLabel',a.label));card.append(replace);
-      card.ondblclick=()=>mutate(()=>a.kind==='image'?assignImage(a.id,current()):placeAudio(a.id,playhead));
+      card.ondblclick=()=>a.kind==='image'?mutate(()=>assignImage(a.id,current())):placeExistingAudio(a.id,playhead);
       assets.append(card);
     }
     library.append(drop,btn(t('addMedia'),filePicker),el('span','ez-help',t('mediaHelp')),assets);
@@ -488,7 +526,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     }
     bindDrop(shots,async e=>{const id=dropAsset(e);if(id&&mediaAsset(id)?.kind==='image')mutate(()=>{const s=insertShot(p);assignImage(id,s);selected=s.id;});else if(e.dataTransfer.files.length)await addFiles(e.dataTransfer.files,'newshot');});
     if(!p.audio.length)audioLane.append(el('div','ez-audio-empty',t('emptyAudio')));
-    bindDrop(audioLane,async e=>{const at=Math.max(0,(e.clientX-track.getBoundingClientRect().left)/scale),id=dropAsset(e);if(id)mutate(()=>placeAudio(id,at),{strict:true});else await addFiles(e.dataTransfer.files,'audio',at);});
+    bindDrop(audioLane,async e=>{const at=Math.max(0,(e.clientX-track.getBoundingClientRect().left)/scale),id=dropAsset(e);if(id)placeExistingAudio(id,at,true);else await addFiles(e.dataTransfer.files,'audio',at);});
     for(const c of p.audio){
       const a=mediaAsset(c.asset_id),card=el('div','ez-audio-clip'+(selectedAudio===c.id?' active':''));card.dataset.audioId=c.id;card.style.left=`${c.start*scale}px`;card.style.width=`${Math.max(10,c.duration*scale)}px`;
       const cv=el('canvas');cv.width=Math.max(20,Math.round(c.duration*scale));cv.height=42;card.append(cv,el('span','ez-audio-name',a?.label||t('audio')));
@@ -561,7 +599,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       const decoded=await audioContext.decodeAudioData(await r.arrayBuffer());const data=decoded.getChannelData(0),peaks=[];
       const step=Math.max(1,Math.ceil(data.length/700));for(let i=0;i<data.length;i+=step){let max=0;for(let j=i;j<Math.min(data.length,i+step);j++)max=Math.max(max,Math.abs(data[j]));peaks.push(max);}
       if(!closed){waves.set(a.id,peaks);for(const c of p.audio.filter(c=>c.asset_id===a.id)){const cv=timeline.querySelector(`[data-audio-id="${c.id}"] canvas`);if(cv)drawWave(cv,c);}}
-    }catch(e){if(!closed&&e.name!=='AbortError')message(t('waveUnavailable'));}
+    }catch(e){if(!closed&&!mediaError&&e.name!=='AbortError')message(t('waveUnavailable'));}
   }
   function updatePlayhead(){
     if(playControl)playControl.textContent=playing?'❚❚':'▶';
@@ -670,6 +708,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   async function applyDraft(doQueue){
     try{
       if(busy)throw new Error(t('waitUpload'));
+      const previousMediaError=mediaError;
       const draft=clone(p);
       draft.resolution??={...studioResolutionDefaults};
       validate(draft);
@@ -677,6 +716,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       await onApply(draft);
       if(!p.resolution)p.resolution={...studioResolutionDefaults};
       saved=JSON.stringify(draft);
+      if(mediaError===previousMediaError)mediaError=null;
       checks();
       if(doQueue){if(!onQueue)throw new Error(t('queueUnavailable'));submitting=true;queue.disabled=true;setQueue({phase:'submitting'});await onQueue();message(t('queued'));}
     }catch(e){if(doQueue&&submitting)setQueue({phase:'failed',detail:errorText(e,t)});message(errorText(e,t),true);}finally{submitting=false;queue.disabled=busy>0;}

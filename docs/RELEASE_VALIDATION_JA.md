@@ -1,4 +1,12 @@
-# H3 Continuum EZ Studio v0.9 の検証
+# H3 Continuum EZ Studio のリリース検証
+
+## v0.9.1
+
+WindowsのComfyUI 0.44.0 Classicで、StudioからMiniMax H3 FL2VAの1ショットをLong videoで実行しました。EngineのIMAGEを接続したCreate Videoは出力先を空にし、EngineのVIDEOをSave Videoに直接つなぎました。保存MP4は416 × 224、24 fps、56フレーム、約2.33秒で、AACステレオ音声を最後までデコードできました。
+
+Python 172件、JavaScript 32件が通過しました。素材操作の失敗通知は日英の分離試験で確認しました。今回の実機検証はこの短い1ショットが対象です。
+
+## v0.9
 
 2026-11-06。公開タグ `v0.9`、パッケージ版 `0.9.0`。開発版2.0.0のコードを基にした初回公開です。
 

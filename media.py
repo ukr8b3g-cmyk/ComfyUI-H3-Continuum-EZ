@@ -11,9 +11,9 @@ from .plan import PlanError, asset_path, FPS
 
 def load_image(path: Path, target_size=None) -> torch.Tensor:
     with Image.open(path) as im:
-        im = ImageOps.exif_transpose(im)
         if im.width * im.height > 64 * 1024 * 1024:
             raise PlanError('Image exceeds 64 megapixels')
+        im = ImageOps.exif_transpose(im)
         if target_size is not None:
             im.thumbnail(target_size, Image.Resampling.LANCZOS)
         data = np.array(im.convert('RGB'), dtype=np.float32) / 255.0
