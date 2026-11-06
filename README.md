@@ -1,4 +1,7 @@
 [日本語](README_JA.md)
+<img width="1892" height="1008" alt="Clip_110" src="https://github.com/user-attachments/assets/edc504d8-8c10-4bf0-a2a1-c3709f52110d" />
+
+
 
 # H3 Continuum EZ Studio 0.9
 
