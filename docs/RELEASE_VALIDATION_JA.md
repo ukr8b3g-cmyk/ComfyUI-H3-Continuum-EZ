@@ -1,5 +1,11 @@
 # H3 Continuum EZ Studio のリリース検証
 
+## v0.10.0（2026-11-07）
+
+- WindowsでPython 253件、JavaScript 77件成功。テンプレートが1本であること、全27配線、6モデルの初期値、旧AI文の互換性を検証。
+- 実ComfyUI Classicに新しいJSONを読み込み、Studioが2ショットの例文と素材未指定の状態で開くことを確認。この環境の拡散モデルとLoRAは共有サブフォルダーにあるため、配布既定値で実行するにはモデルの再選択が必要でした。
+- 番号付きのREADME画面は利用者提供の操作例です。この版のGPU動画生成およびAI再推論は未実施です。
+
 ## v0.9.1
 
 WindowsのComfyUI 0.44.0 Classicで、StudioからMiniMax H3 FL2VAの1ショットをLong videoで実行しました。EngineのIMAGEを接続したCreate Videoは出力先を空にし、EngineのVIDEOをSave Videoに直接つなぎました。保存MP4は416 × 224、24 fps、56フレーム、約2.33秒で、AACステレオ音声を最後までデコードできました。

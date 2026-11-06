@@ -27,10 +27,15 @@ class H3ContinuumEZTimeline:
 
     def compile(self, timeline_json, external_prompt=None, unique_id=None):
         plan = normalize_plan(timeline_json)
+        from .enhancer import verified_plan
+        warnings = []
+        if plan.get('prompt_enhancer', {}).get('enabled') is True and any(x.get('images') for x in plan.get('prompt_enhancer', {}).get('texts', [])):
+            import folder_paths
+            plan, warnings = verified_plan(plan, Path(folder_paths.get_input_directory()))
         resolved = preview_prompts(plan, external_prompt)
         # The UI receives the executed prompt, not a guess from upstream widgets.
         ui = {'h3ez_common': [common_prompt(plan, external_prompt)], 'h3ez_external': [external_prompt],
-              'h3ez_prompts': [resolved], 'h3ez_geometry': [shot_geometry(plan)]}
+              'h3ez_prompts': [resolved], 'h3ez_geometry': [shot_geometry(plan)], 'h3ez_assist_warnings': [warnings]}
         return {'ui': ui, 'result': ({'plan': plan, 'external_prompt': external_prompt, 'node_id': unique_id, 'source_plan': __import__('json').loads(timeline_json)},)}
 
 def _is_output_link(value, node_id, slot):
@@ -87,6 +92,10 @@ class H3ContinuumEZEngine:
             'sampler': ('SAMPLER',), 'sigmas': ('SIGMAS',), 'timeline': ('H3_EZ_STUDIO_PLAN',),
             'seed': ('INT', {'default': 0, 'min': 0, 'max': 0xffffffffffffffff, 'control_after_generate': True})},
             'optional': {
+            # Studio follows this explicit connection for its auxiliary text job.
+            # Video sampling uses the saved selected prose, so do not load a second
+            #  text encoder merely to render an already edited timeline.
+            'prompt_clip': ('CLIP', {'lazy': True, 'tooltip': 'Prompt enhancer model. Connect a minimax Load CLIP. Studio AI Generate uses this connection; video generation uses the selected saved text without running the enhancer again.'}),
             # Keep the old widget positions so LiteGraph can restore older workflows.
             'megapixels': ('FLOAT', {'default': .3, 'min': .1, 'max': 2., 'step': .05, 'hidden': True}),
             'aspect': (['16:9', '9:16', '1:1', '4:3', '3:4'], {'hidden': True}),
@@ -111,6 +120,7 @@ class H3ContinuumEZEngine:
         import folder_paths
         from .engine import run_engine
         prompt, unique_id = kwargs.pop('prompt', None), kwargs.pop('unique_id', None)
+        kwargs.pop('prompt_clip', None)
         timeline = kwargs.get('timeline')
         studio_mode = timeline['plan'].get('output_mode') if timeline is not None else None
         if studio_mode is not None:

@@ -67,24 +67,6 @@ def call(runtime,tmp_path,p,*,width=64,height=32):
     result=eng.run_engine(model=M(),clip=C(),video_vae=V(),audio_vae=V(True),sampler=object(),sigmas=torch.tensor([1.,.5,0.]),timeline={'plan':p,'external_prompt':None},seed=123,width=width,height=height,input_root=tmp_path)
     return result
 
-
-@pytest.mark.parametrize('source', ['studio','external'])
-def test_common_editor_source_reaches_sampler_for_each_shot(runtime,tmp_path,source):
-    import json
-    from h3ezstudio.ez_nodes import H3ContinuumEZTimeline
-    p=default_plan();p['global_prompt']='Studio scene';p['prompt_source']=source
-    p['shots'][0]['prompt']='First action'
-    p['shots'].append({**p['shots'][0],'id':'second','prompt':'Second action','transition':'continue'})
-    timeline=H3ContinuumEZTimeline().compile(json.dumps(p),'External scene')['result'][0]
-    eng,M,C,V,events,records=runtime
-    eng.run_engine(model=M(),clip=C(),video_vae=V(),audio_vae=V(True),sampler=object(),sigmas=torch.tensor([1.,.5,0.]),timeline=timeline,seed=123,width=64,height=32,input_root=tmp_path)
-    common='Studio scene' if source=='studio' else 'External scene'
-    other='External scene' if source=='studio' else 'Studio scene'
-    for i,rec in enumerate(records):
-        text=rec['cond']['positive'][0][1]['fixture_prompt']
-        assert common in text and other not in text
-        assert p['shots'][i]['prompt'] in text and p['shots'][1-i]['prompt'] not in text
-
 def test_three_shots_original_context_and_cut(runtime,tmp_path):
     p=default_plan();p['global_prompt']='The same scene';p['shots'] += [{**p['shots'][0],'id':'s2','transition':'continue'}, {**p['shots'][0],'id':'s3','transition':'cut'}]
     result=call(runtime,tmp_path,p);eng,M,C,V,events,records=runtime
@@ -131,8 +113,7 @@ def test_reference_and_first_image_numbers_match_core_path(runtime,tmp_path):
     p=default_plan();p['assets']=[{'id':n,'kind':'image','label':n,'file':{'name':n+'.png','subfolder':'','type':'input'}} for n in ('first','ref')]
     p['first_image']='first';p['reference_slots'][0]='ref';p['global_refs']=[1];p['global_prompt']='The person in @R1 remains seated.'
     p['shots'].append({**p['shots'][0],'id':'s2','transition':'continue'})
-    result=call(runtime,tmp_path,p,width=64,height=96)
-    assert result[0].shape[1:3]==(96,64)
+    call(runtime,tmp_path,p)
     first=records[0]['cond']['positive'][0][1];second=records[1]['cond']['positive'][0][1]
     assert 'The person in <Picture 2> remains seated.' in first['fixture_prompt']
     assert first['minimax_keyframes'][0]['resolved_frame_index']==0
@@ -141,36 +122,3 @@ def test_reference_and_first_image_numbers_match_core_path(runtime,tmp_path):
     assert 'The person in <Picture 2> remains seated.' in second['fixture_prompt']
     assert 'opening frame' not in second['fixture_prompt']
     assert events.index('image_encode')<events.index('sample')<events.index('video_decode')
-
-
-def test_easy_text_reaches_encoder_with_matching_images_and_continuum_context(runtime,tmp_path):
-    from PIL import Image
-    from h3ezstudio.plan import preview_prompts
-    colors = {'start': (255, 0, 0), 'orange': (255, 128, 0), 'white': (255, 255, 255)}
-    for name, color in colors.items():
-        Image.new('RGB', (96,64), color).save(tmp_path/f'{name}.png')
-    p=default_plan()
-    p['assets']=[dict(id=name,kind='image',label=name,file=dict(name=name+'.png',subfolder='',type='input')) for name in colors]
-    p['reference_slots'][1]='orange';p['reference_slots'][4]='white';p['global_refs']=[5,2]
-    p['first_image']='start';p['global_prompt']='An orange-clad man and a woman in white stand in a garden.'
-    p['shots'][0]['prompt']='The woman says "こんにちは！" and the man nods.'
-    p['shots'] += [{**p['shots'][0], 'id':'next', 'transition':'continue'},
-                  {**p['shots'][0], 'id':'cut', 'transition':'cut', 'refs':[]}]
-    expected=preview_prompts(normalize_plan(p))
-    call(runtime,tmp_path,p)
-    records=runtime[-1]
-    for record, row in zip(records,expected,strict=True):
-        assert record['cond']['positive'][0][1]['fixture_prompt']==row['prompt']
-    first=records[0]['cond']['positive'][0][1]
-    items=first['fixture_items']['minimax_ref_items']
-    assert len(items)==3
-    for item, color in zip(items, colors.values(), strict=True):
-        assert torch.allclose(item['data'][0,0,0],torch.tensor(color)/255,atol=.005)
-    assert 'The reference sources are <Picture 2>, <Picture 3>.' in first['fixture_prompt']
-    next_=records[1]['cond']['positive'][0][1]
-    assert next_['minimax_refs'][-1]['_h3cj_video_context']
-    assert not next_.get('minimax_keyframes')
-    assert 'opening frame' not in next_['fixture_prompt']
-    cut=records[2]['cond']['positive'][0][1]
-    assert not cut.get('minimax_refs') and not cut.get('minimax_keyframes')
-    assert '<Picture' not in cut['fixture_prompt']

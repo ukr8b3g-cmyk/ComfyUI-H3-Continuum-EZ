@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0 — 2026-11-07
+
+- Ship one two-shot Studio workflow and a numbered walkthrough in Japanese and English.
+- Generate and select AI text independently for the shot and common prompt. Batch generation handles shot text only.
+- Preview the video prompt directly and toggle shared text per shot. Add dialogue and ending images in their own controls.
+
 ## 0.9.1 — 2026-11-06
 
 - Long video follows IMAGE links to output nodes so an unused Create Video branch no longer blocks export.

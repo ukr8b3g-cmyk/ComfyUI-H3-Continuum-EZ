@@ -1,0 +1,857 @@
+[
+  {
+    "scenario": "legacy",
+    "plan": {
+      "schema": 1,
+      "assets": [],
+      "reference_slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "global_refs": [],
+      "first_image": null,
+      "global_prompt": "共通の人物。日本語を保持。",
+      "shots": [
+        {
+          "id": "shot-1",
+          "label": "Shot 1",
+          "seconds": 5.0,
+          "transition": "cut",
+          "first_image": null,
+          "prompt": "女性が静かに歩く。",
+          "prompt_mode": "append",
+          "refs": null
+        }
+      ],
+      "audio": []
+    },
+    "target": {
+      "field": "prompt",
+      "shot_id": "shot-1"
+    },
+    "external": null,
+    "dependency": {
+      "contract": "h3ez-assist-v1",
+      "target": {
+        "field": "prompt",
+        "shot_id": "shot-1"
+      },
+      "text": "女性が静かに歩く。",
+      "common": "共通の人物。日本語を保持。",
+      "images": [],
+      "scope": [
+        {
+          "id": "shot-1",
+          "first": null,
+          "last": null,
+          "refs": [],
+          "camera": null,
+          "roles": [],
+          "actions": []
+        }
+      ]
+    },
+    "resolved": [
+      "女性が静かに歩く。",
+      "off"
+    ],
+    "parts": [
+      {
+        "id": "shot-1-part-1",
+        "index": 0,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 0,
+        "part_count": 1,
+        "shot_start_frame": 0,
+        "start_frame": 0,
+        "frames": 124,
+        "start": 0.0,
+        "end": 5.166666666666667,
+        "seconds": 5.166666666666667,
+        "transition": "cut",
+        "first_image": null,
+        "last_image": null
+      }
+    ],
+    "prompts": [
+      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\n女性が静かに歩く。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+    ]
+  },
+  {
+    "scenario": "off",
+    "plan": {
+      "schema": 2,
+      "assets": [],
+      "reference_slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "global_refs": [],
+      "first_image": null,
+      "global_prompt": "共通の人物。日本語を保持。",
+      "shots": [
+        {
+          "id": "shot-1",
+          "label": "Shot 1",
+          "seconds": 5.0,
+          "transition": "cut",
+          "first_image": null,
+          "prompt": "女性が静かに歩く。",
+          "prompt_mode": "append",
+          "refs": null
+        }
+      ],
+      "audio": [],
+      "prompt_enhancer": {
+        "enabled": false,
+        "texts": []
+      }
+    },
+    "target": {
+      "field": "prompt",
+      "shot_id": "shot-1"
+    },
+    "external": null,
+    "dependency": {
+      "contract": "h3ez-assist-v1",
+      "target": {
+        "field": "prompt",
+        "shot_id": "shot-1"
+      },
+      "text": "女性が静かに歩く。",
+      "common": "共通の人物。日本語を保持。",
+      "images": [],
+      "scope": [
+        {
+          "id": "shot-1",
+          "first": null,
+          "last": null,
+          "refs": [],
+          "camera": null,
+          "roles": [],
+          "actions": []
+        }
+      ]
+    },
+    "resolved": [
+      "女性が静かに歩く。",
+      "off"
+    ],
+    "parts": [
+      {
+        "id": "shot-1-part-1",
+        "index": 0,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 0,
+        "part_count": 1,
+        "shot_start_frame": 0,
+        "start_frame": 0,
+        "frames": 124,
+        "start": 0.0,
+        "end": 5.166666666666667,
+        "seconds": 5.166666666666667,
+        "transition": "cut",
+        "first_image": null,
+        "last_image": null
+      }
+    ],
+    "prompts": [
+      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\n女性が静かに歩く。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+    ]
+  },
+  {
+    "scenario": "on",
+    "plan": {
+      "schema": 2,
+      "assets": [],
+      "reference_slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "global_refs": [],
+      "first_image": null,
+      "global_prompt": "共通の人物。日本語を保持。",
+      "shots": [
+        {
+          "id": "shot-1",
+          "label": "Shot 1",
+          "seconds": 5.0,
+          "transition": "cut",
+          "first_image": null,
+          "prompt": "女性が静かに歩く。",
+          "prompt_mode": "append",
+          "refs": null
+        }
+      ],
+      "audio": [],
+      "prompt_enhancer": {
+        "enabled": true,
+        "texts": [
+          {
+            "target": {
+              "field": "prompt",
+              "shot_id": "shot-1"
+            },
+            "text": "より具体的な動作。",
+            "dependencies": {
+              "contract": "h3ez-assist-v1",
+              "target": {
+                "field": "prompt",
+                "shot_id": "shot-1"
+              },
+              "text": "女性が静かに歩く。",
+              "common": "共通の人物。日本語を保持。",
+              "images": [],
+              "scope": [
+                {
+                  "id": "shot-1",
+                  "first": null,
+                  "last": null,
+                  "refs": [],
+                  "camera": null,
+                  "roles": [],
+                  "actions": []
+                }
+              ]
+            },
+            "base_text_hash": "81c26d0cb62d1b6cd9d5cad0a20b614bfd8b2425c313f47579eae016728655d8",
+            "dependency_hash": "ea5357bcbd42a01276846070fd62d0aa9b96c9c0dd6e11bf8e59314a24532e15",
+            "images": []
+          }
+        ]
+      }
+    },
+    "target": {
+      "field": "prompt",
+      "shot_id": "shot-1"
+    },
+    "external": null,
+    "dependency": {
+      "contract": "h3ez-assist-v1",
+      "target": {
+        "field": "prompt",
+        "shot_id": "shot-1"
+      },
+      "text": "女性が静かに歩く。",
+      "common": "共通の人物。日本語を保持。",
+      "images": [],
+      "scope": [
+        {
+          "id": "shot-1",
+          "first": null,
+          "last": null,
+          "refs": [],
+          "camera": null,
+          "roles": [],
+          "actions": []
+        }
+      ]
+    },
+    "resolved": [
+      "より具体的な動作。",
+      "enhanced"
+    ],
+    "parts": [
+      {
+        "id": "shot-1-part-1",
+        "index": 0,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 0,
+        "part_count": 1,
+        "shot_start_frame": 0,
+        "start_frame": 0,
+        "frames": 124,
+        "start": 0.0,
+        "end": 5.166666666666667,
+        "seconds": 5.166666666666667,
+        "transition": "cut",
+        "first_image": null,
+        "last_image": null
+      }
+    ],
+    "prompts": [
+      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\nより具体的な動作。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+    ]
+  },
+  {
+    "scenario": "stale",
+    "plan": {
+      "schema": 2,
+      "assets": [],
+      "reference_slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "global_refs": [],
+      "first_image": null,
+      "global_prompt": "共通の人物。日本語を保持。",
+      "shots": [
+        {
+          "id": "shot-1",
+          "label": "Shot 1",
+          "seconds": 5.0,
+          "transition": "cut",
+          "first_image": null,
+          "prompt": "今は座る。",
+          "prompt_mode": "append",
+          "refs": null
+        }
+      ],
+      "audio": [],
+      "prompt_enhancer": {
+        "enabled": true,
+        "texts": [
+          {
+            "target": {
+              "field": "prompt",
+              "shot_id": "shot-1"
+            },
+            "text": "より具体的な動作。",
+            "dependencies": {
+              "contract": "h3ez-assist-v1",
+              "target": {
+                "field": "prompt",
+                "shot_id": "shot-1"
+              },
+              "text": "女性が静かに歩く。",
+              "common": "共通の人物。日本語を保持。",
+              "images": [],
+              "scope": [
+                {
+                  "id": "shot-1",
+                  "first": null,
+                  "last": null,
+                  "refs": [],
+                  "camera": null,
+                  "roles": [],
+                  "actions": []
+                }
+              ]
+            },
+            "base_text_hash": "81c26d0cb62d1b6cd9d5cad0a20b614bfd8b2425c313f47579eae016728655d8",
+            "dependency_hash": "ea5357bcbd42a01276846070fd62d0aa9b96c9c0dd6e11bf8e59314a24532e15",
+            "images": []
+          }
+        ]
+      }
+    },
+    "target": {
+      "field": "prompt",
+      "shot_id": "shot-1"
+    },
+    "external": null,
+    "dependency": {
+      "contract": "h3ez-assist-v1",
+      "target": {
+        "field": "prompt",
+        "shot_id": "shot-1"
+      },
+      "text": "今は座る。",
+      "common": "共通の人物。日本語を保持。",
+      "images": [],
+      "scope": [
+        {
+          "id": "shot-1",
+          "first": null,
+          "last": null,
+          "refs": [],
+          "camera": null,
+          "roles": [],
+          "actions": []
+        }
+      ]
+    },
+    "resolved": [
+      "今は座る。",
+      "stale"
+    ],
+    "parts": [
+      {
+        "id": "shot-1-part-1",
+        "index": 0,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 0,
+        "part_count": 1,
+        "shot_start_frame": 0,
+        "start_frame": 0,
+        "frames": 124,
+        "start": 0.0,
+        "end": 5.166666666666667,
+        "seconds": 5.166666666666667,
+        "transition": "cut",
+        "first_image": null,
+        "last_image": null
+      }
+    ],
+    "prompts": [
+      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\n今は座る。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+    ]
+  },
+  {
+    "scenario": "external",
+    "plan": {
+      "schema": 2,
+      "assets": [],
+      "reference_slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "global_refs": [],
+      "first_image": null,
+      "global_prompt": "共通の人物。日本語を保持。",
+      "shots": [
+        {
+          "id": "shot-1",
+          "label": "Shot 1",
+          "seconds": 5.0,
+          "transition": "cut",
+          "first_image": null,
+          "prompt": "女性が静かに歩く。",
+          "prompt_mode": "append",
+          "refs": null
+        }
+      ],
+      "audio": [],
+      "prompt_source": "external",
+      "prompt_enhancer": {
+        "enabled": true,
+        "texts": [
+          {
+            "target": {
+              "field": "prompt",
+              "shot_id": "shot-1"
+            },
+            "text": "より具体的な動作。",
+            "dependencies": {
+              "contract": "h3ez-assist-v1",
+              "target": {
+                "field": "prompt",
+                "shot_id": "shot-1"
+              },
+              "text": "女性が静かに歩く。",
+              "common": "外部の実効文章",
+              "images": [],
+              "scope": [
+                {
+                  "id": "shot-1",
+                  "first": null,
+                  "last": null,
+                  "refs": [],
+                  "camera": null,
+                  "roles": [],
+                  "actions": []
+                }
+              ]
+            },
+            "base_text_hash": "81c26d0cb62d1b6cd9d5cad0a20b614bfd8b2425c313f47579eae016728655d8",
+            "dependency_hash": "eee6a3cc8d6bf881111c5c9a8df7ba087a1283faa13e0c67eb8aa5cab1b0b19b",
+            "images": []
+          }
+        ]
+      }
+    },
+    "target": {
+      "field": "prompt",
+      "shot_id": "shot-1"
+    },
+    "external": "外部の実効文章",
+    "dependency": {
+      "contract": "h3ez-assist-v1",
+      "target": {
+        "field": "prompt",
+        "shot_id": "shot-1"
+      },
+      "text": "女性が静かに歩く。",
+      "common": "外部の実効文章",
+      "images": [],
+      "scope": [
+        {
+          "id": "shot-1",
+          "first": null,
+          "last": null,
+          "refs": [],
+          "camera": null,
+          "roles": [],
+          "actions": []
+        }
+      ]
+    },
+    "resolved": [
+      "より具体的な動作。",
+      "enhanced"
+    ],
+    "parts": [
+      {
+        "id": "shot-1-part-1",
+        "index": 0,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 0,
+        "part_count": 1,
+        "shot_start_frame": 0,
+        "start_frame": 0,
+        "frames": 124,
+        "start": 0.0,
+        "end": 5.166666666666667,
+        "seconds": 5.166666666666667,
+        "transition": "cut",
+        "first_image": null,
+        "last_image": null
+      }
+    ],
+    "prompts": [
+      "integrated_multimodal_description:\n[Shot 1]\n外部の実効文章\n\nより具体的な動作。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+    ]
+  },
+  {
+    "scenario": "story",
+    "plan": {
+      "schema": 2,
+      "assets": [],
+      "reference_slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "global_refs": [],
+      "first_image": null,
+      "global_prompt": "共通の人物。日本語を保持。",
+      "shots": [
+        {
+          "id": "shot-1",
+          "label": "Shot 1",
+          "seconds": 24.0,
+          "transition": "cut",
+          "first_image": null,
+          "prompt": "女性が静かに歩く。",
+          "prompt_mode": "append",
+          "refs": null,
+          "camera": "follow",
+          "actions": [
+            {
+              "id": "a1",
+              "kind": "state",
+              "text": "歩き続ける。",
+              "at": 0,
+              "weight": 2
+            },
+            {
+              "id": "a2",
+              "kind": "event",
+              "text": "振り返る。",
+              "at": null,
+              "weight": 1
+            }
+          ]
+        }
+      ],
+      "audio": [],
+      "prompt_enhancer": {
+        "enabled": false,
+        "texts": []
+      }
+    },
+    "target": {
+      "field": "prompt",
+      "shot_id": "shot-1"
+    },
+    "external": null,
+    "dependency": {
+      "contract": "h3ez-assist-v1",
+      "target": {
+        "field": "prompt",
+        "shot_id": "shot-1"
+      },
+      "text": "女性が静かに歩く。",
+      "common": "共通の人物。日本語を保持。",
+      "images": [],
+      "scope": [
+        {
+          "id": "shot-1",
+          "first": null,
+          "last": null,
+          "refs": [],
+          "camera": "follow",
+          "roles": [],
+          "actions": [
+            {
+              "id": "a1",
+              "kind": "state",
+              "text": "歩き続ける。"
+            },
+            {
+              "id": "a2",
+              "kind": "event",
+              "text": "振り返る。"
+            }
+          ]
+        }
+      ]
+    },
+    "resolved": [
+      "女性が静かに歩く。",
+      "off"
+    ],
+    "parts": [
+      {
+        "id": "shot-1-part-1",
+        "index": 0,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 0,
+        "part_count": 5,
+        "shot_start_frame": 0,
+        "start_frame": 0,
+        "frames": 124,
+        "start": 0.0,
+        "end": 5.166666666666667,
+        "seconds": 5.166666666666667,
+        "transition": "cut",
+        "first_image": null,
+        "last_image": null
+      },
+      {
+        "id": "shot-1-part-2",
+        "index": 1,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 1,
+        "part_count": 5,
+        "shot_start_frame": 0,
+        "start_frame": 124,
+        "frames": 119,
+        "start": 5.166666666666667,
+        "end": 10.125,
+        "seconds": 4.958333333333333,
+        "transition": "continue",
+        "first_image": null,
+        "last_image": null
+      },
+      {
+        "id": "shot-1-part-3",
+        "index": 2,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 2,
+        "part_count": 5,
+        "shot_start_frame": 0,
+        "start_frame": 243,
+        "frames": 119,
+        "start": 10.125,
+        "end": 15.083333333333334,
+        "seconds": 4.958333333333333,
+        "transition": "continue",
+        "first_image": null,
+        "last_image": null
+      },
+      {
+        "id": "shot-1-part-4",
+        "index": 3,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 3,
+        "part_count": 5,
+        "shot_start_frame": 0,
+        "start_frame": 362,
+        "frames": 119,
+        "start": 15.083333333333334,
+        "end": 20.041666666666668,
+        "seconds": 4.958333333333333,
+        "transition": "continue",
+        "first_image": null,
+        "last_image": null
+      },
+      {
+        "id": "shot-1-part-5",
+        "index": 4,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 4,
+        "part_count": 5,
+        "shot_start_frame": 0,
+        "start_frame": 481,
+        "frames": 102,
+        "start": 20.041666666666668,
+        "end": 24.291666666666668,
+        "seconds": 4.25,
+        "transition": "continue",
+        "first_image": null,
+        "last_image": null
+      }
+    ],
+    "prompts": [
+      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\n女性が静かに歩く。\n\nThe camera smoothly follows the subject.\n\nAbout 0.000 seconds into the new action: 歩き続ける。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description.",
+      "integrated_multimodal_description:\n[Shot 1]\nContinue the scene from the preceding video context.\n\n共通の人物。日本語を保持。\n\n女性が静かに歩く。\n\nThe camera smoothly follows the subject.\n\nContinue this ongoing action: 歩き続ける。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description.",
+      "integrated_multimodal_description:\n[Shot 1]\nContinue the scene from the preceding video context.\n\n共通の人物。日本語を保持。\n\n女性が静かに歩く。\n\nThe camera smoothly follows the subject.\n\nContinue this ongoing action: 歩き続ける。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description.",
+      "integrated_multimodal_description:\n[Shot 1]\nContinue the scene from the preceding video context.\n\n共通の人物。日本語を保持。\n\n女性が静かに歩く。\n\nThe camera smoothly follows the subject.\n\nContinue this ongoing action: 歩き続ける。\n\nAbout 1.083 seconds into the new action: 振り返る。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description.",
+      "integrated_multimodal_description:\n[Shot 1]\nContinue the scene from the preceding video context.\n\n共通の人物。日本語を保持。\n\n女性が静かに歩く。\n\nThe camera smoothly follows the subject.\n\nContinue this ongoing action: 歩き続ける。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+    ]
+  },
+  {
+    "scenario": "emoji",
+    "plan": {
+      "schema": 2,
+      "assets": [],
+      "reference_slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "global_refs": [],
+      "first_image": null,
+      "global_prompt": "共通の人物。日本語を保持。",
+      "shots": [
+        {
+          "id": "shot-1",
+          "label": "Shot 1",
+          "seconds": 5.0,
+          "transition": "cut",
+          "first_image": null,
+          "prompt": "雪と😀、 \"quoted\" \\ text\n行2",
+          "prompt_mode": "append",
+          "refs": null
+        }
+      ],
+      "audio": [],
+      "prompt_enhancer": {
+        "enabled": true,
+        "texts": [
+          {
+            "target": {
+              "field": "prompt",
+              "shot_id": "shot-1"
+            },
+            "text": "より具体的な動作。",
+            "dependencies": {
+              "contract": "h3ez-assist-v1",
+              "target": {
+                "field": "prompt",
+                "shot_id": "shot-1"
+              },
+              "text": "雪と😀、 \"quoted\" \\ text\n行2",
+              "common": "共通の人物。日本語を保持。",
+              "images": [],
+              "scope": [
+                {
+                  "id": "shot-1",
+                  "first": null,
+                  "last": null,
+                  "refs": [],
+                  "camera": null,
+                  "roles": [],
+                  "actions": []
+                }
+              ]
+            },
+            "base_text_hash": "99ab0c2f5a3d9850381ddd8f432166121d40edb1dfdecbbb3bf9132c3b770918",
+            "dependency_hash": "1517417a7500da6fd10be7c850739e25e8ce4224bad84d25fe10c33613c441f7",
+            "images": []
+          }
+        ]
+      }
+    },
+    "target": {
+      "field": "prompt",
+      "shot_id": "shot-1"
+    },
+    "external": null,
+    "dependency": {
+      "contract": "h3ez-assist-v1",
+      "target": {
+        "field": "prompt",
+        "shot_id": "shot-1"
+      },
+      "text": "雪と😀、 \"quoted\" \\ text\n行2",
+      "common": "共通の人物。日本語を保持。",
+      "images": [],
+      "scope": [
+        {
+          "id": "shot-1",
+          "first": null,
+          "last": null,
+          "refs": [],
+          "camera": null,
+          "roles": [],
+          "actions": []
+        }
+      ]
+    },
+    "resolved": [
+      "より具体的な動作。",
+      "enhanced"
+    ],
+    "parts": [
+      {
+        "id": "shot-1-part-1",
+        "index": 0,
+        "shot_id": "shot-1",
+        "shot_index": 0,
+        "part_index": 0,
+        "part_count": 1,
+        "shot_start_frame": 0,
+        "start_frame": 0,
+        "frames": 124,
+        "start": 0.0,
+        "end": 5.166666666666667,
+        "seconds": 5.166666666666667,
+        "transition": "cut",
+        "first_image": null,
+        "last_image": null
+      }
+    ],
+    "prompts": [
+      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\nより具体的な動作。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+    ]
+  }
+]

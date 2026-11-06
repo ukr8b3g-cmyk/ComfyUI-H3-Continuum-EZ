@@ -5,7 +5,7 @@ const PAGE_SIZE = 12;
 export function resultVideo(api, record) {
   if (record?.type !== 'output' || record.subfolder !== OUTPUT_FOLDER ||
       typeof record.filename !== 'string' || !/^EZ_[0-9a-f]{32}\.mp4$/.test(record.filename) ||
-      record.plan?.schema !== 1 || !Array.isArray(record.plan.shots)) return null;
+      ![1,2].includes(record.plan?.schema) || !Array.isArray(record.plan.shots)) return null;
 
   const query = new URLSearchParams({
     filename: record.filename, subfolder: record.subfolder, type: record.type,

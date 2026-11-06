@@ -11,7 +11,7 @@ from .vendor.continuum import storage_settings
 from pathlib import Path
 import torch
 from .plan import (normalize_plan, shot_geometry, execution_plan, compile_part_prompt, effective_references, asset_path,
-                   FPS, PlanError, DEFAULT_WIDTH, DEFAULT_HEIGHT, validate_dimension, studio_resolution)
+                   FPS, PlanError, DEFAULT_WIDTH, DEFAULT_HEIGHT, validate_dimension, studio_resolution, used_asset_ids)
 from .media import load_image, render_original_audio, resolve_resolution
 from .vendor.continuum.constants import V2_CONTINUITY_AUTO
 from .vendor.continuum.temporal import make_extension_shape, largest_context_capacity
@@ -86,6 +86,9 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
     if streaming and (output_root is None or video_result is None):
         raise PlanError('Long video requires an output directory and result receiver')
     plan = normalize_plan(timeline['plan'])
+    from .enhancer import verified_plan
+    plan, assist_warnings = verified_plan(plan, input_root)
+    for warning in assist_warnings: LOG.warning('Prompt enhancer: %s', warning)
     if plan.get('resolution', {}).get('source') == 'studio':
         width, height = studio_resolution(plan['resolution'])
     legacy_size = width is None and height is None and (megapixels is not None or aspect is not None)
@@ -108,7 +111,8 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
     total_frames = sum(g['frames'] for g in geometry)
     by_id = {a['id']: a for a in plan['assets']}
     # Validate every referenced input before expensive model work.
-    paths = {aid: asset_path(asset, input_root) for aid, asset in by_id.items()}
+    used = used_asset_ids(plan)
+    paths = {aid: asset_path(asset, input_root) for aid, asset in by_id.items() if aid in used}
     if legacy_size:
         first = parts[0]['first_image']
         width, height = resolve_resolution(
@@ -273,7 +277,9 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
     if writer:
         video_result.update(writer.finish(final_audio, total_frames))
     report = '\n'.join([
-        'H3 Continuum EZ Studio 0.9.1 — original reference_context_v1',
+        'H3 Continuum EZ Studio 0.9.1 + AI Studio — original reference_context_v1',
+        f'Prompt enhancer: {"ON" if plan.get("prompt_enhancer",{}).get("enabled") else "OFF"}; no AI inference during video generation.',
+        *assist_warnings,
         f'{width}x{height}, {total_frames} frames at 24 fps, {total_frames/FPS:.3f}s',
         f'Audio: {"original edited source; no generated audio mixed" if audio_master is not None else "H3 generated"}',
         f'Output: {output_mode}; backend: {backend}; full RGB size: {estimate/2**30:.2f} GiB ({"not allocated" if streaming else "logical size"}). Original Continuum seed derivation retained.',

@@ -5,9 +5,10 @@ import {api} from '../../scripts/api.js';
 import {ensureStudioStyles,openStudio} from './studio.js';
 import {findPreviousVideo,resultVideo} from './result_preview.js';
 import {mergeProgress} from './generation.js';
-import {timelineQueue,graphNodes,normalizeModelChoices} from './queue_status.js';
+import {timelineQueue,graphNodes,normalizeModelChoices,canvasEnhancerModel,canvasEnhancerBinding} from './queue_status.js';
 import {syncSeedControls} from './seed_controls.js';
-import {read,duration,refsFor,roundEven} from './state.js';
+import {referenceCounts} from './node_summary.js';
+import {read,duration,roundEven} from './state.js';
 
 const NODE='H3ContinuumEZTimeline';
 const ENGINE='H3ContinuumEZEngine';
@@ -151,7 +152,7 @@ function install(node){
   let summary;
   if(typeof node.addDOMWidget==='function'){
     summary=document.createElement('div');summary.className='h3ez-summary';
-    const display=node.addDOMWidget('h3ez_summary','h3ez_summary',summary,{serialize:false,hideOnZoom:true,getMinHeight:()=>101,getMaxHeight:()=>121});
+    const display=node.addDOMWidget('h3ez_summary','h3ez_summary',summary,{serialize:false,hideOnZoom:true,getMinHeight:()=>52,getMaxHeight:()=>64});
     display.serialize=false;display.options.serialize=false;
   }
   const refresh=()=>{
@@ -160,13 +161,10 @@ function install(node){
     if(!summary)return;summary.replaceChildren();
     try{
       const p=read(widget(node).value),line=document.createElement('div');
-      line.textContent=t('nodeSummary',p.shots.length,duration(p).toFixed(2),p.global_refs.length)+(connected(node)&&p.prompt_source!=='studio'?' · '+t('externalBadge'):'');
-      const strip=document.createElement('div');strip.className='ez-thumbs';
-      for(const [i,s] of p.shots.slice(0,5).entries()){
-        const aid=s.first_image||(i===0?p.first_image:null)||p.reference_slots[(refsFor(p,s)[0]||0)-1];
-        const a=p.assets.find(a=>a.id===aid);if(a){const img=document.createElement('img');img.src=mediaUrl(a);img.alt=s.label;strip.append(img);}
-      }
-      summary.append(line,strip);
+      line.textContent=t('nodeSummary',p.shots.length,duration(p).toFixed(2))+(connected(node)&&p.prompt_source!=='studio'?' · '+t('externalBadge'):'');
+      const counts=referenceCounts(p),refs=document.createElement('div');
+      refs.textContent=t('nodeReferences',counts.individual,counts.shared);refs.title=t('nodeReferencesHelp');
+      summary.append(line,refs);
     }catch(e){summary.textContent=t('timelineInvalid',errorText(e,t));}
   };
   const open=node.addWidget('button','Open Timeline Studio',null,()=>{
@@ -175,7 +173,8 @@ function install(node){
     let baseline=String(widget(node).value);
     const previewLookup=new AbortController();
     try{
-      const editor=openStudio({value:baseline,mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
+      const workflowAtOpen=activeWorkflowId();
+      const editor=openStudio({value:baseline,assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),assistIdentity:()=>({canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
         onApply:plan=>{
           if(!node.graph)throw new Error(t('nodeRemoved'));
           if(String(widget(node).value)!==baseline)throw new Error(t('nodeChanged'));
@@ -206,7 +205,7 @@ function install(node){
   const refreshLocale=()=>{refresh();node.setDirtyCanvas?.(true,true);};
   settings?.addEventListener?.('Comfy.Locale.change',refreshLocale);
   const removed=node.onRemoved;node.onRemoved=function(...args){settings?.removeEventListener?.('Comfy.Locale.change',refreshLocale);editors.get(node)?.close();editors.delete(node);return removed?.apply(this,args);};
-  node.setSize?.([Math.max(380,node.size?.[0]||0),Math.max(210,node.size?.[1]||0)]);refresh();
+  node.setSize?.([Math.max(380,node.size?.[0]||0),Math.max(150,node.computeSize?.()[1]||150)]);refresh();
 }
 function installEngineSize(node){
   if((node.comfyClass||node.type)!==ENGINE||mounted.has(node))return;

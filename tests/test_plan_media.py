@@ -2,8 +2,8 @@ import copy
 import json
 import math
 from contextlib import nullcontext
-from pathlib import Path
 from types import SimpleNamespace
+from pathlib import Path
 import pytest
 import torch
 from PIL import Image, ImageOps
@@ -65,34 +65,12 @@ def test_path_traversal_rejected(file):
     with pytest.raises(PlanError):validate_file_ref(file)
 
 def test_symlink_escape_and_content_hash(tmp_path):
-    a=image();(tmp_path/'a.png').write_bytes(b'one');p=default_plan();p['assets']=[a]
+    a=image();(tmp_path/'a.png').write_bytes(b'one');p=default_plan();p['assets']=[a];p['first_image']='a'
     first=fingerprint(p,tmp_path);(tmp_path/'a.png').write_bytes(b'two');assert fingerprint(p,tmp_path)!=first
     out=tmp_path.parent/'outside_h3ez.txt';out.write_text('outside')
     (tmp_path/'a.png').unlink();(tmp_path/'a.png').symlink_to(out)
     with pytest.raises(PlanError):asset_path(a,tmp_path)
     out.unlink()
-
-def test_oversized_image_is_rejected_before_exif_transpose(monkeypatch):
-    header = SimpleNamespace(width=10_000, height=7_000)
-    monkeypatch.setattr(Image, 'open', lambda _: nullcontext(header))
-
-    def unexpected_transpose(_):
-        pytest.fail('EXIF transpose was called before the image size check')
-
-    monkeypatch.setattr(ImageOps, 'exif_transpose', unexpected_transpose)
-    with pytest.raises(PlanError, match='Image exceeds 64 megapixels'):
-        load_image(Path('oversized.png'))
-
-
-def test_load_image_preserves_exif_orientation(tmp_path):
-    path = tmp_path / 'portrait.jpg'
-    with Image.new('RGB', (2, 3)) as source:
-        exif = source.getexif()
-        exif[274] = 6  # Rotate 90 degrees clockwise.
-        source.save(path, exif=exif)
-
-    assert load_image(path).shape == (1, 2, 3, 3)
-
 
 def test_audio_exact_original_source(tmp_path):
     p=default_plan();p['assets']=[audio()];(tmp_path/'music.wav').write_bytes(b'fixture')
@@ -127,3 +105,22 @@ def test_vendor_byte_integrity():
     meta=json.loads((root/'docs/CORE_PROVENANCE.json').read_text())
     for x in meta['files']:
         if x['mode']=='byte-identical':assert hashlib.sha256((root/'vendor/continuum'/x['path']).read_bytes()).hexdigest()==x['sha256']
+
+# v0.9.1 input guard: expansion must follow the existing 64 Mi-pixel cap.
+def test_oversized_image_is_rejected_before_exif_transpose(monkeypatch):
+    header=SimpleNamespace(width=10000,height=7000)
+    monkeypatch.setattr(Image,'open',lambda _:nullcontext(header))
+    monkeypatch.setattr(ImageOps,'exif_transpose',lambda _:pytest.fail('Decoded before checking size'))
+    with pytest.raises(PlanError,match='64 megapixels'):load_image(Path('oversized.png'))
+
+def test_load_image_preserves_exif_orientation(tmp_path):
+    path=tmp_path/'portrait.jpg'
+    with Image.new('RGB',(2,3)) as source:
+        exif=source.getexif();exif[274]=6;source.save(path,exif=exif)
+    assert load_image(path).shape==(1,2,3,3)
+
+def test_unused_file_content_is_not_a_generation_dependency(tmp_path):
+    a=image();(tmp_path/'a.png').write_bytes(b'one');p=default_plan();p['assets']=[a]
+    before=fingerprint(p,tmp_path);(tmp_path/'a.png').write_bytes(b'two')
+    assert fingerprint(p,tmp_path)==before
+    (tmp_path/'a.png').unlink();assert fingerprint(p,tmp_path)==before

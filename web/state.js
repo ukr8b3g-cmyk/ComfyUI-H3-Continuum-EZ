@@ -1,5 +1,7 @@
 import {StudioError} from './i18n.js';
 import {assemblePrompt} from './prompting.js';
+import {resolveText,validateEnhancer} from './enhancer.js';
+import {validateStory,storyText,actionPositions} from './story_tools.js';
 // Pure editor model. Numeric duration planning mirrors the original Continuum grid.
 export const clone = v => JSON.parse(JSON.stringify(v));
 export const uid = p => `${p}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
@@ -11,7 +13,7 @@ export function initial() {
 }
 export function read(value) {
   const p = typeof value === 'string' ? JSON.parse(value) : clone(value);
-  if (!p || p.schema !== 1 || !Array.isArray(p.shots)) throw new StudioError('unsupportedSchema');
+  if (!p || ![1,2].includes(p.schema) || !Array.isArray(p.shots)) throw new StudioError('unsupportedSchema');
   return p;
 }
 export function roundEven(n) { const f=Math.floor(n), d=n-f; return Math.abs(d-.5)<1e-10 ? (f%2 ? f+1 : f) : Math.round(n); }
@@ -64,10 +66,12 @@ export function editPrompt(p,index,part,text){
   else throw new Error('Unknown prompt part');
 }
 export function effective(p,index,external=null,partIndex=0) {
-  const s=p.shots[index], common=commonPrompt(p,external);
-  let text=s.prompt_mode==='replace'?s.prompt:[common,s.prompt].filter(Boolean).join('\n\n');
+  const s=p.shots[index], common=resolveText(p,{field:'global_prompt'},external).text;
+  const own=resolveText(p,{field:'prompt',shot_id:s.id},external).text;
+  let text=s.prompt_mode==='replace'?own:[common,own].filter(Boolean).join('\n\n');
   const part=executionPlan(p).find(x=>x.shot_index===index&&x.part_index===partIndex);
   if(!part)throw new Error('Unknown internal part');
+  const extra=storyText(p,part,geometry(p)[index]);if(extra)text+='\n\n'+extra;
   const slots=refsFor(p,s),hasFirst=!!part.first_image,hasLast=!!part.last_image,shift=Number(hasFirst)+Number(hasLast);
   const map=Object.fromEntries(slots.map((r,i)=>[`@R${r}`,`<Picture ${i+1+shift}>`]));
   for(const t of text.match(/@R\d+/g)||[]) if(!(t in map)) throw new StudioError('inactiveRef',s.label,t);
@@ -91,7 +95,7 @@ export function validate(p) {
   if('prompt_source' in p&&!['studio','external'].includes(p.prompt_source))throw new StudioError('invalidPromptSource');
   if ('output_mode' in p && !['Long video', 'Images'].includes(p.output_mode)) throw new StudioError('invalidOutputMode');
   if(p.resolution!==undefined)resolutionSize(p.resolution);
-  if(p.schema!==1)throw new StudioError('invalidSchema');
+  if(![1,2].includes(p.schema))throw new StudioError('invalidSchema');
   if(!p.shots.length||p.shots.length>16)throw new StudioError('shotRange');
   const assets=new Map(p.assets.map(a=>[a.id,a]));
   if(assets.size!==p.assets.length)throw new StudioError('duplicateAsset');
@@ -127,6 +131,7 @@ export function validate(p) {
     if(c.source_in+c.duration>a.duration+.01)throw new StudioError('trimPastEnd');
     if(i&&clips[i-1].start+clips[i-1].duration>c.start+.000001)throw new StudioError('overlap');
   }
+  validateStory(p,geometry(p));validateEnhancer(p);
   return p;
 }
 export function registerReference(p,assetId) {
@@ -139,7 +144,7 @@ export function removeAsset(p,id) {
   p.assets=p.assets.filter(a=>a.id!==id);p.audio=p.audio.filter(c=>c.asset_id!==id);
   if(p.first_image===id)p.first_image=null;
   const slot=p.reference_slots.indexOf(id)+1;if(slot){p.reference_slots[slot-1]=null;p.global_refs=p.global_refs.filter(r=>r!==slot);}
-  for(const s of p.shots){if(s.first_image===id)s.first_image=null;if(s.last_image===id)s.last_image=null;if(s.refs!==null)s.refs=s.refs.filter(r=>r!==slot);}
+  for(const s of p.shots){if(s.reference_roles)s.reference_roles=s.reference_roles.filter(r=>r.asset_id!==id);if(s.first_image===id)s.first_image=null;if(s.last_image===id)s.last_image=null;if(s.refs!==null)s.refs=s.refs.filter(r=>r!==slot);}
 }
 export function insertShot(p,after=-1) {
   if(p.shots.length>=16)throw new StudioError('maxShots');
@@ -156,6 +161,15 @@ export function splitShot(p,id,localSeconds) {
   const splitAt=frames/FPS;
   const right={...clone(s),id:uid('shot'),label:`${s.label} B`,seconds:(total-frames)/FPS,transition:'continue',first_image:null};
   if(s.last_image)s.last_image=null;
+  if(s.actions){
+    const positions=actionPositions(s,{frames:total}),left=[],rightActions=[];let ongoing=null;
+    for(const {frame,action} of positions){
+      if(frame<frames){left.push({...action,at:frame/FPS});if(action.kind==='state')ongoing=action;}
+      else rightActions.push({...action,id:uid('action'),at:(frame-frames)/FPS});
+    }
+    if(ongoing&&!rightActions.some(a=>a.kind==='state'&&a.at===0))rightActions.unshift({...ongoing,id:uid('action'),at:0});
+    s.actions=left;right.actions=rightActions;
+  }
   if(s.dialogue){
     const lines=s.dialogue.map((d,n)=>({...d,at:d.at??Math.floor(n*total/Math.max(1,s.dialogue.length))/FPS}));
     s.dialogue=lines.filter(d=>d.at<splitAt);

@@ -1,3 +1,9 @@
+import {applyUIHelp} from './ui_help.js';
+import {mediaLabel,mediaHelp} from './media_labels.js';
+import {AssistClient} from './assist.js';
+import {createAssistPanel} from './assist_panel.js';
+import {activateEntry,restoreOriginal,pruneTargets,resolveText} from './enhancer.js';
+import {storyPanel} from './story_panel.js';
 import {translator,errorText} from './i18n.js';
 import {ASPECT_RATIOS,resolutionSize,clone,uid,read,geometry,duration,executionPlan,resizeShot,MAX_SHOT_SECONDS,refsFor,firstFor,commonPrompt,editPrompt,effective,validate,registerReference,removeAsset,insertShot,moveShot,splitShot,splitAudio,parseScript,History} from './state.js';
 
@@ -12,20 +18,30 @@ const stamp=n=>`${Math.floor(n/60).toString().padStart(2,'0')}:${(n%60).toFixed(
 const studioResolutionDefaults={source:'studio',aspect:'16:9',megapixels:.3};
 const escapeDrop=e=>{e.preventDefault();e.stopPropagation();};
 
-export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnected=false,lastExternal=null,onClose=null,locale='en',resultVideo=null,generation=null,onStorage=null}){
+export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnected=false,lastExternal=null,onClose=null,locale='en',resultVideo=null,generation=null,onStorage=null,assistApi=null,assistIdentity=()=>({}),getCanvasModel=()=>null}){
   const t=translator(locale);
   ensureStudioStyles();let p=read(value),saved=JSON.stringify(p),selected=p.shots[0]?.id,selectedAudio=null,playhead=0,zoom=1,promptTab='shot',focusMode=false,busy=0,closed=false;
   const history=new History(),abort=new AbortController(),waves=new Map(),pendingWaves=new Set(),previousShotRefs=new Map();
-  let mediaError=null;
+  let mediaError=null, assistPanel=null, applying=false;
+  const roleSelection=new Map();
+  const assistState=()=>({plan:p,external:externalConnected?lastExternal:null,
+    externalUnknown:externalConnected&&p.prompt_source!=='studio'&&lastExternal===null,
+    identity:{...assistIdentity(),canvasModel:getCanvasModel()??''},alive:!closed});
+  const assist=assistApi?new AssistClient({api:assistApi,getState:assistState,explicitRequests:true,onStatus:value=>assistPanel?.setStatus(value)}):null;
+  let editCheckTimer=null;
+  const deferredChecks=()=>{assist?.sync();clearTimeout(editCheckTimer);editCheckTimer=setTimeout(()=>{if(!closed){checks();}},100);};
   let observer=null,monitorObserver=null,monitorFrame=null,monitor=null,videoSize=null,queueState={phase:'checking'},submitting=false;
   let playing=false,frame=0,clock=0,clockStart=0,media=new Audio(),activeAudio=null,audioContext=null,monitorImage=null,head=null,clockLabel=null,timelineWidth=1000;
   media.preload='auto';
   let previewMode='auto', resultLabel=null, resultToggle=null, playControl=null, resultMatches=false,activeVideo=null,shotDragCancel=null,suppressShotClick=false;
-  const openDetails=new Set();
+  // Compare the plan only after edits or incoming generation records, never per animation frame.
+  let planText=JSON.stringify(p),resultPlanText=resultVideo?JSON.stringify(read(resultVideo.plan)):null,
+      generationPlanText=generation?JSON.stringify(generation.plan):null;
+  function refreshPlanIdentity(){planText=JSON.stringify(p);}
   const video=el('video','ez-result-video');video.controls=true;video.playsInline=true;video.preload='metadata';
   if(resultVideo)video.src=resultVideo.url;
-  const samePlan=()=>!!resultVideo&&JSON.stringify(read(JSON.stringify(resultVideo.plan)))===JSON.stringify(p);
-  const runMatches=()=>!!generation&&JSON.stringify(generation.plan)===JSON.stringify(p);
+  const samePlan=()=>!!resultVideo&&resultPlanText===planText;
+  const runMatches=()=>!!generation&&generationPlanText===planText;
   const partialAt=time=>generation?.clips.find(c=>time>=c.start&&time<c.end);
   const videoOffset=()=>activeVideo?.start||0;
   function resultActive(){
@@ -76,7 +92,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   shell.append(top,work,timelineSplitter,timeline,footer);work.append(library,preview,splitter,inspector);dialog.append(shell);
   top.append(el('h2','','H3 Continuum EZ Studio'));
   const timelineTab=btn(t('timelineTab'),()=>{focusMode=false;renderLayout();},'selected');
-  const textTab=btn(t('widePrompt'),()=>{focusMode=true;renderLayout();});
+  const textTab=btn(t('widePrompt'),()=>{focusMode=!focusMode;renderLayout();});
   const undo=btn('↶',()=>{p=history.undo(p);reconcile();render();});undo.title=t('undo');undo.setAttribute('aria-label',t('undo'));
   const redo=btn('↷',()=>{p=history.redo(p);reconcile();render();});redo.title=t('redo');
   const importButton=btn(t('importText'),()=>openImporter());
@@ -90,6 +106,14 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   editTools.append(timelineTab,textTab,undo,redo,importButton);
   const settingsTools=el('div','ez-top-group ez-settings-tools');
   if(onStorage)settingsTools.append(btn(t('storageManager'),onStorage));
+  const checkButton=btn(locale==='ja'?'入力確認':'Check Inputs',async()=>{
+    if(!assist){message(locale==='ja'?'API接続が必要です':'API connection required',true);return;}
+    const signature=JSON.stringify(p);checkButton.disabled=true;
+    try{const result=await assist.preflight(clone(p));if(closed)return;if(signature!==JSON.stringify(p))throw new Error(locale==='ja'?'確認中に編集されました。再確認してください。':'Edited while checking; check again.');
+      const messages=[...result.errors,...result.warnings].map(x=>x.message);
+      message((result.ok?(locale==='ja'?'入力確認完了':'Inputs checked'):(locale==='ja'?'入力の修正が必要です':'Input fixes required'))+` · ${result.shots} shots / ${result.parts} parts / ${result.seconds.toFixed(3)}s`+(messages.length?' · '+messages.join(' | '):'')+(locale==='ja'?' · モデル適合は実行時に確認':' · Model compatibility checked at runtime'),!result.ok);
+    }catch(e){if(!closed)message(e.message,true);}finally{checkButton.disabled=false;}
+  });settingsTools.append(checkButton);
   const runTools=el('div','ez-top-group ez-run-tools');
   const queueStatus=el('span','ez-queue-status');queueStatus.setAttribute('role','status');queueStatus.setAttribute('aria-live','polite');
   runTools.append(queueStatus,apply,queue);
@@ -104,17 +128,17 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   }));
   output.setAttribute('aria-label', t('outputFormat'));
   const outputPanel = el('div', 'ez-output-panel');
-  outputPanel.append(field(t('outputFormat'), output), el('div', 'ez-help', t('studioOutputHelp')));
+  output.title=t('studioOutputHelp');outputPanel.append(field(t('outputFormat'),output));
   const chunkToggle=el('input');chunkToggle.type='checkbox';chunkToggle.setAttribute('aria-label',t('autoSplit'));
   const chunkSeconds=inputNumber(p.chunking?.seconds??5,value=>mutate(()=>{p.chunking={enabled:chunkToggle.checked,seconds:value};}),2,15,.1);
   chunkSeconds.setAttribute('aria-label',t('partSeconds'));
   chunkToggle.onchange=()=>mutate(()=>{p.chunking={enabled:chunkToggle.checked,seconds:p.chunking?.seconds??5};});
   const chunkRow=el('div','ez-chunk-options');chunkRow.append(field(t('autoSplit'),chunkToggle),field(t('partSeconds'),chunkSeconds));
-  outputPanel.append(chunkRow,el('div','ez-help',t('autoSplitHelp')));
+  chunkToggle.title=chunkSeconds.title=t('autoSplitHelp');outputPanel.append(chunkRow);
   advanced.append(outputPanel);
   settingsTools.append(advanced);
   top.append(editTools,settingsTools,runTools,windowTools);
-  footer.append(status,el('span','ez-help',t('previewHelp')));
+  footer.append(status);preview.title=t('previewHelp');
   function message(text,error=false){
     status.textContent=text;
     status.title=error?text:'';
@@ -122,7 +146,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   }
   function dirty(){return JSON.stringify(p)!==saved;}
   function current(){return p.shots.find(s=>s.id===selected)||p.shots[0];}
-  function reconcile(){if(!p.shots.some(s=>s.id===selected))selected=p.shots[0]?.id;if(!p.audio.some(c=>c.id===selectedAudio))selectedAudio=null;playhead=Math.min(playhead,duration(p));}
+  function reconcile(){pruneTargets(p);refreshPlanIdentity();assist?.sync();if(!p.shots.some(s=>s.id===selected))selected=p.shots[0]?.id;if(!p.audio.some(c=>c.id===selectedAudio))selectedAudio=null;playhead=Math.min(playhead,duration(p));}
   function mutate(fn,{strict=false,onError=null}={}){
     const before=clone(p);
     try{fn();if(strict)validate(p);history.record(before);reconcile();render();}
@@ -134,6 +158,8 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     }
   }
   function checks(){
+    applyUIHelp(dialog,locale);
+    refreshPlanIdentity();assist?.sync();assistPanel?.update();
     output.value = p.output_mode ?? '';
     chunkToggle.checked=p.chunking?.enabled??true;chunkSeconds.value=p.chunking?.seconds??5;chunkSeconds.disabled=!chunkToggle.checked;
     queue.textContent = t(p.output_mode === 'Long video' ? 'exportVideo' : p.output_mode === 'Images' ? 'exportFrames' : 'applyAndQueue');
@@ -143,7 +169,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       timeline.querySelectorAll('.has-filmstrip').forEach(e=>e.classList.remove('has-filmstrip'));
     }
     undo.disabled=!history.back.length;redo.disabled=!history.forward.length;
-    apply.disabled=busy>0;queue.disabled=busy>0||submitting;
+    apply.disabled=busy>0||applying;queue.disabled=busy>0||submitting||applying;
     if(busy){message(t('uploading',busy));return;}
     try{
       validate(p);
@@ -228,7 +254,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       card.ondragstart=e=>{e.dataTransfer.setData('application/x-h3ez-asset',a.id);e.dataTransfer.effectAllowed='copy';};
       if(a.kind==='image')card.append(img(a.id));else card.append(el('div','ez-audio-icon','♫'));
       if(a.kind==='image'){
-        const name=el('input','ez-subject-name');name.value=a.subject_name||'';name.placeholder=a.label;name.maxLength=80;
+        const name=el('input','ez-subject-name');name.value=a.subject_name||'';name.placeholder=mediaLabel(p,a,locale);name.maxLength=80;
         name.title=t('subjectNameHelp');name.setAttribute('aria-label',t('nameAsset',a.label));name.onchange=()=>mutate(()=>a.subject_name=name.value.trim(),{strict:true});
         name.onpointerdown=e=>e.stopPropagation();name.ondblclick=e=>e.stopPropagation();name.ondragstart=e=>e.preventDefault();card.append(name);
       }else card.append(el('span','ez-asset-name',a.label));
@@ -236,7 +262,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       card.ondblclick=()=>a.kind==='image'?mutate(()=>assignImage(a.id,current())):placeExistingAudio(a.id,playhead);
       assets.append(card);
     }
-    library.append(drop,btn(t('addMedia'),filePicker),el('span','ez-help',t('mediaHelp')),assets);
+    library.title=t('mediaHelp');library.append(drop,btn(t('addMedia'),filePicker),assets);applyUIHelp(library,locale);
   }
   function previewAsset(){
     const shots=geometry(p);
@@ -334,19 +360,32 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     return box;
   }
   function editLabel(s){const e=el('input');e.value=s.label;e.setAttribute('aria-label',t('shotName'));e.onchange=()=>mutate(()=>s.label=e.value);return e;}
+  if(assist){
+    assistPanel=createAssistPanel({client:assist,getState:assistState,locale,
+      onAdopt:entry=>{let error;mutate(()=>activateEntry(p,entry),{strict:true,onError:e=>{error=e;}});if(error)throw error;},
+      onRestore:target=>mutate(()=>restoreOriginal(p,target),{strict:true}),
+      onRestoreAll:()=>mutate(()=>{for(const entry of p.prompt_enhancer?.texts||[])entry.inactive=true;},{strict:true})});
+    editTools.append(assistPanel.global);
+  }
   function renderInspector(){
+    assistPanel?.beginRender();
     inspector.replaceChildren();const s=current();if(!s)return;
     const index=p.shots.indexOf(s),g=geometry(p)[index];
     const title=el('div','ez-row ez-shot-title');title.append(editLabel(s),field(t('targetSeconds'),inputNumber(Number(s.seconds.toFixed(3)),n=>mutate(()=>s.seconds=n,{strict:true}),2,MAX_SHOT_SECONDS,.1)),
       select([['continue',t('continuePrevious')],['cut',t('cut')]],index===0?'cut':s.transition,v=>mutate(()=>{if(v==='continue'&&s.first_image)throw new Error(t('removeStartToContinue'));s.transition=v;})));
     title.querySelector('input[type=number]').classList.add('ez-seconds');
-    title.lastChild.disabled=index===0;
+    title.lastChild.disabled=index===0;title.lastChild.setAttribute('aria-label',locale==='ja'?'ショット境界':'Shot boundary');title.lastChild.title=index===0?(locale==='ja'?'最初のショットは場面転換です。':'The first shot starts a new scene.'):(locale==='ja'?'前の映像を継続するか、新しい場面から開始するか選びます。':'Continue the previous video or start a new scene.');
     const timing=el('div','ez-help ez-shot-timing',t('shotTiming',g.seconds.toFixed(3),stamp(g.start),stamp(g.end)));
+    timing.title=t('shotTimingHelp');
     const internalParts=executionPlan(p).filter(x=>x.shot_id===s.id);
     if(internalParts.length>1){timing.append(' · '+t('autoParts',internalParts.length));timing.title=t('autoPartsHelp');}
-    const tabs=el('div','ez-row');
-    for(const [key,label] of [['shot',t('thisShot')],['global',t('commonPrompt')],['effective',t('effectivePrompt')]])tabs.append(btn(label,()=>{promptTab=key;renderInspector();},promptTab===key?'selected':''));
-    const refrow=el('div','ez-row ez-inspector-controls');
+    const tabs=el('div','ez-row ez-prompt-tabs');
+    for(const [key,label] of [['shot',t('shotPromptTab')],['global',t('commonPrompt')],['effective',t('effectivePrompt')]]){
+      const tab=btn(label,()=>{promptTab=key;renderInspector();},promptTab===key?'selected':'');
+      tab.setAttribute('aria-pressed',String(promptTab===key));
+      tabs.append(tab);
+    }
+    const references=el('div','ez-shot-references');
     const refMode=select([['inherit',t('inheritRefs')],['custom',t('customRefs')]],s.refs===null?'inherit':'custom',v=>mutate(()=>{
       if(v==='inherit'){
         previousShotRefs.set(s.id,s.refs.map(slot=>[slot,p.reference_slots[slot-1]]));
@@ -357,52 +396,72 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       }
     },{strict:true}));
     refMode.setAttribute('aria-label',t('referenceSource'));
-    refrow.append(refMode);
     const strip=el('div','ez-ref-strip');
     const selectedRefs=refsFor(p,s);
     strip.setAttribute('aria-label',t('referenceImages'));
     for(const asset of p.assets.filter(a=>a.kind==='image')){
       const aid=asset.id,slot=p.reference_slots.indexOf(aid)+1,active=slot>0&&selectedRefs.includes(slot);
       const b=btn('',()=>mutate(()=>{const r=registerReference(p,aid);if(s.refs===null)s.refs=[...p.global_refs];s.refs=s.refs.includes(r)?s.refs.filter(n=>n!==r):[...s.refs,r].sort((a,b)=>a-b);},{strict:true}),'ez-ref-chip'+(active?' selected':''));
-      b.append(img(aid),el('span','ez-ref-name',asset.subject_name||asset.label));
+      const label=mediaLabel(p,asset,locale);
+      b.append(img(aid),el('span','ez-ref-name',label));
       b.setAttribute('aria-pressed',String(active));
-      b.setAttribute('aria-label',t('referenceNamed',asset.label));
-      b.title=t(active?'referenceSelected':'referenceUnselected',asset.label);
+      b.setAttribute('aria-label',t('referenceNamed',label));
+      b.title=t(active?'referenceSelected':'referenceUnselected',label)+'\n'+mediaHelp(p,asset,locale);
       strip.append(b);
     }
     if(!p.assets.some(a=>a.kind==='image'))strip.append(el('span','ez-help',t('dropShotRef')));
     bindDrop(strip,async e=>{const id=dropAsset(e);if(id&&mediaAsset(id)?.kind==='image')mutate(()=>assignImage(id,s));else if(e.dataTransfer.files.length)await addFiles(e.dataTransfer.files,'shot');});
-    const mode=select([['append',t('appendPrompt')],['replace',t('replacePrompt')]],s.prompt_mode,v=>mutate(()=>s.prompt_mode=v));
-    mode.setAttribute('aria-label',t('promptMode'));
-    const modeRow=el('div','ez-row');
+    const modeRow=el('div','ez-row ez-prompt-actions');
+    if(promptTab!=='global'){
+      const usesCommon=s.prompt_mode!=='replace';
+      const include=btn(t(usesCommon?'commonPromptOn':'commonPromptOff'),()=>{
+        mutate(()=>s.prompt_mode=usesCommon?'replace':'append');
+        inspector.querySelector('.ez-use-common')?.focus({preventScroll:true});
+      },'ez-use-common'+(usesCommon?' selected':''));
+      include.setAttribute('aria-pressed',String(usesCommon));
+      include.title=t('useCommonPromptHelp');
+      modeRow.append(include);
+    }
     const toggleEditor=btn(t(focusMode?'returnToTimeline':'expandEditor'),()=>{
       focusMode=!focusMode;
       renderLayout();
       inspector.querySelector('.ez-toggle-editor')?.focus({preventScroll:true});
     },'ez-toggle-editor');
-    modeRow.append(mode,toggleEditor);
-    const automatic=el('span','ez-help ez-auto-prompt',t('autoPrompt'));
-    automatic.title=t('autoPromptHelp');modeRow.append(automatic);
+    modeRow.append(toggleEditor);
     const shotControls=el('div','ez-shot-controls');
-    shotControls.append(title,renderResolution(),timing,refrow);
-    inspector.append(shotControls,strip,tabs,modeRow);
-    const extras=el('details','ez-shot-extras');extras.open=openDetails.has(s.id);
-    extras.append(el('summary','',t('shotExtras',s.dialogue?.length||0,s.last_image?t('endAssigned'):t('endOptional'))));
-    extras.ontoggle=()=>{extras.open?openDetails.add(s.id):openDetails.delete(s.id);};
+    const setup=el('div','ez-shot-setup');
+    setup.append(title,renderResolution());
+    references.append(strip);
+    strip.tabIndex=0;
+    strip.setAttribute('role','group');
+    const context=el('div','ez-shot-context');
+    context.append(refMode,timing);
+    shotControls.append(setup,context,references);
+    const toolbar=el('div','ez-prompt-toolbar');
+    toolbar.append(tabs,modeRow);
+    inspector.append(shotControls,toolbar);
+    const extras=el('section','ez-shot-extras');
+    extras.setAttribute('aria-label',t('shotDialogue'));
+    const dialogueHead=el('div','ez-row ez-dialogue-head');
+    const addLine=btn(t('addDialogue'),()=>{
+      mutate(()=>{s.dialogue??=[];if(s.dialogue.length>=32)throw new Error(t('dialogueLimit'));s.dialogue.push({speaker:null,text:'',at:null});});
+      [...inspector.querySelectorAll('.ez-dialogue-row textarea')].at(-1)?.focus();
+    });
+    addLine.title=t('dialogueHelp');addLine.disabled=(s.dialogue?.length||0)>=32;
+    dialogueHead.append(el('span','',t('shotDialogue')),addLine);extras.append(dialogueHead);
     const endRow=el('div','ez-end-image');
-    const endSelect=select([['',t('noEndImage')],...p.assets.filter(a=>a.kind==='image').map(a=>[a.id,a.subject_name||a.label])],s.last_image||'',value=>mutate(()=>s.last_image=value||null));
+    const endSelect=select([['',t('noEndImage')],...p.assets.filter(a=>a.kind==='image').map(a=>[a.id,mediaLabel(p,a,locale)])],s.last_image||'',value=>mutate(()=>s.last_image=value||null));
     endSelect.setAttribute('aria-label',t('endImage'));endSelect.title=t('endImageHelp');
     endRow.append(field(t('endImage'),endSelect));if(s.last_image)endRow.append(img(s.last_image));
     bindDrop(endRow,e=>{const id=dropAsset(e);if(id&&mediaAsset(id)?.kind==='image')mutate(()=>s.last_image=id);});
-    extras.append(endRow);
     for(const [lineIndex,line] of (s.dialogue||[]).entries()){
       const row=el('div','ez-dialogue-row');
-      const who=select([['',t('narrator')],...p.assets.filter(a=>a.kind==='image').map(a=>[a.id,a.subject_name||a.label])],line.speaker||'',value=>mutate(()=>{line.speaker=value||null;if(value)assignImage(value,s);},{strict:true}));
+      const who=select([['',t('narrator')],...p.assets.filter(a=>a.kind==='image').map(a=>[a.id,mediaLabel(p,a,locale)])],line.speaker||'',value=>mutate(()=>{line.speaker=value||null;if(value)assignImage(value,s);},{strict:true}));
       who.setAttribute('aria-label',t('speaker',lineIndex+1));who.title=t('speakerHelp');
       const words=el('textarea');words.rows=2;words.value=line.text;words.maxLength=5000;words.setAttribute('aria-label',t('dialogueText',lineIndex+1));words.placeholder=t('dialoguePlaceholder');
       let dialogueBefore=null;
       words.onfocus=()=>dialogueBefore=clone(p);
-      words.oninput=()=>{dialogueBefore??=clone(p);line.text=words.value;checks();updateCompiled();};
+      words.oninput=()=>{dialogueBefore??=clone(p);line.text=words.value;deferredChecks();updateCompiled();};
       words.onblur=()=>{if(dialogueBefore&&JSON.stringify(dialogueBefore)!==JSON.stringify(p)){history.record(dialogueBefore);dialogueBefore=null;checks();}};
       const timingInput=el('input');timingInput.type='number';timingInput.min=0;timingInput.max=g.seconds;timingInput.step=.1;
       timingInput.value=line.at??'';timingInput.placeholder=t('automatic');timingInput.setAttribute('aria-label',t('dialogueTime',lineIndex+1));timingInput.title=t('dialogueTimeHelp');
@@ -411,75 +470,79 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       const remove=btn('×',()=>mutate(()=>s.dialogue.splice(lineIndex,1)));remove.title=t('removeDialogue');remove.setAttribute('aria-label',t('removeDialogue'));
       row.append(who,words,timingInput,remove);extras.append(row);
     }
-    const addLine=btn(t('addDialogue'),()=>mutate(()=>{s.dialogue??=[];if(s.dialogue.length>=32)throw new Error(t('dialogueLimit'));s.dialogue.push({speaker:null,text:'',at:null});openDetails.add(s.id);}));
-    addLine.title=t('dialogueHelp');extras.append(addLine,el('div','ez-help',t('dialogueHelp')));inspector.append(extras);
     const usesExternal=()=>externalConnected&&p.prompt_source!=='studio';
     const sourceNote=el('span','ez-help ez-common-source-note');
-    let sourceSelect=null,compiled=null,compiledArea=null,compiledPart=0;
+    let sourceSelect=null,compiledArea=null,compiledPart=0;
     function updateSource(){
       if(sourceSelect)sourceSelect.value=p.prompt_source==='studio'?'studio':'external';
-      sourceNote.textContent=usesExternal()?t(lastExternal===null?'externalCommonPending':'externalCommonPreview'):t('commonSyncHelp');
+      sourceNote.textContent=usesExternal()?t(lastExternal===null?'externalCommonPending':'externalCommonPreview'):'';
     }
-    if(externalConnected&&(promptTab==='global'||(promptTab==='effective'&&s.prompt_mode!=='replace'))){
+    if(externalConnected&&promptTab==='global'){
       const sourceRow=el('div','ez-common-source');
       sourceSelect=select([['studio',t('sourceStudioPrompt')],['external',t('sourceExternalPrompt')]],p.prompt_source==='studio'?'studio':'external',v=>mutate(()=>p.prompt_source=v));
       sourceSelect.setAttribute('aria-label',t('commonSource'));sourceSelect.title=t('commonSourceHelp');
-      sourceRow.append(sourceSelect,sourceNote);inspector.append(sourceRow);
+      sourceNote.title=t('commonSyncHelp');sourceRow.append(sourceSelect,sourceNote);inspector.append(sourceRow);
     }
     function updateCompiled(){
-      if(!compiled?.open)return;
+      if(!compiledArea)return;
       try{compiledArea.value=effective(p,index,externalConnected?lastExternal:null,compiledPart).text;}catch(e){compiledArea.value=errorText(e,t);}
     }
-    function editor(part,combined=false){
+    function editor(part){
       const common=part==='global',wrap=el('div','ez-prompt-block'+(common?' ez-common-block':''));
       const area=el('textarea','ez-prompt');area.spellcheck=false;
       area.setAttribute('aria-label',t(common?'commonPromptLabel':'shotPromptLabel'));
       area.placeholder=t(common?'commonPlaceholder':'shotPlaceholder');
-      area.title=t(common?'commonPromptHelp':'shotPromptHelp');
+      area.title=t(common?'commonPromptHelp':'shotPromptHelp')+'\n'+t('autoPromptHelp')+'\n'+t('noShortening');
       area.value=common?commonPrompt(p,externalConnected?lastExternal:null):s.prompt;
       const counter=el('span','ez-help');
-      const count=()=>counter.textContent=t('characters',area.value.length.toLocaleString(locale));count();
-      const heading=el('div','ez-prompt-part-heading');
-      heading.append(el('span','',t(common?'commonAllShots':'bodyThisShot')),counter);
-      if(combined)wrap.append(heading);
+      const count=()=>{counter.textContent=t('characters',area.value.length.toLocaleString(locale));if(!common){const caption=[...timeline.querySelectorAll('.ez-shot')].find(card=>card.dataset.shotId===s.id)?.querySelector('.ez-shot-prompt');if(caption)caption.textContent=area.value.trim().slice(0,45)||t('usingCommon');}};count();
       let beforeText=null;
       area.onfocus=()=>{beforeText=clone(p);};
       area.oninput=()=>{
         beforeText??=clone(p);
         editPrompt(p,index,part,area.value);count();updateSource();updateCompiled();
-        if(!common){const caption=[...timeline.querySelectorAll('.ez-shot')].find(card=>card.dataset.shotId===s.id)?.querySelector('.ez-shot-prompt');if(caption)caption.textContent=s.prompt.trim().slice(0,45)||t('usingCommon');}
-        checks();
+        deferredChecks();
       };
       area.onblur=()=>{if(beforeText&&JSON.stringify(beforeText)!==JSON.stringify(p)){history.record(beforeText);beforeText=null;checks();}};
       wrap.append(area);
-      if(!combined){const meta=el('div','ez-prompt-meta');meta.append(counter,el('span','',t('noShortening')));wrap.append(meta);}
+      if(assistPanel)wrap.append(assistPanel.bind({target:common?{field:'global_prompt'}:{field:'prompt',shot_id:s.id},area,wrap,onDisplay:count}));
+      const meta=el('div','ez-prompt-meta');
+      if(common)meta.append(el('span','',t('commonSyncHelp')));
+      meta.append(counter);counter.title=t('noShortening');wrap.append(meta);
       return wrap;
     }
     if(promptTab==='effective'){
-      const editors=el('div','ez-composed-prompt');
-      if(s.prompt_mode!=='replace')editors.append(editor('global',true));
-      else inspector.append(el('div','ez-help ez-common-excluded',t('commonExcluded')));
-      editors.append(editor('shot',true));inspector.append(editors);
-      compiled=el('details','ez-compiled');compiled.append(el('summary','',t('showCompiled')));
-      if(internalParts.length>1){const partSelect=select(internalParts.map(x=>[String(x.part_index),t('internalPart',x.part_index+1,internalParts.length)]),'0',v=>{compiledPart=Number(v);updateCompiled();});partSelect.setAttribute('aria-label',t('internalPartSelect'));compiled.append(partSelect);}
+      const compiled=el('div','ez-prompt-block ez-compiled');
+      const heading=el('div','ez-row ez-compiled-heading');
+      heading.append(el('span','ez-help',t('compiledForShot',s.label)));
+      if(internalParts.length>1){const partSelect=select(internalParts.map(x=>[String(x.part_index),t('internalPart',x.part_index+1,internalParts.length)]),'0',v=>{compiledPart=Number(v);updateCompiled();});partSelect.setAttribute('aria-label',t('internalPartSelect'));heading.append(partSelect);}
+      compiled.append(heading);
+      if(usesExternal()&&s.prompt_mode!=='replace')compiled.append(el('span','ez-help',t(lastExternal===null?'externalNotRun':'externalLastRun')));
       compiledArea=el('textarea','ez-prompt');compiledArea.readOnly=true;compiledArea.spellcheck=false;compiledArea.setAttribute('aria-label',t('compiledPromptLabel'));
-      compiled.append(compiledArea);compiled.ontoggle=updateCompiled;inspector.append(compiled);
+      compiled.append(compiledArea);inspector.append(compiled);updateCompiled();
     }else{
       inspector.append(editor(promptTab));
     }
     updateSource();
-    if(s.transition==='cut'&&index>0){
+    if(promptTab==='shot')inspector.append(extras);
+    if(promptTab==='shot'&&s.transition==='cut'&&index>0){
       const key=el('div','ez-first-global');key.append(el('span','ez-help',t('shotStart')));if(s.first_image)key.append(img(s.first_image),btn('×',()=>mutate(()=>s.first_image=null),'quiet'));
       bindDrop(key,e=>{const id=dropAsset(e);if(id&&mediaAsset(id)?.kind==='image')mutate(()=>s.first_image=id);});inspector.append(key);
     }
+    if(promptTab==='shot'){
+      inspector.append(storyPanel({plan:p,shot:s,mutate,locale,mediaUrl,selectedRole:roleSelection.get(s.id),onRole:id=>roleSelection.set(s.id,id),onEdit:deferredChecks,onCommit:before=>{history.record(before);checks();}}));
+      inspector.append(endRow);
+    }
+    assistPanel?.update();
     if(selectedAudio)renderAudioInspector();
+    applyUIHelp(inspector,locale);
   }
   function renderAudioInspector(){
     const c=p.audio.find(x=>x.id===selectedAudio);if(!c)return;
     const box=el('div','ez-audio-editor');box.append(el('h3','',t('audioClip',mediaAsset(c.asset_id)?.label||'')));
     const row=el('div','ez-row');
     row.append(field(t('audioStart'),inputNumber(c.start,v=>mutate(()=>c.start=v,{strict:true}))),field(t('sourceIn'),inputNumber(c.source_in,v=>mutate(()=>c.source_in=v,{strict:true}))),field(t('length'),inputNumber(c.duration,v=>mutate(()=>c.duration=v,{strict:true}),.001)),btn(t('split'),()=>mutate(()=>splitAudio(p,c.id,playhead),{strict:true})),btn(t('delete'),()=>mutate(()=>{p.audio=p.audio.filter(x=>x.id!==c.id);selectedAudio=null;})));
-    box.append(row,el('div','ez-help',t('audioHelp')));inspector.append(box);
+    row.title=t('audioHelp');box.append(row);inspector.append(box);
   }
   function renderTimeline(){
     const scrollBefore=timeline.querySelector('.ez-scroll')?.scrollLeft||0;
@@ -489,7 +552,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       btn(t('delete'),()=>mutate(()=>{if(p.shots.length===1)throw new Error(t('lastShot'));p.shots=p.shots.filter(s=>s.id!==selected);p.shots[0].transition='cut';})),
       btn('←',()=>mutate(()=>moveShot(p,selected,p.shots.indexOf(current())-1))),btn('→',()=>mutate(()=>moveShot(p,selected,p.shots.indexOf(current())+1))),
       btn(t('splitHere'),()=>mutate(()=>{const g=geometry(p).find(g=>g.id===selected);splitShot(p,selected,playhead-g.start);})),el('span','spacer'),
-      btn('−',()=>{zoom=Math.max(.5,zoom/1.25);renderTimeline();}),btn('＋',()=>{zoom=Math.min(8,zoom*1.25);renderTimeline();}));
+      btn('−',()=>{zoom=Math.max(.5,zoom/1.25);renderTimeline();}),btn('＋',()=>{zoom=Math.min(8,zoom*1.25);renderTimeline();}));applyUIHelp(controls,locale);
     const scroll=el('div','ez-scroll'),track=el('div','ez-track-content'),ruler=el('div','ez-ruler'),shots=el('div','ez-shot-lane'),audioLane=el('div','ez-audio-lane');
     timelineWidth=Math.max(timeline.clientWidth-36,700)*zoom;track.style.width=`${timelineWidth}px`;const total=duration(p),scale=timelineWidth/total;
     for(let t=0;t<total+.01;t+=Math.max(1,Math.ceil(total/14))){const tick=el('span','ez-tick',`${t}s`);tick.style.left=`${t*scale}px`;ruler.append(tick);}
@@ -498,7 +561,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     for(const g of geometry(p)){
       const s=p.shots[g.index],card=el('div','ez-shot'+(selected===s.id?' active':''));card.dataset.shotId=s.id;card.style.left=`${g.start*scale}px`;card.style.width=`${Math.max(20,g.seconds*scale-5)}px`;card.draggable=true;
       const image=s.first_image || (g.index===0?p.first_image:null) || p.reference_slots[(refsFor(p,s)[0]||0)-1];if(image)card.append(img(image));
-      card.append(el('strong','',s.label),el('small','ez-shot-duration',t('shotCard',g.seconds.toFixed(2),t(g.index===0||s.transition==='cut'?'cut':'continued'))),el('small','ez-shot-prompt',s.prompt.trim().slice(0,45)||t('usingCommon')));
+      card.append(el('strong','',s.label),el('small','ez-shot-duration',t('shotCard',g.seconds.toFixed(2),t(g.index===0||s.transition==='cut'?'cut':'continued'))),el('small','ez-shot-prompt',resolveText(p,{field:'prompt',shot_id:s.id},externalConnected?lastExternal:null).text.trim().slice(0,45)||t('usingCommon')));
       card.onclick=()=>{if(suppressShotClick)return;selected=s.id;selectedAudio=null;seek(g.start);renderInspector();renderTimeline();};
       const state=runMatches()?generation.states[s.id]:samePlan()?{phase:'complete',done:[],total:0}:null;
       if(state){const badge=el('span','ez-shot-status '+state.phase,t('status_'+state.phase));badge.title=state.total?t('partsDone',state.done.length,state.total):t('status_complete');card.append(badge);}
@@ -673,9 +736,9 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     playing=true;clock=performance.now();clockStart=playhead;syncAudio();frame=requestAnimationFrame(tick);
   }
   function pause(){playing=false;cancelAnimationFrame(frame);media.pause();video.pause();if(playControl)playControl.textContent='▶';}
-  function seek(t){
+  function seek(position){
     const resume=playing;
-    playhead=Math.max(0,Math.min(duration(p),t));
+    playhead=Math.max(0,Math.min(duration(p),position));
     updateResultState();
     if(resultActive()&&resultMatches)video.currentTime=Math.max(0,playhead-videoOffset());
     if(resume&&resultActive())video.play().catch(()=>message(t('videoError'),true));
@@ -704,25 +767,36 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     e.preventDefault();
     setTimelineHeight(timeline.getBoundingClientRect().height+(e.key==='ArrowUp'?24:-24));
   };
-  function render(){renderLibrary();renderPreview();renderInspector();renderTimeline();checks();}
+  function render(){refreshPlanIdentity();assist?.sync();renderLibrary();renderPreview();renderInspector();renderTimeline();checks();}
   async function applyDraft(doQueue){
+    if(applying)return;applying=true;clearTimeout(editCheckTimer);
     try{
       if(busy)throw new Error(t('waitUpload'));
+      await assistPanel?.flush();
+      if(assistPanel?.isBusy())throw new Error(locale==='ja'?'AI処理が終わってからノード反映してください。':'Wait for AI processing before applying.');
       const previousMediaError=mediaError;
+      const editAtStart=JSON.stringify(p);
       const draft=clone(p);
       draft.resolution??={...studioResolutionDefaults};
       validate(draft);
       if(!externalConnected||draft.prompt_source==='studio'||lastExternal!==null)draft.shots.forEach((_,i)=>effective(draft,i,externalConnected?lastExternal:null));
+      if(doQueue&&assist){
+        const checked=await assist.preflight(draft);
+        if(closed)return;
+        if(editAtStart!==JSON.stringify(p))throw new Error(locale==='ja'?'確認中に編集されました。もう一度実行してください。':'Edits occurred during preflight. Run again.');
+        if(!checked.ok)throw new Error(checked.errors.map(x=>x.message).join(' | '));
+      }
       await onApply(draft);
+      if(closed)return;
       if(!p.resolution)p.resolution={...studioResolutionDefaults};
       saved=JSON.stringify(draft);
       if(mediaError===previousMediaError)mediaError=null;
       checks();
       if(doQueue){if(!onQueue)throw new Error(t('queueUnavailable'));submitting=true;queue.disabled=true;setQueue({phase:'submitting'});await onQueue();message(t('queued'));}
-    }catch(e){if(doQueue&&submitting)setQueue({phase:'failed',detail:errorText(e,t)});message(errorText(e,t),true);}finally{submitting=false;queue.disabled=busy>0;}
+    }catch(e){if(doQueue&&submitting)setQueue({phase:'failed',detail:errorText(e,t)});message(errorText(e,t),true);}finally{applying=false;submitting=false;if(!closed){queue.disabled=busy>0;apply.disabled=busy>0;}}
   }
-  function requestClose(){if(dirty()&&!confirm(t('discardConfirm')))return;close();}
-  function close(){if(closed)return;shotDragCancel?.();closed=true;observer?.disconnect();monitorObserver?.disconnect();pause();abort.abort();video.removeAttribute('src');video.load();media.removeAttribute('src');media.load();audioContext?.close().catch(()=>{});dialog.close();dialog.remove();onClose?.();}
+  function requestClose(){if((dirty()||assistPanel?.hasPendingEdits())&&!confirm(t('discardConfirm')))return;close();}
+  function close(){if(closed)return;shotDragCancel?.();closed=true;clearTimeout(editCheckTimer);assistPanel?.dispose();observer?.disconnect();monitorObserver?.disconnect();pause();abort.abort();video.removeAttribute('src');video.load();media.removeAttribute('src');media.load();audioContext?.close().catch(()=>{});dialog.close();dialog.remove();onClose?.();}
   function openImporter(){
     const d=el('dialog','h3ez-import');
     d.lang=locale;
@@ -732,11 +806,11 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     closeImport.title=t('close');
     closeImport.setAttribute('aria-label',t('close'));
     heading.append(el('h3','',t('importTitle')),closeImport);
-    d.append(heading,el('p','',t('importHelp')));
-    const area=el('textarea');area.setAttribute('aria-label',t('importAria'));area.placeholder='[Shot 1]\nThe character...\n\n[Shot 2]\n...';const info=el('p',''),actions=el('div','ez-import-actions');let parsed=null;
+    d.append(heading);heading.title=t('importHelp');
+    const area=el('textarea');area.title=t('importHelp');area.setAttribute('aria-label',t('importAria'));area.placeholder='[Shot 1]\nThe character...\n\n[Shot 2]\n...';const info=el('p',''),actions=el('div','ez-import-actions');let parsed=null;
     const applyImport=btn(t('importApply'),()=>{if(!parsed)return;mutate(()=>{for(const x of parsed)p.shots[x.index].prompt=x.text;});d.close();d.remove();},'primary');applyImport.disabled=true;
     area.oninput=()=>{parsed=null;applyImport.disabled=true;info.textContent=t('importChanged');};
-    actions.append(btn(t('cancel'),()=>{d.close();d.remove();}),btn(t('checkImport'),()=>{try{parsed=parseScript(area.value,p.shots.length);info.textContent=parsed.map(x=>t('importCharacters',p.shots[x.index].label,x.text.length.toLocaleString(locale))).join(' / ');applyImport.disabled=false;}catch(e){info.textContent=errorText(e,t);applyImport.disabled=true;}}),applyImport);d.append(area,info,actions);document.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();
+    actions.append(btn(t('cancel'),()=>{d.close();d.remove();}),btn(t('checkImport'),()=>{try{parsed=parseScript(area.value,p.shots.length);info.textContent=parsed.map(x=>t('importCharacters',p.shots[x.index].label,x.text.length.toLocaleString(locale))).join(' / ');applyImport.disabled=false;}catch(e){info.textContent=errorText(e,t);applyImport.disabled=true;}}),applyImport);d.append(area,info,actions);document.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();applyUIHelp(d,locale);
   }
   dialog.addEventListener('cancel',e=>{e.preventDefault();if(shotDragCancel)shotDragCancel();else requestClose();});
   dialog.addEventListener('keydown',e=>{
@@ -764,15 +838,15 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   dialog.addEventListener('close',()=>observer.disconnect(),{once:true});
   function setResult(result,{restored=false}={}){
     pause();
-    resultVideo=result;
-    generation=null;
+    resultVideo=result;resultPlanText=JSON.stringify(read(result.plan));
+    generation=null;generationPlanText=null;
     video.src=result.url;
     if(!restored)previewMode='auto';
     updateResultState();
     if(resultActive()&&resultMatches)seek(playhead);
     renderTimeline();
   }
-  function setProgress(value){generation=value;if(shotDragCancel)return;updateResultState();renderTimeline();if(value.warning)message(t('partialPreviewUnavailable'),true);}
+  function setProgress(value){generation=value;generationPlanText=value?JSON.stringify(value.plan):null;if(shotDragCancel)return;updateResultState();renderTimeline();if(value.warning)message(t('partialPreviewUnavailable'),true);}
   setQueue(queueState);
   return {setResult,setProgress,setQueue,setExternal:(linked,text)=>{externalConnected=linked;lastExternal=text;renderInspector();checks();},focus:()=>dialog.focus(),close:()=>{observer.disconnect();originalClose();},getDraft:()=>clone(p),element:dialog};
 }

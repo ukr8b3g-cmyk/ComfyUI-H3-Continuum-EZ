@@ -123,9 +123,10 @@ def normalize_plan(value: str | dict) -> dict:
             raise PlanError(f"Invalid timeline JSON: {exc}") from exc
     else:
         raw = copy.deepcopy(value)
-    if not isinstance(raw, dict) or type(raw.get('schema')) is not int or raw['schema'] != 1:
-        raise PlanError("Unsupported timeline schema (expected 1)")
+    if not isinstance(raw, dict) or type(raw.get('schema')) is not int or raw['schema'] not in (1, 2):
+        raise PlanError("Unsupported timeline schema (expected 1 or 2)")
     p = default_plan()
+    p['schema'] = raw['schema']
     if 'chunking' in raw:
         chunking = raw['chunking']
         if not isinstance(chunking, dict) or type(chunking.get('enabled')) is not bool:
@@ -246,6 +247,16 @@ def normalize_plan(value: str | dict) -> dict:
     for left, right in zip(p['audio'], p['audio'][1:]):
         if left['start'] + left['duration'] > right['start'] + .000001:
             raise PlanError("Audio clips overlap. This version has one non-overlapping audio lane")
+    if p['schema'] == 2:
+        from .enhancer import normalize_enhancer
+        from .story_tools import normalize_story
+        try:
+            normalize_story(raw, p)
+            p['prompt_enhancer'] = normalize_enhancer(raw.get('prompt_enhancer', {}), p)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise PlanError(str(exc)) from exc
+    elif 'prompt_enhancer' in raw or any(any(k in x for k in ('actions','camera','reference_roles')) for x in raw['shots']):
+        raise PlanError('Enhanced features require timeline schema 2; no silent downgrade')
     return p
 
 
@@ -318,9 +329,12 @@ def common_prompt(plan: dict, external_prompt: str | None = None) -> str:
 
 def compile_prompt(plan: dict, shot: dict, *, has_first: bool,
                    external_prompt: str | None = None, has_last=False,
-                   continuing=None, dialogue=None) -> tuple[str, dict[str, str]]:
-    common = common_prompt(plan, external_prompt)
-    raw = shot['prompt'] if shot['prompt_mode'] == 'replace' else '\n\n'.join(x for x in (common, shot['prompt']) if x)
+                   continuing=None, dialogue=None, extra_text=None) -> tuple[str, dict[str, str]]:
+    from .enhancer import resolve_prompt_text
+    common, _ = resolve_prompt_text(plan, {'field': 'global_prompt'}, external_prompt)
+    own, _ = resolve_prompt_text(plan, {'field': 'prompt', 'shot_id': shot['id']}, external_prompt)
+    raw = own if shot['prompt_mode'] == 'replace' else '\n\n'.join(x for x in (common, own) if x)
+    if extra_text: raw += '\n\n' + extra_text
     slots = effective_references(plan, shot)
     mapping = {f'@R{slot}': f'<Picture {pos + 1 + int(has_first) + int(has_last)}>' for pos, slot in enumerate(slots)}
     for token in UNKNOWN_REF_RE.findall(raw):
@@ -345,9 +359,11 @@ def compile_prompt(plan: dict, shot: dict, *, has_first: bool,
 
 def compile_part_prompt(plan, part, external_prompt=None):
     shot = plan['shots'][part['shot_index']]
+    from .story_tools import story_text
+    extra = story_text(plan, part)
     return compile_prompt(plan, shot, has_first=part['first_image'] is not None,
                           has_last=part['last_image'] is not None, continuing=part['transition']=='continue',
-                          external_prompt=external_prompt, dialogue=dialogue_for_part(plan, shot, part))
+                          external_prompt=external_prompt, dialogue=dialogue_for_part(plan, shot, part), extra_text=extra)
 
 
 def preview_prompts(plan: dict, external_prompt: str | None = None) -> list[dict]:
@@ -363,8 +379,22 @@ def preview_prompts(plan: dict, external_prompt: str | None = None) -> list[dict
 
 def fingerprint(plan: dict, input_root: Path) -> str:
     h = hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=False).encode())
+    used = used_asset_ids(plan)
     for asset in plan['assets']:
+        if asset['id'] not in used: continue
         path = asset_path(asset, input_root)
         with path.open('rb') as f:
             for block in iter(lambda: f.read(1024 * 1024), b''): h.update(block)
     return h.hexdigest()
+
+
+def used_asset_ids(plan):
+    """One source of truth for inputs needed by actual generation, not the library."""
+    used = set()
+    for part in execution_plan(plan):
+        used.update(x for x in (part['first_image'], part['last_image']) if x)
+    for shot in plan['shots']:
+        used.update(plan['reference_slots'][r-1] for r in effective_references(plan, shot))
+        used.update(d['speaker'] for d in shot.get('dialogue', []) if d.get('speaker'))
+    used.update(c['asset_id'] for c in plan['audio'])
+    return used
