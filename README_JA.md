@@ -1,4 +1,8 @@
 [English](README.md)
+<img width="1892" height="1008" alt="Clip_110" src="https://github.com/user-attachments/assets/5834c705-21c5-4c69-add4-5e10bd78cef4" />
+<img width="1336" height="771" alt="Clip_39" src="https://github.com/user-attachments/assets/fc14a6d5-c651-44ad-b1cc-05b4aa14ceb4" />
+
+
 
 # H3 Continuum EZ Studio 0.9
 
