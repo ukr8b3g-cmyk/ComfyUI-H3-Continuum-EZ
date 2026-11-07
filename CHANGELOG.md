@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.1 — 2026-11-07
+
+- Ship the supplied FastH3 OmniRef workflow as the single template, preserving its model links, Euler/simple eight-step schedule, shifts 12/3, VSA and Comfy Kitchen attention. No additional Pika LoRA.
+- Synchronize the inner and promoted model defaults and include download metadata for all five models. Keep user media out of the distribution template.
+- Document Python, ComfyUI, CUDA/PyTorch, Comfy Kitchen, NVFP4 hardware and PyAV requirements in Japanese and English, separating model-loader support from the validated full workflow.
+- The generation implementation is unchanged from v0.11.0.
+
 ## 0.11.0 — 2026-11-07
 
 - Pass active references, start/end images, duration and output size to shot AI automatically, keeping common text separate.

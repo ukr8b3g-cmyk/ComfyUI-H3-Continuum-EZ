@@ -1,1 +1,1 @@
-{"private":true,"version":"0.11.0","type":"module","scripts":{"test":"node --test tests/state.test.mjs tests/generation.test.mjs tests/queue_status.test.mjs tests/seed_controls.test.mjs"}}
+{"private":true,"version":"0.11.1","type":"module","scripts":{"test":"node --test tests/state.test.mjs tests/generation.test.mjs tests/queue_status.test.mjs tests/seed_controls.test.mjs"}}

@@ -43,7 +43,10 @@ def test_template_has_portable_model_defaults_and_no_local_media():
     host=next(n for n in d['nodes'] if n['type']==graph['id'])
     nodes={n['id']:n for n in graph['nodes']}
     links={l['id']:l for l in graph['links']}
-    for index,port in enumerate(graph['inputs'][:6]):
+    model_ports={'unet_name','clip_name','clip_name_1','vae_name','vae_name_1'}
+    assert model_ports <= {port['name'] for port in graph['inputs']}
+    for index,port in enumerate(graph['inputs']):
+        if port['name'] not in model_ports:continue
         link_id,=port['linkIds']
         loader=nodes[links[link_id]['target_id']]
         model,=loader['properties']['models']

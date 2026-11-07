@@ -1,4 +1,4 @@
-[English](README.md) · [v0.11.0 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.11.0) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/ComfyUI-H3-Continuum-EZ-v0.11.0.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/H3_Continuum_EZ_Studio.json)
+[English](README.md) · [v0.11.1 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.11.1) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.1/ComfyUI-H3-Continuum-EZ-v0.11.1.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.1/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@
 
 ## はじめに
 
-1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/ComfyUI-H3-Continuum-EZ-v0.11.0.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
-2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
+1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.1/ComfyUI-H3-Continuum-EZ-v0.11.1.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
+2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.1/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
 3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開き、素材を追加します。テンプレートには庭を舞台にした2ショットの例文が入っています。
 
 ## 画面と操作順
@@ -31,18 +31,32 @@ P-H3アップサンプラーはAI文章生成用の任意モデルです。未�
 
 ## テンプレートのモデル
 
-ComfyUI 0.44.0で保存したサブグラフを使います。MiniMax H3に対応したComfyUIを用意してください。モデルと素材画像はZIPに同梱していません。
+現在のテンプレートは、提供された **FastH3 OmniRef版** の1本です。[examples/H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json)を使用します。配布ZIPにも同じFastH3テンプレートを同梱しています。モデルと素材画像は同梱していません。
+
+### 必要環境
+
+| 項目 | 必要条件・動作確認した構成 |
+| --- | --- |
+| ComfyUI | このサブグラフ全体は **v0.44.0以降を推奨**。確認環境はv0.44.0。PDD内蔵モデルの読込対応は **v0.42.0から** で、それ以前ではこのモデルを正しく読み込めません。 |
+| フロントエンド | ComfyUIに付属する対応版を使用。保存・確認した版は **1.57.6**。 |
+| Python | **3.13推奨**、確認済みは **3.13.12**。モデル自体がPython 3.13専用という意味ではありません。他のPython構成ではこのテンプレートを検証していません。 |
+| NVIDIA用PyTorch | **CUDA 13.0以上のビルド（`cu130`以上）** を使用。確認済みは **2.14.1+cu130**。CUDA Toolkitだけを入れてもPyTorchのCUDAは切り替わりません。 |
+| Comfy Kitchen | ComfyUIの依存関係で指定された版を使用。確認済みは **0.2.40**。配布CUDA wheelにはCUDA Runtime 13.0以上・NVIDIAドライバー **r580以上** が必要です。 |
+| 既定のテキストエンコーダー | **NVFP4の高速処理はBlackwell向け**（RTX 50シリーズなど）。他のGPUでは、対応する [BF16](https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors) または [INT8 ConvRot](https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors) のテキストエンコーダーをサブグラフで選択します。 |
+| 動画・音声出力 | ComfyUIの依存関係に含まれる **PyAV 17以上**。確認済みは **19.0.2**。 |
+
+モデル読込の対応時期は[ComfyUI v0.42.0のPDD対応](https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.42.0)、Python・CUDAは[ComfyUIの導入説明](https://github.com/Comfy-Org/ComfyUI#manual-install-windows-linux)と[Comfy Kitchenの必要条件](https://github.com/Comfy-Org/comfy-kitchen#requirements)、モデル構成・NVFP4は[FastH3公式モデルカード](https://huggingface.co/FastVideo/FastH3-Omni-Comfy)を確認しています。旧版のComfyUIや別GPUでの動作確認はしていません。
+
 
 | 用途 | サブグラフの欄 | ダウンロード | `ComfyUI/models/` 以下 |
 | --- | --- | --- | --- |
-| H3 REF2VA 拡散モデル | `unet_name` | [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) | `diffusion_models/` |
+| FastH3 OmniRef 拡散モデル | `unet_name` | [fasth3_omniref_8step_pruned_int8_convrot.safetensors](https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/diffusion_models/fasth3_omniref_8step_pruned_int8_convrot.safetensors) | `diffusion_models/` |
 | H3 テキストエンコーダー | `clip_name` | [qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors) | `text_encoders/` |
 | AI文章用 P-H3 アップサンプラー | `clip_name_1` | [p-h3-image_prompt_upsampler_w4a8.safetensors](https://huggingface.co/PrunaAI/p-h3-image-comfy/resolve/main/text_encoders/p-h3-image_prompt_upsampler_w4a8.safetensors) | `text_encoders/` |
 | 映像VAE | `vae_name` | [minimax_h3_video_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors) | `vae/` |
-| Pika Flex REF2VA LoRA | `lora_name_1` | [pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) | `loras/` |
 | 音声VAE | `vae_name_1` | [minimax_h3_audio_vae_fp32.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors) | `vae/` |
 
-Stability Matrixの共有フォルダーや `minimax/` などを使う場合は、サブグラフ上で実際のファイルを選び直します。テンプレートはREF2VA、Pika Flex LoRA強度1.0、LCM・手動6ステップ、PyTorch Attention、縦長2:3・0.5 MPです。AI文章生成には `clip_name_1` のモデルを使います。
+Stability Matrixの共有フォルダーや `minimax/` などを使う場合は、サブグラフ上で実際のファイルを選び直します。FastH3テンプレートは、提供版の **Euler／simple／8ステップ、映像Shift 12／音声Shift 3、Comfy Kitchen attention、VSA 10%・全区間、縦長2:3・0.5 MP** を維持しています。従来のREF2VA版に使う **Pika LoRAは追加しません**。テキストエンコーダーとVAEは共通のH3用ですが、内部のSampling・Attention設定も異なるため、旧版で拡散モデル名だけを変えても同じ構成にはなりません。AI文章生成には `clip_name_1` のモデルを使います。
 
 長いショットの分割やメモリーを抑える動画出力は **出力設定** で選べます。配置した音声がある場合はその音声を使い、ない場合はH3の生成音声を使います。チャンクの再生成・途中再開・Second Passを使う制作には通常版 [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum) を利用してください。
 
