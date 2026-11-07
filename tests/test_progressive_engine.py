@@ -13,7 +13,7 @@ from h3ezstudio.vendor.continuum.v2.seeds import derive_chunk_seed
 
 
 def test_long_shot_bounds_end_image_dialogue_and_next_shot_seed(runtime,scratch,tmp_path):
-    eng,M,C,V,events,records=runtime;p=default_plan();p['shots'][0].update(seconds=60,last_image='end')
+    eng,M,C,V,events,records=runtime;p=default_plan();p['chunking']={'enabled':True,'seconds':5};p['shots'][0].update(seconds=60,last_image='end')
     p['shots'].append({**copy.deepcopy(p['shots'][0]),'id':'second','seconds':5,'last_image':None,'transition':'continue'})
     for name,color in [('start',(250,0,0)),('end',(0,250,0)),('person',(0,0,250))]:
         Image.new('RGB',(96,64),color).save(tmp_path/(name+'.png'))
@@ -46,7 +46,7 @@ def test_long_shot_bounds_end_image_dialogue_and_next_shot_seed(runtime,scratch,
 
 
 def test_original_audio_stream_and_part_guide_are_bounded(runtime,scratch,tmp_path,monkeypatch):
-    eng,M,C,V,events,records=runtime;p=default_plan();p['shots'][0]['seconds']=30
+    eng,M,C,V,events,records=runtime;p=default_plan();p['chunking']={'enabled':True,'seconds':5};p['shots'][0]['seconds']=30
     rate=32000;count=31*rate
     samples=(np.sin(np.arange(count)*2*np.pi*220/rate)*1000).astype('<i2')
     with wave.open(str(tmp_path/'voice.wav'),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(rate);w.writeframes(samples.tobytes())

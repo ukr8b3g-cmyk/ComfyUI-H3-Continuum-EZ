@@ -33,7 +33,8 @@ def server(tmp_path,monkeypatch):
 
 def test_routes_register_once(server):
     before=dict(server.routes.handlers);register_routes(server)
-    assert len(before)==4 and before==server.routes.handlers
+    assert len(before)==5 and before==server.routes.handlers
+    assert '/h3-continuum-ez/assist/media-info' in before
 
 def test_route_off_stops_before_model_discovery(server):
     p=default_plan();body={'plan':p,'target':{'field':'prompt','shot_id':p['shots'][0]['id']}}
@@ -55,3 +56,10 @@ def test_http_guards(server,option,error):
 def test_cpu_preflight_route_works_without_model_discovery(server):
     response=asyncio.run(server.routes.handlers[PREFIX+'/preflight'](request({'plan':default_plan()})))
     assert response.status==200 and json.loads(response.text)['ok'] is True
+
+
+def test_media_probe_needs_no_ai_model(server,monkeypatch):
+    from h3ezstudio import audio_probe
+    monkeypatch.setattr(audio_probe,'inspect_audio',lambda file,root:{'duration':60,'peaks':[]})
+    response=asyncio.run(server.routes.handlers[PREFIX+'/media-info'](request({'file':{'name':'minute.mp3','type':'input'}})))
+    assert response.status==200 and json.loads(response.text)['duration']==60

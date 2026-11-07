@@ -47,7 +47,7 @@ export function canonicalModelChoice(value, choices) {
 
 // Follow actual wires, including subgraph input/output boundaries. Coordinates,
 // groups, node titles and the former private marker never select a model.
-export function canvasEnhancerBinding(timeline,root=timeline.graph){
+function canvasConfiguration(timeline,root=timeline.graph,dimensions=false){
   const contexts=[],byNode=new Map();
   const visit=(graph,parent=null,path='',parents=new Set())=>{
     if(!graph||parents.has(graph))return;
@@ -102,6 +102,25 @@ export function canvasEnhancerBinding(timeline,root=timeline.graph){
   }
   const engines=[...byNode.keys()].filter(n=>kind(n)==='H3ContinuumEZEngine'&&n.mode!==2&&n.mode!==4&&input(n,'timeline')?.node===timeline);
   if(!engines.length)return null;
+  if(dimensions){
+    const scalar=(node,name,seen=new Set())=>{
+      const key=(byNode.get(node)?.path||'')+node.id+':'+name;if(seen.has(key))return null;
+      seen=new Set(seen);seen.add(key);
+      const widget=configWidget(node,byNode.get(node),name);if(widget)return widget.value;
+      const src=input(node,name);if(!src)return null;
+      if(['PrimitiveInt','PrimitiveFloat','PrimitiveNode'].includes(kind(src.node))&&src.slot===0)return src.node.widgets?.find(w=>w.name==='value')?.value??null;
+      if(kind(src.node)!=='ResolutionSelector'||![0,1].includes(src.slot))return null;
+      const ratio=scalar(src.node,'aspect_ratio',seen),mp=scalar(src.node,'megapixels',seen),multiple=scalar(src.node,'multiple',seen);
+      const match=typeof ratio==='string'&&ratio.match(/^(\d+):(\d+)/);
+      if(!match||typeof mp!=='number'||!Number.isFinite(mp)||mp<=0||!Number.isInteger(multiple)||multiple<=0)return null;
+      const a=Number(match[1]),b=Number(match[2]),n=(src.slot===0?a:b)*Math.sqrt(mp*1024*1024/(a*b))/multiple;
+      const f=Math.floor(n),d=n-f,rounded=Math.abs(d-.5)<1e-10?(f%2?f+1:f):Math.round(n);
+      return rounded*multiple;
+    };
+    const sizes=engines.map(n=>Object.fromEntries(['width','height'].map(name=>[name,scalar(n,name)])));
+    if(sizes.some(s=>![s.width,s.height].every(v=>Number.isInteger(v)&&v>=32&&v<=16384&&v%32===0)))return null;
+    return sizes.every(s=>s.width===sizes[0].width&&s.height===sizes[0].height)?sizes[0]:null;
+  }
   const sources=engines.map(n=>input(n,'prompt_clip'));
   // One Timeline driving conflicting models must not pick one arbitrarily.
   if(sources.some(s=>!s||s.slot!==0||kind(s.node)!=='CLIPLoader')||new Set(sources.map(s=>s.node)).size!==1)return null;
@@ -116,6 +135,8 @@ export function canvasEnhancerBinding(timeline,root=timeline.graph){
   if(typeof value!=='string'||!value.trim()||type!=='minimax'||!['default','cpu'].includes(device))return null;
   return {model:value,type,device,node:ctx.path+node.id};
 }
+export function canvasEnhancerBinding(timeline,root=timeline.graph){return canvasConfiguration(timeline,root);}
+export function canvasGenerationSize(timeline,root=timeline.graph){return canvasConfiguration(timeline,root,true);}
 export function canvasEnhancerModel(timeline,root=timeline.graph){return canvasEnhancerBinding(timeline,root)?.model||'';}
 
 export function normalizeModelChoices(root) {

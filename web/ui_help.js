@@ -11,7 +11,7 @@ export function applyUIHelp(root,locale='en'){
   ['applyToNode','Save the Studio draft to the Timeline node without running it.','Studioの編集内容をTimelineノードへ保存します。生成は開始しません。'],
   ['applyAndQueue','Save the draft and add the video job to the ComfyUI queue.','編集内容を保存し、動画生成をComfyUIのキューへ追加します。'],
   ['exportVideo','Save and queue a video export. Decode and write in parts to limit RAM use.','編集内容を保存して動画生成をキューへ追加。区間ごとにデコード・書き出しします。'],
-  ['exportFrames','Save and queue generation with IMAGE output for downstream processing.','編集内容を保存して生成をキューへ追加。下流で加工できるIMAGEも出力します。'],
+  ['exportFrames','Save a video and supply image data for image processing. Output selection is automatic.','動画を保存し、画像処理用のデータも出力します。出力先の切替は自動です。'],
   ['importText','Import shot text using [Shot 1] headings. Images and timing stay unchanged.','[Shot 1]形式の文章を取り込みます。画像と秒数は変更しません。'],
   ['importApply','Replace only the shot text shown in the import preview.','取り込み結果に表示されたショット本文だけを変更します。'],
   ['checkImport','Check shot headings and show which prompts will be replaced.','見出しを解析し、変更するショットと文字数を確認します。'],
@@ -28,6 +28,9 @@ export function applyUIHelp(root,locale='en'){
   ['addShot','Insert a shot after the selected shot.','選択ショットの後ろにショットを追加します。'],
   ['duplicate','Copy the selected shot, including its text and references.','選択ショットの本文と参照を複製します。'],
   ['delete','Remove the selected shot or audio clip. Source files are retained.','選択したショットまたは音声配置を削除します。元ファイルは保持します。'],
+  ['deleteAudioClip','Remove the selected audio clip. Keep its source in the library; Undo restores the clip.','選択した音声クリップを削除します。素材は残り、元に戻すで復元できます。'],
+  ['deleteShot','Remove the selected shot. Undo restores it.','選択したショットを削除します。元に戻すで復元できます。'],
+  ['fitVideoAudio','Extend the last shot to cover the audio and enable automatic splitting when needed. Audio is not trimmed.','音声の終わりまで最後のショットを延長します。必要に応じて自動分割を有効にします。音声は切り詰めません。'],
   ['splitHere','Split the selected shot at the playhead. Each part must be at least two seconds.','再生位置でショットを分割します。分割後は各2秒以上が必要です。'],
   ['seekStart','Seek to the start of the selected shot.','選択ショットの先頭へ移動します。'],
   ['playPause','Play or pause the preview.','プレビューを再生・一時停止します。'],
@@ -36,7 +39,6 @@ export function applyUIHelp(root,locale='en'){
  ];
  const labels=new Map(rows.map(([k,en,jp])=>[t(k),pick(en,jp)]));
  for(const [label,en,jp] of [
-  [pick('Check Inputs','入力確認'),'Validate the timeline and media; this does not load or run models.','タイムラインと素材を検証します。モデルのロード・生成は行いません。'],
   ['←','Move the shot earlier.','ショットを1つ前へ移動します。'],['→','Move the shot later.','ショットを1つ後ろへ移動します。'],
   ['−','Zoom out on the timeline.','タイムラインを縮小表示します。'],['＋','Zoom in on the timeline.','タイムラインを拡大表示します。'],
   ['×','Remove this assignment. The source file is retained.','この割り当てを外します。元ファイルは保持します。']

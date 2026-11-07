@@ -11,7 +11,7 @@ spec=importlib.util.spec_from_file_location('h3ezstudio',ROOT/'__init__.py',subm
 m=importlib.util.module_from_spec(spec);sys.modules['h3ezstudio']=m;spec.loader.exec_module(m)
 from h3ezstudio.assist_api import prepare_request,adopt_request,preflight_request,DEFAULT_MODEL
 from h3ezstudio.plan import default_plan
-OUT=ROOT/'validation/browser';OUT.mkdir(parents=True,exist_ok=True)
+OUT=Path(os.environ.get('H3EZ_TEST_OUTPUT',str(ROOT/'validation/browser')));OUT.mkdir(parents=True,exist_ok=True)
 
 def production_bundle():
     """Bundle static production modules into isolated scopes for an offline DOM fixture.
@@ -19,7 +19,7 @@ def production_bundle():
     Only import/export syntax is adapted; production function bodies remain unchanged.
     No browser network access or live ComfyUI is used in this test.
     """
-    ordered=['i18n.js','media_labels.js','ui_help.js','prompting.js','enhancer.js','story_tools.js','state.js',
+    ordered=['i18n.js','media_labels.js','ui_help.js','prompting.js','assist_context.js','enhancer.js','story_tools.js','state.js',
              'assist.js','assist_panel.js','story_panel.js','studio.js']
     chunks=['window.__ezModules=Object.create(null);']
     hashes={}
@@ -42,9 +42,13 @@ def main():
     with tempfile.TemporaryDirectory() as folder:
         input_root=Path(folder)
         shutil.copyfile(ROOT/'tests/assets/scene-a.png',input_root/'scene-a.png')
+        shutil.copyfile(ROOT/'tests/assets/scene-a.png',input_root/'scene-b.png')
         p=default_plan();p['global_prompt']='同じ女性、赤いコート。';p['shots'][0]['prompt']='静かに歩く。'
         p['assets']=[dict(id='image-a',kind='image',label='scene-a.png',file=dict(name='scene-a.png',subfolder='',type='input'))]
         p['reference_slots'][0]='image-a';p['global_refs']=[1]
+        p['assets'].append(dict(id='image-b',kind='image',label='scene-b.png',file=dict(name='scene-b.png',subfolder='',type='input')))
+        p['reference_slots'][1]='image-b';p['global_refs']=[1,2]
+        p['resolution']={'source':'studio','aspect':'2:3','megapixels':.5}
         initial=copy.deepcopy(p)
         queue={'queue_running':[], 'queue_pending':[[0,'unrelated-video',{'unrelated':{'class_type':'H3ContinuumEZEngine'}}]]}
         def request(path,options):
@@ -110,10 +114,17 @@ window.openFixture();window.ready=true;
                 assert not calls
                 checks.append('No enable switch or accordion; opening starts no AI work')
                 assert page.locator('.ez-ai-settings,.ez-story-panel').count()==0
-                page.get_by_label('AI画像',exact=True).select_option('image-a')
+                assert page.locator('.ez-ai-toolbar select').count()==0
+                assert page.locator('.ez-ai-context').inner_text()=='参照 2枚'
                 page.get_by_role('button',name='AI生成',exact=True).click()
                 candidate=page.get_by_label('AI文：ショットプロンプト',exact=True)
                 candidate.wait_for(state='visible')
+                graph=jobs['fixture-ai-1']['graph'];gen=next(n['inputs']for n in graph.values()if n['class_type']=='TextGenerateV2')
+                context=json.loads(gen['prompt'])
+                assert 'images.image1'in gen and 'images.image2'in gen
+                assert context['output_frame']['aspect']=='2:3' and context['shot_duration']['requested_seconds']==5
+                assert initial['global_prompt']not in gen['prompt']
+                checks.append('AI click automatically sends two images, duration and aspect without common prose')
                 assert page.evaluate('window.editor.getDraft().shots[0].prompt')==initial['shots'][0]['prompt']
                 checks.append('Generate uses the AI draft while retaining the original')
                 candidate.fill('女性はゆっくり歩き、立ち止まる。')

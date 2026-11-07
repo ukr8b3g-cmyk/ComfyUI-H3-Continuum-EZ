@@ -6,10 +6,11 @@ import {validateStory,storyText,actionPositions} from './story_tools.js';
 export const clone = v => JSON.parse(JSON.stringify(v));
 export const uid = p => `${p}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 export const FPS = 24;
+export const DEFAULT_CHUNK_SECONDS = 7.5;
 export const MAX_SHOT_SECONDS=600,MAX_TIMELINE_SECONDS=3600;
 export function initial() {
   return {schema:1, output_mode:'Long video', resolution:{source:'studio',aspect:'16:9',megapixels:.3}, assets:[], reference_slots:Array(9).fill(null), global_refs:[], first_image:null, global_prompt:'',
-    shots:[{id:uid('shot'),label:'Shot 1',seconds:5,transition:'cut',prompt:'',prompt_mode:'append',refs:null,first_image:null}],audio:[]};
+    shots:[{id:uid('shot'),label:'Shot 1',seconds:5,transition:'cut',prompt:'',prompt_mode:'append',refs:null,first_image:null}],audio:[],chunking:{enabled:true,seconds:DEFAULT_CHUNK_SECONDS}};
 }
 export function read(value) {
   const p = typeof value === 'string' ? JSON.parse(value) : clone(value);
@@ -34,10 +35,10 @@ export function geometry(p) {
 export const duration = p => geometry(p).at(-1)?.end || 0;
 export function executionPlan(p){
   const out=[];
-  const options=p.chunking||{enabled:true,seconds:5},unitLimit=Math.max(3,roundEven(options.seconds*FPS/17));
+  const options=p.chunking||{enabled:true,seconds:DEFAULT_CHUNK_SECONDS},unitLimit=Math.max(3,roundEven(options.seconds*FPS/17));
   for(const g of geometry(p)){
     const s=p.shots[g.index],cut=g.index===0||s.transition==='cut',phase=cut?5:0;
-    const units=(g.frames-phase)/17,count=options.enabled&&s.seconds>15?Math.ceil(units/unitLimit):1,base=Math.floor(units/count),extra=units%count;
+    const units=(g.frames-phase)/17,count=options.enabled?Math.ceil(units/unitLimit):1,base=Math.floor(units/count),extra=units%count;
     let start=roundEven(g.start*FPS);
     for(let i=0;i<count;i++){
       const frames=17*(base+(i<extra?1:0))+(i===0?phase:0);
@@ -65,9 +66,9 @@ export function editPrompt(p,index,part,text){
   else if(part==='shot')p.shots[index].prompt=text;
   else throw new Error('Unknown prompt part');
 }
-export function effective(p,index,external=null,partIndex=0) {
-  const s=p.shots[index], common=resolveText(p,{field:'global_prompt'},external).text;
-  const own=resolveText(p,{field:'prompt',shot_id:s.id},external).text;
+export function effective(p,index,external=null,partIndex=0,outputSize=undefined) {
+  const s=p.shots[index], common=resolveText(p,{field:'global_prompt'},external,outputSize).text;
+  const own=resolveText(p,{field:'prompt',shot_id:s.id},external,outputSize).text;
   let text=s.prompt_mode==='replace'?own:[common,own].filter(Boolean).join('\n\n');
   const part=executionPlan(p).find(x=>x.shot_index===index&&x.part_index===partIndex);
   if(!part)throw new Error('Unknown internal part');
@@ -89,7 +90,7 @@ export function effective(p,index,external=null,partIndex=0) {
   }
   return {text:assemblePrompt(text,Object.values(map),{hasFirst,continuing:part.transition==='continue',lastPicture:hasLast?`<Picture ${1+Number(hasFirst)}>`:null}),map};
 }
-export function validate(p) {
+export function validate(p,{allowAudioOverhang=false}={}) {
   if(p.chunking!==undefined&&(!p.chunking||typeof p.chunking.enabled!=='boolean'||!Number.isFinite(p.chunking.seconds)||p.chunking.seconds<2||p.chunking.seconds>15))throw new StudioError('invalidChunking');
   if(p.chunking?.enabled===false&&p.shots.some(s=>s.seconds>15))throw new StudioError('splitDisabledLongShot');
   if('prompt_source' in p&&!['studio','external'].includes(p.prompt_source))throw new StudioError('invalidPromptSource');
@@ -127,7 +128,9 @@ export function validate(p) {
     const a=assets.get(c.asset_id);
     if(a?.kind!=='audio')throw new StudioError('audioMissing');
     if(![c.start,c.source_in,c.duration].every(Number.isFinite)||c.start<0||c.source_in<0||c.duration<=0)throw new StudioError('invalidTrim');
-    if(c.start+c.duration>total+.001)throw new StudioError('audioPastEnd');
+    if(c.volume!==undefined&&(!Number.isFinite(c.volume)||c.volume<0||c.volume>1))throw new StudioError('invalidVolume');
+    if(!allowAudioOverhang&&c.start+c.duration>total+.001)throw new StudioError('audioPastEnd');
+    if(c.start+c.duration>MAX_TIMELINE_SECONDS)throw new StudioError('timelineLimit');
     if(c.source_in+c.duration>a.duration+.01)throw new StudioError('trimPastEnd');
     if(i&&clips[i-1].start+clips[i-1].duration>c.start+.000001)throw new StudioError('overlap');
   }
@@ -177,7 +180,7 @@ export function splitShot(p,id,localSeconds) {
   }
   s.seconds=splitAt;p.shots.splice(i+1,0,right);return right;
 }
-export function resizeShot(p,id,edge,at,{snapTimes=[],scale=1,disableSnap=false}={}){
+export function resizeShot(p,id,edge,at,{snapTimes=[],scale=1,disableSnap=false,allowAudioOverhang=false}={}){
   const next=clone(p),gs=geometry(p),i=p.shots.findIndex(s=>s.id===id);
   if(i<0||!Number.isFinite(at)||!['left','right'].includes(edge)||(edge==='left'&&i===0))throw new StudioError('invalidResize');
   let snapped=false;
@@ -190,7 +193,7 @@ export function resizeShot(p,id,edge,at,{snapTimes=[],scale=1,disableSnap=false}
   const wanted=roundEven((at-gs[j].start)*FPS),frames=Math.max(lo,Math.min(hi,q+17*roundEven((wanted-q)/17)));
   next.shots[j].seconds=Math.min(MAX_SHOT_SECONDS,frames/FPS);
   if(edge==='left')next.shots[i].seconds=Math.min(MAX_SHOT_SECONDS,(total-frames)/FPS);
-  validate(next);
+  validate(next,{allowAudioOverhang});
   const actual=geometry(next)[j].end;
   return {plan:next,at:actual,snapped:snapped&&Math.abs(actual-at)*scale<=8};
 }

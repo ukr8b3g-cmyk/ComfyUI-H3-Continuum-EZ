@@ -125,12 +125,11 @@ def test_ez_storage_isolates_custom_folder(tmp_path):
     assert m.status()['path'] == str(tmp_path/'chosen'/'h3-continuum-ez')
 
 
-def test_long_video_rejects_image_consumer_before_sampling(monkeypatch, tmp_path):
+def test_unknown_image_consumer_is_detected_conservatively(monkeypatch, tmp_path):
     import sys, types
-    from h3ezstudio.ez_nodes import H3ContinuumEZEngine
-    monkeypatch.setitem(sys.modules, 'folder_paths', types.SimpleNamespace())
-    with pytest.raises(ValueError, match='does not output IMAGE'):
-        H3ContinuumEZEngine().generate(output_mode='Long video', unique_id='7', prompt={'8':{'inputs':{'images':['7',0]}}})
+    from h3ezstudio.ez_nodes import _has_active_image_consumer
+    monkeypatch.setitem(sys.modules, 'nodes', types.SimpleNamespace(NODE_CLASS_MAPPINGS={}))
+    assert _has_active_image_consumer({'8':{'class_type':'CustomImageOutput','inputs':{'images':['7',0]}}},'7')
 
 
 def test_stream_uses_imported_audio_without_generated_audio_decode(runtime, scratch, tmp_path, monkeypatch):

@@ -1,5 +1,6 @@
 // Pure, bounded prompt selection. Keep dependency_payload/resolve_prompt_text parity
 // with enhancer.py. No fetch, model work or image preprocessing in this module.
+import {VISUAL_CONTRACT,MAX_AI_IMAGES,visualTiming,visualOutput} from './assist_context.js';
 export const PROFILE='ez-shot-v1';
 export const DEFAULT_MODEL='p-h3-image_prompt_upsampler_w4a8.safetensors';
 const CONTRACT='h3ez-assist-v1';
@@ -38,22 +39,24 @@ export function originalText(p,target,external=null){
   const shot=p.shots.find(s=>s.id===target.shot_id);if(!shot)throw new Error('The target shot no longer exists');return shot.prompt;
 }
 function first(p,index){let f=p.shots[0]?.first_image||p.first_image;for(let i=1;i<=index;i++)if(p.shots[i].transition==='cut')f=p.shots[i].first_image;return f||null;}
-export function dependencyPayload(p,target,external=null,contract=CONTRACT,includeCommon=null){
+export function dependencyPayload(p,target,external=null,contract=CONTRACT,includeCommon=null,outputSize=null){
   const key=targetKey(target),index=p.shots.findIndex(s=>s.id===target.shot_id);
-  if(![CONTRACT,SHOT_ONLY_CONTRACT].includes(contract)||(key==='global'&&contract===SHOT_ONLY_CONTRACT))throw new Error('Invalid AI prompt scope');
+  if(![CONTRACT,SHOT_ONLY_CONTRACT,VISUAL_CONTRACT].includes(contract)||(key==='global'&&contract===SHOT_ONLY_CONTRACT))throw new Error('Invalid AI prompt scope');
   if(key!=='global'&&index<0)throw new Error('The target shot no longer exists');
-  const indices=key==='global'?p.shots.map((_,i)=>i):[index],scope=[],imageIds=[];
+  const visual=contract===VISUAL_CONTRACT,indices=key==='global'?(visual?[]:p.shots.map((_,i)=>i)):[index],scope=[],imageIds=[];
+  if(visual&&key==='global')for(const r of [...p.global_refs].sort((a,b)=>a-b)){const id=p.reference_slots[r-1];if(!imageIds.includes(id))imageIds.push(id);}
   for(const i of indices){
     const s=p.shots[i],ids=[...(s.refs==null?p.global_refs:s.refs)].sort((a,b)=>a-b).map(r=>p.reference_slots[r-1]),f=first(p,i),last=s.last_image||null;
     for(const aid of [f,last,...ids])if(aid&&!imageIds.includes(aid))imageIds.push(aid);
     scope.push({id:s.id,first:f,last,refs:ids,camera:s.camera||null,
       roles:(s.reference_roles||[]).map(r=>({asset_id:r.asset_id,role:r.role,description:r.description||''})),
       actions:(s.actions||[]).map(a=>({id:a.id,kind:a.kind,text:a.text}))});
+    if(visual)scope.at(-1).timing=visualTiming(p,i);
   }
   const images=imageIds.map(id=>{const a=p.assets.find(a=>a.id===id);if(!a)throw new Error('Assigned image is missing');return {id,file:{name:a.file.name,subfolder:(a.file.subfolder||'').replaceAll('\\','/').replace(/^\/+|\/+$/g,''),type:a.file.type||'input'},subject_name:a.subject_name||''};});
   const useContext=key!=='global'&&contract===CONTRACT&&(includeCommon??(p.shots[index].prompt_mode!=='replace'));
   const common=useContext?originalText(p,{field:'global_prompt'},external):'';
-  return {contract,target:{...target},text:originalText(p,target,external),common,images,scope};
+  return {contract,target:{...target},text:originalText(p,target,external),common,images,scope,...(visual?{output:visualOutput(p,outputSize)}:{})};
 }
 export function validateCandidate(text){
   if(typeof text==='string' && /^\s*(?:edit|modify|alter)\s+(?:the|this|input|reference|source)\s+(?:image|picture|photo)\b/i.test(text))throw new Error('AI returned a still-image edit instruction / 静止画の編集命令は採用できません');
@@ -73,22 +76,24 @@ export function validateEnhancer(p){
     if(!x||typeof x!=='object'||Object.keys(x).some(k=>!['target','text','base_text_hash','dependency_hash','dependencies','images','model_identity','profile_version','inactive'].includes(k))||('inactive'in x&&typeof x.inactive!=='boolean'))throw new Error('Invalid enhanced prompt record');
     const key=targetKey(x.target);if(seen.has(key))throw new Error('Duplicate enhanced prompt target');seen.add(key);originalText(p,x.target);validateCandidate(x.text);
     if(!x.dependencies||typeof x.dependencies!=='object'||Array.isArray(x.dependencies)||canonical(x.dependencies).length>1000000||!HEX.test(x.base_text_hash)||!HEX.test(x.dependency_hash)||sha256(canonical(x.dependencies))!==x.dependency_hash||sha256(x.dependencies.text||'')!==x.base_text_hash)throw new Error('Corrupt enhanced prompt binding');
-    if(!Array.isArray(x.images||[])||(x.images||[]).length>1||(x.images||[]).some(i=>!i||Object.keys(i).sort().join(',')!=='id,sha256'||typeof i.id!=='string'||!IDs.test(i.id)||!HEX.test(i.sha256)))throw new Error('Invalid AI image binding');
+    if(!Array.isArray(x.images||[])||(x.images||[]).length>MAX_AI_IMAGES||new Set((x.images||[]).map(i=>i?.id)).size!==(x.images||[]).length||(x.images||[]).some(i=>!i||Object.keys(i).sort().join(',')!=='id,sha256'||typeof i.id!=='string'||!IDs.test(i.id)||!HEX.test(i.sha256)))throw new Error('Invalid AI image binding');
     for(const k of ['model_identity','profile_version'])if(k in x&&(typeof x[k]!=='string'||x[k].length>1024))throw new Error('Invalid AI receipt');
   }
 }
-export function resolveText(p,target,external=null){
+export function resolveText(p,target,external=null,outputSize=undefined){
   const original=originalText(p,target,external),e=p.prompt_enhancer;
   if(e?.enabled!==true)return {text:original,status:'off'};
   const key=targetKey(target),x=e.texts?.find(x=>targetKey(x.target)===key);
   if(!x)return {text:original,status:'unadopted'};
   if(x.inactive)return {text:original,status:'off'};
-  if(!entryIsCurrent(p,x,external))return {text:original,status:'stale'};
+  if(!entryIsCurrent(p,x,external,outputSize))return {text:original,status:'stale'};
   return {text:x.text,status:'enhanced'};
 }
-export function entryIsCurrent(p,entry,external=null){
+export function entryIsCurrent(p,entry,external=null,outputSize=undefined){
   try{
-    const dep=dependencyPayload(p,entry.target,external,entry.dependencies.contract,Boolean(entry.dependencies.common));
+    const saved=entry.dependencies.output;
+    const size=outputSize===undefined?(saved?.source==='engine'&&saved.width?saved:null):outputSize;
+    const dep=dependencyPayload(p,entry.target,external,entry.dependencies.contract,Boolean(entry.dependencies.common),size);
     return sha256(dep.text)===entry.base_text_hash&&sha256(canonical(dep))===entry.dependency_hash;
   }catch{return false;}
 }

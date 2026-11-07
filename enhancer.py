@@ -12,6 +12,8 @@ from pathlib import Path
 
 CONTRACT = 'h3ez-assist-v1'
 SHOT_ONLY_CONTRACT = 'h3ez-assist-shot-v2'
+VISUAL_CONTRACT = 'h3ez-assist-visual-v3'
+MAX_AI_IMAGES = 11  # Nine references plus distinct start/end images.
 MAX_CANDIDATE = 32_000
 MAX_ENTRIES = 17
 HEX = re.compile(r'^[0-9a-f]{64}$')
@@ -24,6 +26,11 @@ SYSTEM_PROMPT = (
     'Do not repeat the common context. Do not add subjects, dialogue, music, '
     'scene cuts or camera movement unless the selected text requests them. '
     'Describe the requested motion, not an edit to a still image. '
+    'Use all supplied images according to their listed roles. Different references may '
+    'show different subjects; do not merge their identities or copy their backgrounds '
+    'unless requested. Start/end images describe endpoints, not simultaneous events. '
+    'Fit the action to the supplied shot duration and frame aspect ratio. '
+    'For a common-text field, refine only the common text; do not invent a shot sequence. '
     'Do not output Picture indices, reference indices, H3 section headings, '
     'timing instructions, JSON, Markdown, reasoning or explanations. '
     'Return only one concise candidate paragraph in the language of the selected text.'
@@ -66,13 +73,18 @@ def _first(plan, index):
     return first or None
 
 
-def dependency_payload(plan, target, external=None, contract=CONTRACT, include_common=None):
+def dependency_payload(plan, target, external=None, contract=CONTRACT, include_common=None, output_size=None):
     """Only strings, lists, dicts, null, bool and integer values; JS parity-safe."""
     key = target_key(target)
-    if contract not in (CONTRACT, SHOT_ONLY_CONTRACT) or (contract == SHOT_ONLY_CONTRACT and key == 'global'):
+    if contract not in (CONTRACT, SHOT_ONLY_CONTRACT, VISUAL_CONTRACT) or (contract == SHOT_ONLY_CONTRACT and key == 'global'):
         raise ValueError('Invalid AI prompt scope')
     indices = range(len(plan['shots'])) if key == 'global' else [next(i for i,s in enumerate(plan['shots']) if s['id'] == target['shot_id'])]
+    visual = contract == VISUAL_CONTRACT
+    if visual and key == 'global':
+        indices = []  # Common text must never see individual shot prose or actions.
     scope, image_ids = [], []
+    if visual and key == 'global':
+        image_ids = list(dict.fromkeys(plan['reference_slots'][r-1] for r in sorted(plan['global_refs'])))
     for index in indices:
         shot = plan['shots'][index]
         refs = sorted(plan['global_refs'] if shot.get('refs') is None else shot['refs'])
@@ -85,6 +97,10 @@ def dependency_payload(plan, target, external=None, contract=CONTRACT, include_c
                       'camera': shot.get('camera') or None,
                       'roles': shot.get('reference_roles', []),
                       'actions': [{k:a[k] for k in ('id','kind','text')} for a in shot.get('actions', [])]})
+        if visual:
+            from .plan import shot_geometry
+            scope[-1]['timing'] = {'requested_ms': int(float(shot['seconds']) * 1000 + .5),
+                                  'frames': shot_geometry(plan)[index]['frames'], 'fps': 24}
     by_id = {a['id']: a for a in plan['assets']}
     images = [{'id': aid, 'file': {k:by_id[aid]['file'].get(k, '' if k=='subfolder' else 'input') for k in ('name','subfolder','type')},
                'subject_name': by_id[aid].get('subject_name', '')} for aid in image_ids]
@@ -94,8 +110,23 @@ def dependency_payload(plan, target, external=None, contract=CONTRACT, include_c
         use_context = shot['prompt_mode'] != 'replace' if include_common is None else include_common
         if use_context:
             common = original_text(plan, {'field':'global_prompt'}, external)
-    return {'contract':contract, 'target':dict(target), 'text':original_text(plan,target,external),
-            'common':common, 'images':images, 'scope':scope}
+    result = {'contract':contract, 'target':dict(target), 'text':original_text(plan,target,external),
+              'common':common, 'images':images, 'scope':scope}
+    if visual:
+        from .plan import studio_resolution, validate_dimension
+        resolution = plan.get('resolution', {})
+        if resolution.get('source') == 'studio':
+            w, h = studio_resolution(resolution)
+            result['output'] = {'source':'studio', 'aspect':resolution['aspect'], 'width':w, 'height':h}
+        else:
+            result['output'] = {'source':'engine', 'aspect':None, 'width':None, 'height':None}
+            if output_size is not None:
+                w, h = output_size['width'], output_size['height']
+                validate_dimension(w, 'Width'); validate_dimension(h, 'Height')
+                from math import gcd
+                d = gcd(w, h)
+                result['output'].update(aspect=f'{w//d}:{h//d}', width=w, height=h)
+    return result
 
 
 def validate_candidate(text):
@@ -154,8 +185,10 @@ def normalize_enhancer(raw, plan):
         if digest(canonical(dep))!=item['dependency_hash'] or digest(dep.get('text',''))!=item['base_text_hash']:
             raise ValueError('Corrupt enhanced prompt binding')
         image_records=item.get('images',[])
-        if not isinstance(image_records,list) or len(image_records)>1:
-            raise ValueError('This build supports one explicitly selected AI image')
+        if not isinstance(image_records,list) or len(image_records)>MAX_AI_IMAGES:
+            raise ValueError('Too many AI image bindings')
+        if len({x.get('id') for x in image_records if isinstance(x,dict)}) != len(image_records):
+            raise ValueError('Duplicate AI image binding')
         for image in image_records:
             if not isinstance(image,dict) or set(image)!={'id','sha256'} or not re.fullmatch(r'[A-Za-z0-9_-]{1,96}',str(image.get('id',''))) or not HEX.fullmatch(str(image.get('sha256',''))):
                 raise ValueError('Invalid AI image binding')
@@ -179,17 +212,19 @@ def resolve_prompt_text(plan, target, external=None):
     if entry is None: return original,'unadopted'
     if entry.get('inactive',False): return original,'off'
     contract = entry['dependencies'].get('contract', CONTRACT)
-    if contract not in (CONTRACT, SHOT_ONLY_CONTRACT) or (key == 'global' and contract == SHOT_ONLY_CONTRACT):
+    if contract not in (CONTRACT, SHOT_ONLY_CONTRACT, VISUAL_CONTRACT) or (key == 'global' and contract == SHOT_ONLY_CONTRACT):
         return original,'stale'
     # Legacy AI text depends on the context it actually saw, even when the
     # user later changes whether that context is included in the video.
-    deps = dependency_payload(plan,target,external,contract,bool(entry['dependencies'].get('common')))
+    saved_output = entry['dependencies'].get('output', {})
+    output_size = saved_output if saved_output.get('source') == 'engine' and saved_output.get('width') else None
+    deps = dependency_payload(plan,target,external,contract,bool(entry['dependencies'].get('common')),output_size)
     if digest(original)!=entry['base_text_hash'] or digest(canonical(deps))!=entry['dependency_hash']:
         return original,'stale'
     return entry['text'],'enhanced'
 
 
-def verified_plan(plan, input_root):
+def verified_plan(plan, input_root, output_size=None):
     """Invalidate changed input bytes on a runtime copy, never erase saved text."""
     if not plan.get('prompt_enhancer',{}).get('enabled',False): return plan,[]
     result=copy.deepcopy(plan); notes=[]; by_id={a['id']:a for a in plan['assets']}; hashes={}
@@ -197,6 +232,12 @@ def verified_plan(plan, input_root):
     rejected=set()
     for entry in result['prompt_enhancer']['texts']:
         if entry.get('inactive',False): continue
+        saved_output = entry['dependencies'].get('output', {})
+        if output_size and saved_output.get('source') == 'engine' and saved_output.get('width') and any(
+                saved_output[k] != output_size[k] for k in ('width','height')):
+            rejected.add(target_key(entry['target']))
+            notes.append(target_key(entry['target'])+': output size changed; original prompt used')
+            continue
         for image in entry.get('images',[]):
             aid=image['id']
             if aid not in hashes:

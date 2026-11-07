@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.10.1 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.10.1) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.10.1/ComfyUI-H3-Continuum-EZ-v0.10.1.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.10.1/H3_Continuum_EZ_Studio.json)
+[日本語](README_JA.md) · [v0.11.0 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.11.0) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/ComfyUI-H3-Continuum-EZ-v0.11.0.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Get started
 
-1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.10.1/ComfyUI-H3-Continuum-EZ-v0.10.1.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
-2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.10.1/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
+1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/ComfyUI-H3-Continuum-EZ-v0.11.0.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
+2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.0/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with two sample shots set in a garden.
 
 ## Studio walkthrough
@@ -21,11 +21,13 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 | ③ Shot settings | Set duration, cut or continuation, reference images and output size. The displayed time follows H3’s frame grid. |
 | ④ Prompts | Write the action in **Shot Prompt** and shared details in **Common Prompt**. Use **Common text on/off** for the selected shot. **Generation Prompt** shows what is sent to the video model. |
 | ⑤ AI text | Click **Generate AI** in the field you are editing. Shot AI receives the shot text without common text. Generate common text from its own tab. **Generate All Shots** processes only shot text. Choose **Original** or **AI Text** to switch sources. |
-| ⑥ Dialogue and direction | Add dialogue with an optional speaker and start time. Set the camera, action and reference roles, then choose an optional **End image**. |
+| ⑥ Dialogue and direction | Add dialogue with an optional speaker and start time. Set the camera, action and reference roles. Choose an optional **End image** beside the reference controls. |
 | ⑦ Preview | Check your media layout before generation. After exporting, switch to the generated video to review it. |
 | ⑧ Apply and generate | **Apply to Node** saves the draft to the workflow, which you can then save in ComfyUI. **Apply and Queue** starts the video job. This template saves to `output/video/`. |
 
 The P-H3 prompt upsampler is optional. Without it, keep **Original** selected and generate video with the existing wiring. **Generate AI** creates and selects AI text; it does not start a video job. You can edit the AI text or switch back to **Original** before generating video.
+
+Shot AI automatically receives the shot’s active reference images, start/end images, duration and output aspect ratio. Common text stays separate; its AI action receives only common text and shared references. The reference count beside **Generate AI** shows the images sent, with details on hover. No image selector or additional setup is needed. Images are reduced to a bounded total size for AI analysis; original assets are unchanged. Changing the original, references, duration or output size makes the saved AI text stale until regenerated.
 
 ## Template models
 
@@ -43,5 +45,15 @@ The template uses a subgraph saved in ComfyUI 0.44.0. Use a ComfyUI build with M
 If you use a shared model library or a subfolder such as `minimax/`, select the installed filenames on the subgraph. The template uses REF2VA, Pika Flex at strength 1.0, LCM with six manual steps, PyTorch Attention and portrait 2:3 at 0.5 MP. The `clip_name_1` model powers the optional AI text controls.
 
 Use **Output Settings** to tune long-shot splitting or switch to progressive video export for lower memory use. Imported audio is used as the soundtrack when present. For chunk regeneration, resume or Second Pass, use [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum).
+
+Output choices are **Automatic / Save Video / Video + Images**. Video exports include audio; workflows that need image data receive it automatically, without connection changes. Automatic splitting defaults to **7.5 seconds**, so a 15-second shot uses two parts. The entered value is retained while actual durations follow H3's frame grid.
+
+## Audio editing
+
+Import audio through **Add Media** or the media drop area, then drag it from the library to the audio track. Importing to the library keeps the complete source duration; placing a one-minute source creates a one-minute clip. Video files can also be imported for their audio only. The source video is not placed on the picture track.
+
+Select an audio clip to move, trim, split, duplicate or delete it. Delete/Backspace removes the selected placement; the source stays in the library and Undo restores the edit. Audio extending beyond the shots remains visible. Use **Match Video to Audio** to extend the last shot before generating; generation does not silently cut the audio or extend shots.
+
+The player mute and volume control affect preview playback only. The selected clip's volume controls its guide audio and exported soundtrack. This version supports one non-overlapping audio track.
 
 See the [prompt guide](docs/EASY_PROMPTS_EN.md) for more examples. AI text is an experimental adaptation for video prompts. Review the result before generating.

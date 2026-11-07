@@ -7,6 +7,7 @@ import logging
 from contextlib import ExitStack, nullcontext
 from functools import wraps
 from . import storage
+from .version import __version__
 from .vendor.continuum import storage_settings
 from pathlib import Path
 import torch
@@ -87,8 +88,6 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         raise PlanError('Long video requires an output directory and result receiver')
     plan = normalize_plan(timeline['plan'])
     from .enhancer import verified_plan
-    plan, assist_warnings = verified_plan(plan, input_root)
-    for warning in assist_warnings: LOG.warning('Prompt enhancer: %s', warning)
     if plan.get('resolution', {}).get('source') == 'studio':
         width, height = studio_resolution(plan['resolution'])
     legacy_size = width is None and height is None and (megapixels is not None or aspect is not None)
@@ -120,6 +119,8 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
             '16:9' if aspect is None else aspect,
             load_image(paths[first], (2048,2048)) if first else None,
         )
+    plan, assist_warnings = verified_plan(plan, input_root, {'width':width, 'height':height})
+    for warning in assist_warnings: LOG.warning('Prompt enhancer: %s', warning)
     estimate = total_frames * width * height * 3 * 4
     if streaming:
         # Only the largest working chunk needs decoding; no full-length IMAGE buffer.
@@ -277,7 +278,7 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
     if writer:
         video_result.update(writer.finish(final_audio, total_frames))
     report = '\n'.join([
-        'H3 Continuum EZ Studio 0.9.1 + AI Studio — original reference_context_v1',
+        f'H3 Continuum EZ Studio {__version__} — original reference_context_v1',
         f'Prompt enhancer: {"ON" if plan.get("prompt_enhancer",{}).get("enabled") else "OFF"}; no AI inference during video generation.',
         *assist_warnings,
         f'{width}x{height}, {total_frames} frames at 24 fps, {total_frames/FPS:.3f}s',

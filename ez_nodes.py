@@ -102,7 +102,7 @@ class H3ContinuumEZEngine:
             'width': ('INT', {**dimensions, 'default': DEFAULT_WIDTH, 'tooltip': 'Output width in pixels. Use a multiple of 32.'}),
             'height': ('INT', {**dimensions, 'default': DEFAULT_HEIGHT, 'tooltip': 'Output height in pixels. Use a multiple of 32.'}),
             'buffer_backend': (['Disk-backed', 'Auto', 'RAM'], {'default': 'Disk-backed', 'tooltip': 'Images mode: Disk-backed uses disk buffers to reduce RAM use. Auto selects RAM or disk based on available memory. RAM keeps buffers in memory. Long video always uses disk buffers.'}),
-            'output_mode': (['Images', 'Long video'], {'default': 'Images', 'tooltip': 'Used when Studio follows Engine output settings. Images outputs all frames through images for downstream nodes. Long video writes an MP4 with audio directly and uses disk buffers to reduce RAM use. Disconnect images and use video or the Studio preview.'})},
+            'output_mode': (['Images', 'Long video'], {'default': 'Images', 'tooltip': 'Studio can choose the output format. Both modes provide an audio/video preview and video output. Long video writes in parts to reduce RAM use. If this workflow also needs image data, image output is enabled automatically without changing any connections.'})},
             'hidden': {'prompt': 'PROMPT', 'unique_id': 'UNIQUE_ID'}}
 
     @classmethod
@@ -127,7 +127,9 @@ class H3ContinuumEZEngine:
             kwargs['output_mode'] = studio_mode
         streaming = kwargs.get('output_mode') == 'Long video'
         if streaming and prompt and unique_id is not None and _has_active_image_consumer(prompt, unique_id):
-            raise PlanError('Long video does not output IMAGE. Disconnect images, or select Image frame output in Studio Advanced settings. imagesの接続を外すか、Studioの詳細設定で「画像フレームを出力」を選んでください。')
+            # An existing image-processing branch must work without manual rewiring.
+            kwargs['output_mode'] = 'Images'
+            streaming = False
         kwargs.setdefault('buffer_backend', 'Disk-backed')
         exported = {}
         from .progress import GenerationProgress

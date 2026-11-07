@@ -1,15 +1,15 @@
 // One row selects the actual prompt source. Originals are never overwritten by AI.
-import {canonical,dependencyPayload,entryIsCurrent,targetKey,originalText,resolveText,validateCandidate} from './enhancer.js';
-import {mediaLabel} from './media_labels.js';
+import {dependencyPayload,entryIsCurrent,targetKey,originalText,resolveText,validateCandidate} from './enhancer.js';
+import {VISUAL_CONTRACT} from './assist_context.js';
 const words={
  original:['Original','原文'],ai:['AI Text','AI文'],generate:['Generate AI','AI生成'],stop:['Stop','中止'],image:['AI Image','AI画像'],none:['Text only','画像なし'],
  originalHelp:['Use this field’s original text for video generation. The AI text is kept.','この欄の原文を動画生成に使用します。AI文は保持します。'],aiHelp:['Use this field’s saved AI text for video generation. The original is kept.','この欄のAI文を動画生成に使用します。原文は保持します。'],
  generateHelp:['Generate and use AI text for this field. The original is retained. Review and edit the result.','この欄のAI文を生成して使用します。原文は保持します。結果を確認し、必要に応じて編集してください。'],
- imageHelp:['Optional: send one assigned image to the text model. This does not change video references.','文章モデルに渡す画像を1枚選べます。動画用の参照画像の割り当ては変わりません。'],
+ imageHelp:['Automatically use all images assigned to this field. Shot AI also receives its duration and output aspect ratio. Common text and shot text stay separate.','この欄で使う画像を自動で渡します。ショットAIには秒数・アスペクト比も渡します。共通文とショット本文は混ぜません。'],
  stopHelp:['Cancel this text request; keep the previous text. A running job may finish on the server.','この文章生成を中止し、直前の文章を保ちます。実行中の処理はサーバー側で完了する場合があります。'],
  missing:['AI text model unavailable.','AI用の文章モデルが利用できません。'],
  empty:['Enter text first.','先に本文を入力してください。'],noAI:['Generate AI text first.','先にAI生成を実行してください。'],stale:['Source changed · regenerate','入力変更 · 再生成が必要'],
- staleHelp:['The original or references changed. Saved AI text is retained, but the original is used until regeneration.','原文または参照が変更されました。保存済みAI文は残りますが、再生成までは原文を使用します。'],
+ staleHelp:['The input conditions changed. Saved AI text is kept; the original is used until regeneration.','入力条件が変わりました。保存済みAI文は保持し、再生成までは原文を使用します。'],
  preparing:['Preparing','準備中'],submitting:['Submitting','送信中'],queued:['Queued','待機中'],running:['Generating','生成中'],saving:['Saving','保存中'],edited:['Unsaved edit','未保存'],
  error:['Failed','エラー'],cancelled:['Stopped','中止しました'],usedOriginal:['Original in use','原文を使用'],usedAI:['AI text in use','AI文を使用'],
  all:['Generate All Shots','全ショットAI生成'],allOriginal:['All Originals','全て原文'],allHelp:['Generate AI text for each nonempty shot prompt. The common prompt stays as selected.','本文のある各ショットのAI文を順に生成します。共通プロンプトの選択はそのままです。'],
@@ -22,7 +22,7 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
  const t=k=>words[k]?.[locale==='ja'?1:0]||k,slots=new Map();let bindings=[],disposed=false,batch=null,globalMessage='';
  const entryFor=(p,target)=>p.prompt_enhancer?.texts?.find(x=>targetKey(x.target)===targetKey(target));
  const slot=target=>{const key=targetKey(target);if(!slots.has(key))slots.set(key,{target:{...target},edit:null,imageId:'',job:null,saving:null,running:false,attempt:0});return slots.get(key);};
- const savedCurrent=(p,target,external)=>{const e=entryFor(p,target);return !!e&&entryIsCurrent(p,e,external);};
+ const savedCurrent=(p,target,external)=>{const e=entryFor(p,target);return !!e&&entryIsCurrent(p,e,external,getState().outputSize??null);};
  const generating=()=>!!client.active||[...slots.values()].some(s=>s.running);
  const busy=()=>generating()||[...slots.values()].some(s=>s.saving);
  const modelReady=()=>!!getState().identity?.canvasModel;
@@ -42,7 +42,7 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
   }
   const s=slot(target),attempt=++s.attempt;s.running=true;s.job={phase:'preparing'};update();
   try{
-   const result=await client.generate({target,imageId:s.imageId||null,refresh:true});
+   const result=await client.generate({target,refresh:true});
    if(disposed||attempt!==s.attempt)return false;
    s.job={phase:'saving'};update();const entry=await client.adopt(result);
    if(disposed||attempt!==s.attempt)return false;
@@ -69,7 +69,7 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
  const allOriginal=button(t('allOriginal'),async()=>{try{await flush();}catch{return;}for(const s of slots.values()){s.edit=null;s.job=null;}onRestoreAll();globalMessage='';update();});allOriginal.title=t('allOriginalHelp');
  const globalStatus=el('span','ez-ai-global-state');globalStatus.setAttribute('role','status');global.append(all,allOriginal,globalStatus);
  function renderGlobal(){const active=generating();all.textContent=batch?`${t('stop')} ${batch.index}/${batch.total||'…'}`:t('all');all.disabled=(!batch&&active)||!!client.uncertain;all.title=t(batch?'stopHelp':'allHelp');allOriginal.disabled=active||!!batch||!getState().plan.prompt_enhancer?.texts?.some(e=>!e.inactive&&getState().plan.prompt_enhancer.enabled);globalStatus.textContent=globalMessage;globalStatus.title=globalMessage;}
- function bind({target,area,wrap,onDisplay=()=>{}}){
+ function bind({target,area,wrap,counter=null,onDisplay=()=>{}}){
   const s=slot(target),key=targetKey(target),root=el('div','ez-ai-inline'),bar=el('div','ez-ai-toolbar'),choice=el('div','ez-ai-choice');choice.setAttribute('role','group');choice.setAttribute('aria-label',locale==='ja'?'生成に使う文章':'Text source');
   const original=button(t('original'),async()=>{if(generating()||batch)return;try{await flushSlot(s);s.edit=null;s.job=null;onRestore(target);}catch(e){s.job={phase:'error',detail:e.message};}update();});original.title=t('originalHelp');
   const ai=button(t('ai'),async()=>{if(generating()||batch)return;try{await flushSlot(s);const entry=entryFor(getState().plan,target);if(!entry)return;s.job={phase:'saving'};s.saving=client.editAdopted(entry,entry.text);update();const result=await s.saving;if(!disposed)onAdopt(result);s.job=null;}catch(e){s.job={phase:'error',detail:e.message};}finally{s.saving=null;update();}});ai.title=t('aiHelp');choice.append(original,ai);
@@ -78,16 +78,17 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
   // pointer's click arrives. Keep focus until the chosen action owns the save.
   // Keyboard activation still uses the normal click handler.
   for(const control of [original,ai,run])control.onpointerdown=e=>{if(e.button===0)e.preventDefault();};
-  const image=el('select');image.setAttribute('aria-label',t('image'));image.title=t('imageHelp');image.onchange=()=>{s.imageId=image.value;};
+  const image=el('span','ez-ai-context');image.title=t('imageHelp');image.tabIndex=0;
   const status=el('span','ez-ai-state');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   const retry=button(t('recheck'),async()=>{try{await client.confirmUnknownSubmission();}catch(e){s.job={phase:'error',detail:e.message};}update();});retry.title=t('uncertain');
   const job=el('div','ez-ai-error');job.setAttribute('role','alert');bar.append(choice,run,image,retry,status);root.append(bar,job);
+  if(counter)bar.append(counter);
   const source={input:area.oninput,focus:area.onfocus,blur:area.onblur,label:area.getAttribute('aria-label'),title:area.title};let editingAI=false;
-  area.onfocus=e=>{editingAI=resolveText(getState().plan,target,getState().external??null).status==='enhanced';if(!editingAI)source.focus?.(e);};
+  area.onfocus=e=>{editingAI=resolveText(getState().plan,target,getState().external??null,getState().outputSize??null).status==='enhanced';if(!editingAI)source.focus?.(e);};
   area.oninput=e=>{if(editingAI)s.edit=area.value;else source.input?.(e);onDisplay();update();};
   area.onblur=e=>{if(editingAI){void flushSlot(s).catch(()=>{});}else source.blur?.(e);};
   function render(){
-   if(disposed)return;const state=getState(),p=state.plan,entry=entryFor(p,target),resolved=resolveText(p,target,state.external??null),usingAI=resolved.status==='enhanced';
+   if(disposed)return;const state=getState(),p=state.plan,entry=entryFor(p,target),resolved=resolveText(p,target,state.external??null,state.outputSize??null),usingAI=resolved.status==='enhanced';
    if(!entry)s.edit=null;
    const value=usingAI?(s.edit??entry.text):originalText(p,target,state.external??null);
    if(area.value!==value)area.value=value;
@@ -98,11 +99,11 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
    ai.title=!entry?t('noAI'):!savedCurrent(p,target,state.external??null)?t('staleHelp'):t('aiHelp');
    run.textContent=t(s.running&&!batch?'stop':'generate');run.disabled=(!s.running&&(generating()||!!batch))||!originalText(p,target,state.external??null).trim()||!!client.uncertain;
    run.title=s.running?t('stopHelp'):!originalText(p,target,state.external??null).trim()?t('empty'):t('generateHelp');
-   let refs=[];try{refs=dependencyPayload(p,target,state.external??null).images;}catch{}
-   const sig=canonical(refs);if(image.dataset.options!==sig){image.replaceChildren();const none=el('option','',t('none'));none.value='';image.append(none);for(const a of refs){const asset=p.assets.find(x=>x.id===a.id),o=el('option','',asset?mediaLabel(p,asset,locale):a.file.name);o.value=a.id;image.append(o);}image.dataset.options=sig;if(!refs.some(a=>a.id===s.imageId))s.imageId='';image.value=s.imageId;}
-   image.hidden=!refs.length;image.disabled=busy()||!!batch;
+   let refs=[];try{refs=dependencyPayload(p,target,state.external??null,VISUAL_CONTRACT,null,state.outputSize??null).images;}catch{}
+   image.textContent=refs.length?(locale==='ja'?`参照 ${refs.length}枚`:`${refs.length} references`):t('none');
+   image.setAttribute('aria-label',image.textContent);image.title=t('imageHelp');
    const phase=s.job?.phase;
-   status.textContent=s.running||s.saving?t(phase||'running'):s.edit!=null?t('edited'):resolved.status==='stale'?t('stale'):t(usingAI?'usedAI':'usedOriginal');status.title=resolved.status==='stale'?t('staleHelp'):status.textContent;
+   status.textContent=s.running||s.saving?t(phase||'running'):s.edit!=null?t('edited'):resolved.status==='stale'?t('stale'):'';status.title=resolved.status==='stale'?t('staleHelp'):t(usingAI?'usedAI':'usedOriginal');
    const error=client.uncertain?t('uncertain'):phase==='error'?s.job.detail:'';job.hidden=!error;job.textContent=error;retry.hidden=!client.uncertain;retry.disabled=busy();
   }
   bindings.push(render);render();return root;

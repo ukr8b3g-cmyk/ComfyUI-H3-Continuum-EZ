@@ -15,7 +15,7 @@ function fixture(explicitRequests=false){
   if(path.endsWith('/capabilities'))return response({models:['test.safetensors'],missing_nodes:[]});
   if(path.endsWith('/prepare')){
    if(mode.prepareGate)await mode.prepareGate.promise;
-   const dep=dependencyPayload(body.plan,body.target,body.external_prompt,body.contract);
+   const dep=dependencyPayload(body.plan,body.target,body.external_prompt,body.contract,null,body.output_size);
    const output_id='own_output_'+(++count);const receipt={target:body.target,dependencies:dep,images:[],base_text_hash:sha256(dep.text),dependency_hash:sha256(canonical(dep))};
    return response({request_id:'request_'+count,graph:{[output_id]:{class_type:'PreviewAny',inputs:{source:'test'}}},output_id,receipt,cache_key:sha256(canonical({dep,model:body.model}))});
   }
@@ -104,3 +104,12 @@ test('cancel only removes own pending job after a late acknowledgement',async()=
 });
 test('empty and thinking output never becomes a candidate',async()=>{for(const text of ['', '<think>internal reasoning']){const f=fixture();f.enable();f.mode.text=text;await assert.rejects(f.submit());assert.equal(f.client.cache.size,0);}});
 test('close during work rejects its result',async()=>{const f=fixture();f.enable();f.mode.prepareGate=deferred();const a=f.submit(),rejected=assert.rejects(a,AssistCancelled);f.close();f.mode.prepareGate.resolve();await rejected;});
+
+test('visual context changes cancel a late result; common edits do not cancel a shot',async()=>{
+ for(const change of [f=>{f.plan.shots[0].seconds=8;},f=>{f.plan.resolution.aspect='2:3';}]){
+  const f=fixture(true);f.mode.prepareGate=deferred();const a=f.submit(),rejected=assert.rejects(a,AssistCancelled);
+  change(f);f.client.sync();f.mode.prepareGate.resolve();await rejected;
+  assert.equal(f.calls.filter(c=>c.path==='/prompt').length,0);
+ }
+ const f=fixture(true);f.mode.prepareGate=deferred();const result=f.submit();f.plan.global_prompt='NEW COMMON';f.client.sync();f.mode.prepareGate.resolve();assert.equal((await result).text,'ゆっくり歩く');
+});

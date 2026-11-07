@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 — 2026-11-07
+
+- Pass active references, start/end images, duration and output size to shot AI automatically, keeping common text separate.
+- Preserve the full duration of imported audio and support audio-only import from video, bounded waveform analysis, library-to-track dragging, clip editing and Match Video to Audio.
+- Add separate preview mute/volume and saved per-clip output volume for RAM and disk-backed rendering.
+- Honor the automatic split interval for shorter shots as well; use a 7.5-second default and automatically supply IMAGE data when an active output requires it.
+- Overlay generated thumbnails on shots, fix timeline zoom anchoring, compact prompt controls, relocate the ending-image selector and remove the manual Check Inputs button. Automatic validation before generation remains.
+- Keep one workflow template and the original Continuum vendor algorithms. Centralize the runtime and REPORT version.
+
 ## 0.10.1 — 2026-11-07
 
 - Allow ordinary video generation without the optional AI text model while keeping the workflow's model connection intact.

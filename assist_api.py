@@ -19,7 +19,7 @@ import tempfile
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from .enhancer import (CONTRACT, PROFILE, SYSTEM_PROMPT, canonical, dependency_payload, digest,
+from .enhancer import (CONTRACT, VISUAL_CONTRACT, MAX_AI_IMAGES, PROFILE, SYSTEM_PROMPT, canonical, dependency_payload, digest,
                        original_text, target_key, validate_candidate, normalize_enhancer)
 from .plan import normalize_plan, asset_path, used_asset_ids, shot_geometry, execution_plan
 
@@ -30,6 +30,7 @@ MAX_INPUT_CHARS = 24_000
 MAX_IMAGE_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PIXELS = 64 * 1024 * 1024
 AI_PIXELS = 500_000
+AI_TOTAL_PIXELS = 2_000_000
 DERIVED_FOLDER = 'h3ez-assist-inputs'
 DERIVED_QUOTA = 512 * 1024 * 1024
 
@@ -43,7 +44,7 @@ def require_enabled(plan):
         raise AssistError('Prompt enhancer is OFF / プロンプトエンハンサーはOFFです')
 
 
-def _prepare_image(asset, input_root):
+def _prepare_image(asset, input_root, pixel_budget=AI_PIXELS):
     """Read once, hash the exact decoded bytes, and keep the source untouched."""
     from PIL import Image, ImageOps
     source = asset_path(asset, input_root)
@@ -78,7 +79,7 @@ def _prepare_image(asset, input_root):
             # A simultaneous request created it. Revalidate before writing below.
             if marker.is_symlink() or json.loads(marker.read_text()).get('schema') != 'h3ez-assist-inputs-v1':
                 raise AssistError('AI input ownership changed')
-    identity = digest(source_hash + ':rgb-exif-lanczos-500000-v1')
+    identity = digest(source_hash + f':rgb-exif-lanczos-{pixel_budget}-v1')
     name = f'AI_{identity}.png'
     target = folder / name
     if target.is_symlink():
@@ -91,7 +92,7 @@ def _prepare_image(asset, input_root):
         if image.width < 1 or image.height < 1 or image.width * image.height > MAX_IMAGE_PIXELS:
             raise AssistError('AI image exceeds 64 megapixels / 画像の面積が上限を超えています')
         image = ImageOps.exif_transpose(image)
-        ratio = min(1.0, math.sqrt(AI_PIXELS / (image.width * image.height)),
+        ratio = min(1.0, math.sqrt(pixel_budget / (image.width * image.height)),
                     1536 / max(image.width, image.height))
         size = (max(1, int(image.width * ratio)), max(1, int(image.height * ratio)))
         image.thumbnail(size, Image.Resampling.LANCZOS)
@@ -109,16 +110,18 @@ def _prepare_image(asset, input_root):
 
 
 def prepare_request(body, input_root, available_models, model_identity=None):
-    if not isinstance(body, dict) or set(body) - {'plan','target','external_prompt','image_id','model','loader','contract'}:
+    if not isinstance(body, dict) or set(body) - {'plan','target','external_prompt','image_id','model','loader','contract','output_size'}:
         raise AssistError('Invalid AI request fields')
-    plan = normalize_plan(body.get('plan'))
+    plan = normalize_plan(body.get('plan'),allow_audio_overhang=True)
     require_enabled(plan)  # Before model/file work, even for hand-written API calls.
     target = body.get('target')
     target_key(target)
     external = body.get('external_prompt')
     if external is not None and not isinstance(external, str):
         raise AssistError('External prompt must be a string or null')
-    dep = dependency_payload(plan, target, external, body.get('contract', CONTRACT))
+    dep = dependency_payload(plan, target, external, body.get('contract', CONTRACT), output_size=body.get('output_size'))
+    if dep['contract'] == VISUAL_CONTRACT and dep['output']['width'] is None:
+        raise AssistError('Output size is unresolved. Select Studio size or use literal Engine dimensions / 出力サイズが未確定です。Studioのサイズ設定またはEngineの幅・高さを指定してください')
     if not dep['text'].strip():
         raise AssistError('Enter the original text first / 先に原文を入力してください')
     if len(dep['text']) + len(dep['common']) > MAX_INPUT_CHARS:
@@ -134,21 +137,39 @@ def prepare_request(body, input_root, available_models, model_identity=None):
         raise AssistError('Connect a minimax Load CLIP / minimaxのLoad CLIPを接続してください')
     request_id = uuid4().hex
     loader, generator, output = (f'h3ez_ai_{request_id}_{suffix}' for suffix in ('model','text','result'))
-    images, image_path = [], None
+    images, image_paths = [], []
     aid = body.get('image_id')
-    if aid is not None:
+    visual = dep['contract'] == VISUAL_CONTRACT
+    selected_ids = [x['id'] for x in dep['images']] if visual else ([] if aid is None else [aid])
+    if visual and aid is not None:
+        raise AssistError('Automatic references cannot be overridden by a single image')
+    if len(selected_ids) > MAX_AI_IMAGES:
+        raise AssistError('Too many AI references')
+    budget = min(AI_PIXELS, AI_TOTAL_PIXELS // max(1, len(selected_ids)))
+    for aid in selected_ids:
         if not isinstance(aid, str) or aid not in {x['id'] for x in dep['images']}:
             raise AssistError('Select one of this field\'s assigned images / 対象の文章に割り当てられた画像を選択してください')
         asset = next(a for a in plan['assets'] if a['id'] == aid)
         if asset['kind'] != 'image':
             raise AssistError('AI input must be an image')
-        image_path, binding = _prepare_image(asset, input_root)
+        image_path, binding = _prepare_image(asset, input_root, budget)
+        image_paths.append(image_path)
         images.append(binding)
     context = {'selected_text': dep['text'], 'common_context_do_not_repeat':dep['common'],
                'assigned_image_roles':dep['scope'],
                'reference_catalog':[{'id':x['id'],'name':x['subject_name']} for x in dep['images']],
                'selected_visual_reference': aid,
                'instruction':'Refine selected_text only. Keep its original language. Return plain prose.'}
+    if visual:
+        context.pop('selected_visual_reference')
+        context['visual_inputs'] = [{'image':i+1, 'asset_id':aid} for i,aid in enumerate(selected_ids)]
+        context['output_frame'] = dep['output']
+        if target['field'] == 'prompt':
+            timing = dep['scope'][0]['timing']
+            context['shot_duration'] = {'requested_seconds':timing['requested_ms']/1000,
+                                        'rendered_seconds':timing['frames']/timing['fps']}
+        else:
+            context['instruction'] += ' This is shared text. Do not add shot-specific actions or timing.'
     prompt_text = canonical(context)
     if len(prompt_text) > MAX_INPUT_CHARS:
         raise AssistError('AI context exceeds the explicit input budget; simplify selected context. Nothing was truncated.')
@@ -160,10 +181,10 @@ def prepare_request(body, input_root, available_models, model_identity=None):
         generator:{'class_type':'TextGenerateV2', 'inputs':inputs},
         output:{'class_type':'PreviewAny', 'inputs':{'source':[generator,0]}}
     }
-    if image_path:
-        node = f'h3ez_ai_{request_id}_image'
+    for i,image_path in enumerate(image_paths,1):
+        node = f'h3ez_ai_{request_id}_image_{i}'
         graph[node] = {'class_type':'LoadImage', 'inputs':{'image':image_path}}
-        inputs['images.image1'] = [node,0]
+        inputs[f'images.image{i}'] = [node,0]
     identity = model_identity or model
     receipt = {'target':dict(target), 'dependencies':dep, 'base_text_hash':digest(dep['text']),
                'dependency_hash':digest(canonical(dep)), 'images':images,
@@ -177,9 +198,9 @@ def prepare_request(body, input_root, available_models, model_identity=None):
 
 
 def adopt_request(body, input_root):
-    if not isinstance(body, dict) or set(body)-{'plan','target','external_prompt','receipt','candidate'}:
+    if not isinstance(body, dict) or set(body)-{'plan','target','external_prompt','receipt','candidate','output_size'}:
         raise AssistError('Invalid candidate adoption fields')
-    plan=normalize_plan(body.get('plan')); require_enabled(plan)
+    plan=normalize_plan(body.get('plan'),allow_audio_overhang=True); require_enabled(plan)
     target=body.get('target'); target_key(target)
     receipt=body.get('receipt')
     if not isinstance(receipt,dict) or receipt.get('target') != target:
@@ -189,7 +210,9 @@ def adopt_request(body, input_root):
     previous_dependencies = receipt.get('dependencies')
     if not isinstance(previous_dependencies, dict):
         raise AssistError('Invalid candidate dependencies')
-    dep=dependency_payload(plan,target,external,previous_dependencies.get('contract', CONTRACT),bool(previous_dependencies.get('common')))
+    saved_output = previous_dependencies.get('output', {})
+    output_size = body.get('output_size', saved_output if saved_output.get('source')=='engine' and saved_output.get('width') else None)
+    dep=dependency_payload(plan,target,external,previous_dependencies.get('contract', CONTRACT),bool(previous_dependencies.get('common')),output_size)
     if receipt.get('dependency_hash')!=digest(canonical(dep)) or receipt.get('base_text_hash')!=digest(dep['text']):
         raise AssistError('The source changed. Generate a new candidate / 入力条件が変更されました。候補を作り直してください')
     entry={**receipt, 'text':validate_candidate(body.get('candidate'))}
@@ -209,16 +232,18 @@ def adopt_request(body, input_root):
 
 def preflight_request(body,input_root):
     if not isinstance(body,dict) or set(body)-{'plan'}:raise AssistError('Invalid preflight request')
-    plan=normalize_plan(body.get('plan'));used=used_asset_ids(plan)
+    plan=normalize_plan(body.get('plan'),allow_audio_overhang=True);used=used_asset_ids(plan)
     errors=[];warnings=[]
     for asset in plan['assets']:
         try:asset_path(asset,input_root)
         except (ValueError,OSError) as exc:
             (errors if asset['id'] in used else warnings).append({'asset_id':asset['id'],'message':str(exc),'used':asset['id'] in used})
-    geometry=shot_geometry(plan)
-    return {'ok':not errors,'errors':errors,'warnings':warnings,'shots':len(geometry),
-            'parts':len(execution_plan(plan)),'frames':sum(g['frames'] for g in geometry),
-            'seconds':sum(g['frames'] for g in geometry)/24,'model_validation':'runtime'}
+    geometry=shot_geometry(plan);parts=execution_plan(plan)
+    return {'ok':not errors and max((c['start']+c['duration']for c in plan['audio']),default=0)<=sum(g['frames']for g in geometry)/24+.001,'errors':errors,'warnings':warnings,'shots':len(geometry),
+            'parts':len(parts),'part_times':[{'shot':x['shot_index']+1,'start':x['start'],'end':x['end']}for x in parts],
+            'frames':sum(g['frames'] for g in geometry),
+            'seconds':max(sum(g['frames'] for g in geometry)/24,max((c['start']+c['duration']for c in plan['audio']),default=0)),
+            'video_shortfall':max(0,max((c['start']+c['duration']for c in plan['audio']),default=0)-sum(g['frames'] for g in geometry)/24),'audio_clip_volume':True,'model_validation':'runtime'}
 
 
 def register_routes(server=None):
@@ -251,7 +276,7 @@ def register_routes(server=None):
         names=set(nodes.NODE_CLASS_MAPPINGS)
         missing=sorted({'CLIPLoader','TextGenerateV2','PreviewAny','LoadImage'}-names)
         return {'models':folder_paths.get_filename_list('text_encoders'), 'default_model':DEFAULT_MODEL,
-                'missing_nodes':missing, 'profile':PROFILE,'experimental':True,'max_ai_images':1}
+                'missing_nodes':missing, 'profile':PROFILE,'experimental':True,'max_ai_images':MAX_AI_IMAGES}
 
     async def handle(request, operation):
         try:
@@ -260,9 +285,13 @@ def register_routes(server=None):
             if operation=='capabilities':
                 if body!={'enabled':True}:raise AssistError('Enable prompt enhancer before requesting AI capabilities')
                 result=await asyncio.to_thread(caps)
+            elif operation=='media-info':
+                if set(body)!={'file'}:raise AssistError('Invalid media metadata request')
+                from .audio_probe import inspect_audio
+                result=await asyncio.to_thread(inspect_audio,body['file'],root)
             elif operation=='prepare':
                 # No model discovery or path work before the explicit enable guard.
-                checked_plan=normalize_plan(body.get('plan'))
+                checked_plan=normalize_plan(body.get('plan'),allow_audio_overhang=True)
                 require_enabled(checked_plan)
                 available=await asyncio.to_thread(caps)
                 if available['missing_nodes']:
@@ -281,7 +310,7 @@ def register_routes(server=None):
         except (ValueError,TypeError,KeyError,OSError,StopIteration) as exc:
             return web.json_response({'error':str(exc)},status=getattr(exc,'status',400),headers={'Cache-Control':'no-store'})
 
-    for operation in ('capabilities','prepare','adopt','preflight'):
+    for operation in ('capabilities','prepare','adopt','preflight','media-info'):
         async def endpoint(request, op=operation):return await handle(request,op)
         server.routes.post(PREFIX+'/'+operation)(endpoint)
     server._h3ez_assist_registered=True

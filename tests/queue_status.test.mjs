@@ -36,3 +36,14 @@ test('only an unambiguous existing model filename is normalized, never another m
   assert.equal(normalizeModelChoices(root),0);w.value=unix;
   assert.equal(normalizeModelChoices({_nodes:[loader]}),0);assert.equal(w.value,unix);
 });
+import {canvasGenerationSize} from '../web/queue_status.js';
+
+test('AI size follows Engine literals and the standard Resolution Selector through wires',()=>{
+ const timeline={id:7,type:'H3ContinuumEZTimeline'},engine={id:8,type:'H3ContinuumEZEngine',inputs:[{name:'timeline',link:1}],widgets:[{name:'width',value:736},{name:'height',value:416}]};
+ const graph={_nodes:[timeline,engine],links:{1:[1,7,0,8,0,'H3_EZ_STUDIO_PLAN']}};timeline.graph=graph;
+ assert.deepEqual(canvasGenerationSize(timeline),{width:736,height:416});
+ const size={id:9,type:'ResolutionSelector',widgets:[{name:'aspect_ratio',value:'2:3 (Portrait Photo)'},{name:'megapixels',value:.5},{name:'multiple',value:32}]};graph._nodes.push(size);
+ engine.inputs.push({name:'width',link:2},{name:'height',link:3});graph.links[2]=[2,9,0,8,1,'INT'];graph.links[3]=[3,9,1,8,2,'INT'];
+ assert.deepEqual(canvasGenerationSize(timeline),{width:576,height:896});
+ size.type='UnknownDynamicNode';assert.equal(canvasGenerationSize(timeline),null);
+});

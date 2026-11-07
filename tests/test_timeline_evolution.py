@@ -17,7 +17,7 @@ def fixture():
 
 
 def test_long_parts_preserve_duration_context_and_last_frame_scope():
-    p=normalize_plan(fixture());parts=execution_plan(p);gs=shot_geometry(p)
+    p=fixture();p['chunking']={'enabled':True,'seconds':5};p=normalize_plan(p);parts=execution_plan(p);gs=shot_geometry(p)
     assert sum(x['frames'] for x in parts)==sum(x['frames'] for x in gs)
     assert len(parts)>len(gs)
     for part in parts:
@@ -68,11 +68,11 @@ def test_configurable_internal_parts_preserve_frames_and_native_context():
             parts=execution_plan(p)
             assert sum(x['frames'] for x in parts)==sum(x['frames'] for x in shot_geometry(p))
             assert len([x for x in parts if x['last_image']])==1
-            if seconds<=15:assert parts[0]['part_count']==1
+            if seconds<=target:assert parts[0]['part_count']==1
             for part in parts:
                 if part['transition']=='continue':
                     for context in (5,22,39):assert make_extension_shape(context,part['seconds']).net_new_frames==part['frames']
-            if seconds>15:assert max(x['frames'] for x in parts if x['shot_index']==0)<=17*max(3,round(target*24/17))+5
+            assert max(x['frames'] for x in parts if x['shot_index']==0)<=17*max(3,round(target*24/17))+5
     source="""import {executionPlan,validate} from './web/state.js';let s='';for await(const x of process.stdin)s+=x;console.log(JSON.stringify(JSON.parse(s).map(p=>executionPlan(validate(p)))));"""
     proc=subprocess.run(['node','--input-type=module','-e',source],input=json.dumps(cases),text=True,encoding='utf-8',capture_output=True,cwd=Path(__file__).resolve().parents[1],check=True)
     assert json.loads(proc.stdout)==[execution_plan(p) for p in cases]

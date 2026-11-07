@@ -5,7 +5,7 @@ const fixtures=JSON.parse(fs.readFileSync(new URL('./contracts/assist_parity.jso
 for(const text of ['', 'abc','日本語😀\\"\r\n','長文'.repeat(10000)])test('SHA-256 parity '+text.slice(0,10),()=>assert.equal(sha256(text),crypto.createHash('sha256').update(text).digest('hex')));
 for(const f of fixtures)test('Python/JS compile parity '+f.scenario,()=>{
  const p=read(JSON.stringify(f.plan));validate(p);
- assert.deepEqual(dependencyPayload(p,f.target,f.external),f.dependency);
+ assert.deepEqual(dependencyPayload(p,f.target,f.external,f.contract,null,f.output_size),f.dependency);
  assert.deepEqual(resolveText(p,f.target,f.external),{text:f.resolved[0],status:f.resolved[1]});
  assert.deepEqual(executionPlan(p),f.parts);
  assert.deepEqual(f.parts.map(x=>effective(p,x.shot_index,f.external,x.part_index).text),f.prompts);

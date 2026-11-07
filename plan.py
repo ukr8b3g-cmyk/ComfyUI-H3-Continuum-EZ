@@ -19,6 +19,7 @@ MAX_SHOT_SECONDS = 600
 MAX_TIMELINE_SECONDS = 3600
 MAX_JSON_BYTES = 8 * 1024 * 1024
 MAX_TEXT_CHARS = 250_000  # Input-safety limit, NOT a model context-size claim.
+DEFAULT_CHUNK_SECONDS = 7.5
 REF_RE = re.compile(r"@R([1-9])(?![0-9A-Za-z_])")
 UNKNOWN_REF_RE = re.compile(r"@R\d+")
 
@@ -37,7 +38,8 @@ def default_plan() -> dict[str, Any]:
             "global_refs": [], "first_image": None, "global_prompt": "",
             "shots": [{"id": "shot-1", "label": "Shot 1", "seconds": 5.0,
                        "transition": "cut", "prompt": "", "prompt_mode": "append",
-                       "refs": None, "first_image": None}], "audio": []}
+                       "refs": None, "first_image": None}], "audio": [],
+            "chunking": {"enabled": True, "seconds": DEFAULT_CHUNK_SECONDS}}
 
 ASPECT_RATIOS = ('1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9')
 DEFAULT_RESOLUTION = {'source': 'studio', 'aspect': '16:9', 'megapixels': 0.3}
@@ -113,7 +115,7 @@ def asset_path(asset: dict[str, Any], input_root: str | Path) -> Path:
     return path
 
 
-def normalize_plan(value: str | dict) -> dict:
+def normalize_plan(value: str | dict, *, allow_audio_overhang=False) -> dict:
     if isinstance(value, str):
         if len(value.encode('utf-8')) > MAX_JSON_BYTES:
             raise PlanError("Timeline JSON is too large")
@@ -240,9 +242,12 @@ def normalize_plan(value: str | dict) -> dict:
         start = _number(clip.get('start'), 'Audio start', 0, 86400)
         source_in = _number(clip.get('source_in'), 'Audio source in', 0, 86400)
         duration = _number(clip.get('duration'), 'Audio length', .001, 86400)
-        if start + duration > total + .001: raise PlanError("Audio extends beyond the timeline; trim or move it before generating")
+        if not allow_audio_overhang and start + duration > total + .001: raise PlanError("Audio extends beyond the video; use Match video to audio before generating")
+        if start + duration > MAX_TIMELINE_SECONDS: raise PlanError('Audio exceeds the 3600-second timeline limit')
         if source_in + duration > by_id[aid]['duration'] + .01: raise PlanError("Audio trim exceeds the source file")
-        p['audio'].append({'id': cid, 'asset_id': aid, 'start': start, 'source_in': source_in, 'duration': duration})
+        clean = {'id': cid, 'asset_id': aid, 'start': start, 'source_in': source_in, 'duration': duration}
+        if 'volume' in clip: clean['volume'] = _number(clip['volume'], 'Audio volume', 0, 1)
+        p['audio'].append(clean)
     p['audio'].sort(key=lambda c: c['start'])
     for left, right in zip(p['audio'], p['audio'][1:]):
         if left['start'] + left['duration'] > right['start'] + .000001:
@@ -284,14 +289,14 @@ def execution_plan(plan: dict) -> list[dict]:
     """Partition aligned logical shots without accumulating rounding errors."""
     out = []
     first = plan['shots'][0]['first_image'] or plan['first_image']
-    settings = plan.get('chunking', {'enabled':True, 'seconds':5})
+    settings = plan.get('chunking', {'enabled':True, 'seconds':DEFAULT_CHUNK_SECONDS})
     unit_limit = max(3, round(float(settings['seconds']) * FPS / 17))
     for shot, g in zip(plan['shots'], shot_geometry(plan)):
         cut = g['index'] == 0 or shot['transition'] == 'cut'
         if g['index'] and cut: first = shot['first_image']
         phase = 5 if cut else 0
         units = (g['frames'] - phase) // 17
-        count = math.ceil(units / unit_limit) if settings['enabled'] and shot['seconds'] > 15 else 1
+        count = math.ceil(units / unit_limit) if settings['enabled'] else 1
         base, extra = divmod(units, count)
         start = g['start_frame']
         for part in range(count):

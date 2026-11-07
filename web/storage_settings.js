@@ -25,7 +25,7 @@ export function openStorageDialog(){
   roots.replaceChildren();make('p',t('Available CPU RAM: ','利用可能CPU RAM：')+bytes(v.memory?.available_bytes),roots);
   for(const r of v.roots.filter(x=>x.kind==='finalize')){const s=make('section',undefined,roots);make('strong',(r.current?t('Current: ','現在：'):t('Previous: ','以前：'))+r.path,s);make('p',t('Total / in use / deletable / protected: ','合計／使用中／削除可能／保護中：')+[r.bytes,r.in_use_bytes,r.deletable_bytes,r.unknown_bytes].map(bytes).join(' / '),s);for(const e of r.errors||[])make('p',e,s);}
   if(v.previews){const s=make('section',undefined,roots);make('strong',t('Playback proxies','途中再生用の動画'),s);make('p',`${v.previews.path} · ${bytes(v.previews.bytes)}`,s);s.title=t('Inactive proxies expire after 24 hours. Active runs are protected.','未使用の途中動画は24時間で清掃対象になります。生成中は保護します。');}
-  status.textContent=v.read_only?t('Read-only in multi-user mode','マルチユーザー環境では閲覧のみです'):v.busy?t('Storage changes are disabled while the queue is busy.','Queue実行中・待機中は保存先変更と削除を禁止します。'):'';
+  status.textContent=v.read_only?t('Read-only in multi-user mode','マルチユーザー環境では閲覧のみです'):v.busy?t('Storage changes are disabled while the queue is busy.','キューの実行中・待機中は保存先の変更と削除はできません。'):'';
  }
  async function perform(op){if(pending)return;if(op==='cleanup'&&!confirm(t('Delete only verified unused temporary files?','所有確認できた未使用の一時ファイルだけを削除しますか？')))return;pending=true;controls();status.textContent=t('Working…','処理中…');try{
   if(op==='refresh')await refresh();

@@ -61,10 +61,6 @@ def test_studio_output_mode_overrides_engine_and_checks_image_links(monkeypatch,
     output = ez_nodes.H3ContinuumEZEngine().generate(timeline=timeline, output_mode='Images')
     assert output['result'][0] is None
     assert output['result'][4].endswith('stream.mp4')
-    with pytest.raises(PlanError, match='Disconnect images'):
-        ez_nodes.H3ContinuumEZEngine().generate(
-            timeline=timeline, output_mode='Images', unique_id='7',
-            prompt={'8': {'inputs': {'images': ['7', 0]}}})
 
 
 def test_subgraph_switch_uses_actual_engine_output_mode(monkeypatch, tmp_path):
@@ -113,10 +109,10 @@ def test_subgraph_switch_uses_actual_engine_output_mode(monkeypatch, tmp_path):
     assert modes == ['Long video', 'Images']
 
     prompt['25'] = {'class_type': 'SaveVideo', 'inputs': {'video': ['18:9', 0]}}
-    with pytest.raises(PlanError, match='Disconnect images'):
-        node.generate(timeline={'plan': {'output_mode': 'Long video'}},
-                      unique_id='18:8', prompt=prompt)
-    assert modes == ['Long video', 'Images']
+    automatic = node.generate(timeline={'plan': {'output_mode': 'Long video'}},
+                              unique_id='18:8', prompt=prompt)['result']
+    assert automatic[0] is frames and automatic[5] is True
+    assert modes == ['Long video', 'Images', 'Images']
 
 
 def test_image_chain_requires_a_reachable_output_node(monkeypatch):

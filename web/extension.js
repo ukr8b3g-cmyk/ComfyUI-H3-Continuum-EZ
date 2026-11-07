@@ -1,3 +1,4 @@
+import {editorDuration} from './audio_edit.js';
 import {openStorageDialog} from './storage_settings.js';
 import {getLocale,translator,errorText} from './i18n.js';
 import {app} from '../../scripts/app.js';
@@ -5,7 +6,7 @@ import {api} from '../../scripts/api.js';
 import {ensureStudioStyles,openStudio} from './studio.js';
 import {findPreviousVideo,resultVideo} from './result_preview.js';
 import {mergeProgress} from './generation.js';
-import {timelineQueue,graphNodes,normalizeModelChoices,canvasEnhancerModel,canvasEnhancerBinding} from './queue_status.js';
+import {timelineQueue,graphNodes,normalizeModelChoices,canvasEnhancerModel,canvasEnhancerBinding,canvasGenerationSize} from './queue_status.js';
 import {syncSeedControls} from './seed_controls.js';
 import {referenceCounts} from './node_summary.js';
 import {read,duration,roundEven} from './state.js';
@@ -112,36 +113,17 @@ const connected=n=>n.inputs?.some(i=>i.name==='external_prompt'&&i.link!=null)||
 function mediaUrl(a){const q=new URLSearchParams({filename:a.file.name,subfolder:a.file.subfolder||'',type:'input'});return api.apiURL(`/view?${q}`);}
 async function upload(file,kind,t){
   let duration,peaks;
-  if(kind==='audio'){
-    // Metadata is streamed by the media element. Long files must not become a
-    // full decoded AudioBuffer merely to draw a small waveform in Studio.
-    const audio=new Audio(),url=URL.createObjectURL(file);
-    try{
-      duration=await new Promise((resolve,reject)=>{
-        const timer=setTimeout(()=>reject(new Error(t('audioDurationMissing'))),30000);
-        audio.onloadedmetadata=()=>{clearTimeout(timer);Number.isFinite(audio.duration)&&audio.duration>0?resolve(audio.duration):reject(new Error(t('audioDurationMissing')));};
-        audio.onerror=()=>{clearTimeout(timer);reject(new Error(t('audioDurationMissing')));};
-        audio.preload='metadata';audio.src=url;
-      });
-    }finally{audio.removeAttribute('src');audio.load();URL.revokeObjectURL(url);}
-    if(duration>120||file.size>32*1024**2)peaks=[];
-    else{
-    const Context=window.AudioContext||window.webkitAudioContext;
-    if(!Context)throw new Error(t('previewUnsupported'));
-    const context=new Context();
-    try{
-      const decoded=await context.decodeAudioData(await file.arrayBuffer());duration=decoded.duration;
-      const data=decoded.getChannelData(0),step=Math.max(1,Math.ceil(data.length/700));peaks=[];
-      for(let i=0;i<data.length;i+=step){let m=0;for(let j=i;j<Math.min(data.length,i+step);j++)m=Math.max(m,Math.abs(data[j]));peaks.push(m);}
-    }catch(e){throw new Error(t('audioPreviewFailed',e.message));}
-    finally{await context.close();}
-    }
-  }
   const body=new FormData();body.append('image',file);body.append('type','input');body.append('subfolder','h3_continuum_ez');
   const response=await api.fetchApi('/upload/image',{method:'POST',body});
   if(!response.ok)throw new Error(t('httpUploadFailed',response.status));
   const result=await response.json();if(!result.name)throw new Error(t('missingFilename'));
-  return {file:{name:result.name,subfolder:result.subfolder||'',type:'input'},duration,peaks};
+  const descriptor={name:result.name,subfolder:result.subfolder||'',type:'input'};
+  if(kind==='audio'){
+    const probe=await api.fetchApi('/h3-continuum-ez/assist/media-info',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:descriptor})});
+    const info=await probe.json();if(!probe.ok)throw new Error(info.error||t('audioDurationMissing'));
+    duration=info.duration;peaks=info.peaks;
+  }
+  return {file:descriptor,duration,peaks};
 }
 function install(node){
   if((node.comfyClass||node.type)!==NODE||mounted.has(node))return;
@@ -161,7 +143,7 @@ function install(node){
     if(!summary)return;summary.replaceChildren();
     try{
       const p=read(widget(node).value),line=document.createElement('div');
-      line.textContent=t('nodeSummary',p.shots.length,duration(p).toFixed(2))+(connected(node)&&p.prompt_source!=='studio'?' · '+t('externalBadge'):'');
+      line.textContent=t('nodeSummary',p.shots.length,duration(p).toFixed(2))+(editorDuration(p)>duration(p)+.001?t('audioEndSummary',editorDuration(p).toFixed(2)):'')+(connected(node)&&p.prompt_source!=='studio'?' · '+t('externalBadge'):'');
       const counts=referenceCounts(p),refs=document.createElement('div');
       refs.textContent=t('nodeReferences',counts.individual,counts.shared);refs.title=t('nodeReferencesHelp');
       summary.append(line,refs);
@@ -174,7 +156,7 @@ function install(node){
     const previewLookup=new AbortController();
     try{
       const workflowAtOpen=activeWorkflowId();
-      const editor=openStudio({value:baseline,assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),assistIdentity:()=>({canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
+      const editor=openStudio({value:baseline,assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),assistIdentity:()=>({outputSize:canvasGenerationSize(node,rootGraph()),canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
         onApply:plan=>{
           if(!node.graph)throw new Error(t('nodeRemoved'));
           if(String(widget(node).value)!==baseline)throw new Error(t('nodeChanged'));

@@ -92,6 +92,7 @@ def render_original_audio(plan: dict, root: Path, total_frames: int, *, loader=l
         source_stop = round((clip['source_in'] + clip['duration']) * src_rate)
         if source_stop > waveform.shape[-1] + 1: raise PlanError('Audio source trim exceeds decoded samples')
         part = waveform[..., source_start:min(source_stop, waveform.shape[-1])].clone()
+        part.mul_(clip.get('volume', 1.0))
         if part.shape[1] == 1: part = part.repeat(1, 2, 1)
         if src_rate != rate: part = resampler(part, src_rate, rate)
         start = round(clip['start'] * rate)
@@ -120,8 +121,8 @@ def _render_audio_to_disk(plan, root, total_frames, stack, cancel):
     output.zero_()
     for aid, path in paths.items():
         clips = [c for c in plan['audio'] if c['asset_id']==aid]
-        spans = [(round(c['source_in']*rate), round((c['source_in']+c['duration'])*rate), round(c['start']*rate)) for c in clips]
-        required = max(b for a,b,d in spans)
+        spans = [(round(c['source_in']*rate), round((c['source_in']+c['duration'])*rate), round(c['start']*rate), c.get('volume',1.0)) for c in clips]
+        required = max(b for a,b,d,gain in spans)
         cursor = 0
         def copy_block(frame):
             nonlocal cursor
@@ -129,13 +130,14 @@ def _render_audio_to_disk(plan, root, total_frames, stack, cancel):
             block = torch.from_numpy(frame.to_ndarray()).unsqueeze(0)
             if not bool(torch.isfinite(block).all()): raise PlanError('Audio contains NaN/Inf')
             stop = cursor+block.shape[-1]
-            for a,b,d in spans:
+            for a,b,d,gain in spans:
                 lo,hi = max(a,cursor), min(b,stop)
                 if hi>lo:
                     dst = d+lo-a
                     count = min(hi-lo, output.shape[-1]-dst)
                     if count<hi-lo: raise PlanError('Audio exceeds rendered timeline')
                     output[...,dst:dst+count].copy_(block[...,lo-cursor:lo-cursor+count])
+                    if gain != 1.0: output[...,dst:dst+count].mul_(gain)
             cursor=stop
         with av.open(str(path)) as container:
             if not container.streams.audio: raise PlanError('File contains no audio stream')

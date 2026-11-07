@@ -1,6 +1,7 @@
 // Own only the auxiliary text job. Never alter the user's graph or interrupt
 // another queue item. Core performs inference, allocation, caching and offload.
-import {canonical,dependencyPayload,validateCandidate,DEFAULT_MODEL,setEnhancer,SHOT_ONLY_CONTRACT} from './enhancer.js';
+import {canonical,dependencyPayload,validateCandidate,DEFAULT_MODEL,setEnhancer} from './enhancer.js';
+import {VISUAL_CONTRACT} from './assist_context.js';
 const PREFIX='/h3-continuum-ez/assist';
 export class AssistCancelled extends Error {constructor(message='Candidate request invalidated / 候補を無効化しました'){super(message);this.name='AssistCancelled';}}
 export class AssistClient {
@@ -19,7 +20,7 @@ export class AssistClient {
   _assert(ticket){
     const s=this._state();
     if((!this.explicitRequests&&s.plan.prompt_enhancer?.enabled!==true)||this.epoch!==ticket.epoch||this._identity(s)!==ticket.identity)throw new AssistCancelled();
-    let current;try{current=canonical(dependencyPayload(s.plan,ticket.target,s.external??null,ticket.contract,ticket.includeCommon));}catch{throw new AssistCancelled();}
+    let current;try{current=canonical(dependencyPayload(s.plan,ticket.target,s.external??null,ticket.contract,ticket.includeCommon,s.outputSize??null));}catch{throw new AssistCancelled();}
     if(current!==ticket.dependency)throw new AssistCancelled('Input changed; candidate is stale / 入力条件が変更されたため候補を無効化しました');
     return s;
   }
@@ -57,9 +58,9 @@ export class AssistClient {
   generate({target,imageId=null,model=null,refresh=false}){
     let s;try{s=this._enabled();}catch(e){return Promise.reject(e);}
     if(this.uncertain)return Promise.reject(new Error('Submission is unconfirmed. Check the ComfyUI queue/history before requesting again / 受付不明です。ComfyUIのキュー・履歴を確認してください'));
-    const contract=this.explicitRequests&&target.field==='prompt'?SHOT_ONLY_CONTRACT:undefined;
-    if(s.externalUnknown&&!contract&&(target.field==='global_prompt'||s.plan.shots.find(x=>x.id===target.shot_id)?.prompt_mode!=='replace'))return Promise.reject(new Error('External text has not executed. Select Studio text or first resolve the external input / 外部入力が未確定です。Studio原文へ切り替えるか外部入力を先に確定してください'));
-    const dependency=canonical(dependencyPayload(s.plan,target,s.external??null,contract)),identity=this._identity(s);
+    const contract=this.explicitRequests?VISUAL_CONTRACT:undefined;
+    if(s.externalUnknown&&(target.field==='global_prompt'||(!contract&&s.plan.shots.find(x=>x.id===target.shot_id)?.prompt_mode!=='replace')))return Promise.reject(new Error('External text has not executed. Select Studio text or first resolve the external input / 外部入力が未確定です。Studio原文へ切り替えるか外部入力を先に確定してください'));
+    const dependency=canonical(dependencyPayload(s.plan,target,s.external??null,contract,null,s.outputSize??null)),identity=this._identity(s);
     const canvasModel=s.identity?.canvasModel;
     if(canvasModel==='')return Promise.reject(new Error('Select the model in the workflow Load CLIP node / ワークフローのLoad CLIPでモデルを選んでください'));
     model=canvasModel??(model||s.plan.prompt_enhancer?.model||DEFAULT_MODEL);
@@ -67,7 +68,7 @@ export class AssistClient {
     if(this.active){if(this.active.key===key)return this.active.promise;return Promise.reject(new Error('Another text request is in progress / 別の文章候補を生成中です'));}
     const ticket={epoch:this.epoch,target:{...target},dependency,identity,key,contract,promptId:null,outputId:null,invalid:false,refresh};
     this.active=ticket;
-    const body={plan:this._requestPlan(s),target:{...target},external_prompt:s.external??null,image_id:imageId,model};
+    const body={plan:this._requestPlan(s),target:{...target},external_prompt:s.external??null,image_id:contract===VISUAL_CONTRACT?null:imageId,model,output_size:s.outputSize??null};
     if(contract)body.contract=contract;
     if(s.identity?.canvasLoader)body.loader={type:s.identity.canvasLoader.type,device:s.identity.canvasLoader.device};
     ticket.promise=this._run(ticket,body).finally(()=>{if(this.active===ticket)this.active=null;});
@@ -152,7 +153,7 @@ export class AssistClient {
   async adopt(result,text=result.text){
     const s=this._assert(result.ticket);validateCandidate(text);
     const response=await this._post(PREFIX+'/adopt',{plan:this._requestPlan(s),target:result.ticket.target,
-      external_prompt:s.external??null,receipt:result.receipt,candidate:text});
+      external_prompt:s.external??null,receipt:result.receipt,candidate:text,output_size:s.outputSize??null});
     this._assert(result.ticket);
     if(!response.entry)throw new Error('Missing adopted prompt entry');return response.entry;
   }
@@ -160,7 +161,7 @@ export class AssistClient {
     const s=this._enabled();
     const contract=entry.dependencies.contract,includeCommon=Boolean(entry.dependencies.common);
     const ticket={epoch:this.epoch,target:{...entry.target},identity:this._identity(s),contract,includeCommon,
-      dependency:canonical(dependencyPayload(s.plan,entry.target,s.external??null,contract,includeCommon))};
+      dependency:canonical(dependencyPayload(s.plan,entry.target,s.external??null,contract,includeCommon,s.outputSize??null))};
     return this.adopt({ticket,receipt:entry,text},text);
   }
   async confirmUnknownSubmission(){
