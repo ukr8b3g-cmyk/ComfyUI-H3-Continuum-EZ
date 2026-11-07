@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.1 — 2026-11-07
+
+- Allow ordinary video generation without the optional AI text model while keeping the workflow's model connection intact.
+- Preserve validation for video models and explicit AI text jobs.
+- Verified real H3 generation from Studio on Windows in both Long video and Images modes, with decoded video and audio.
+
 ## 0.10.0 — 2026-11-07
 
 - Ship one two-shot Studio workflow and a numbered walkthrough in Japanese and English.
