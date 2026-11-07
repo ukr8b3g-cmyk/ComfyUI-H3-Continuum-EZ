@@ -12,18 +12,18 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Studio walkthrough
 
-![Studio screenshot with eight numbered controls described below.](docs/studio-guide.svg)
+![Studio screenshot with eight numbered controls described below.](docs/studio-guide-en.svg)
 
 | No. | What to do |
 | --- | --- |
-| ① Media | Click **Add Media** or drop images and audio. Put images reused across shots in **Shared References** below the preview. The screenshot shows example media. |
-| ② Timeline | Select, add, reorder or split shots. Drag a shot edge to set its duration. Place imported audio on the track below. |
-| ③ Shot settings | Set duration, cut or continuation, reference images and output size. The displayed time follows H3’s frame grid. |
-| ④ Prompts | Write the action in **Shot Prompt** and shared details in **Common Prompt**. Use **Common text on/off** for the selected shot. **Generation Prompt** shows what is sent to the video model. |
-| ⑤ AI text | Click **Generate AI** in the field you are editing. Shot AI receives the shot text without common text. Generate common text from its own tab. **Generate All Shots** processes only shot text. Choose **Original** or **AI Text** to switch sources. |
-| ⑥ Dialogue and direction | Add dialogue with an optional speaker and start time. Set the camera, action and reference roles. Choose an optional **End image** beside the reference controls. |
-| ⑦ Preview | Check your media layout before generation. After exporting, switch to the generated video to review it. |
-| ⑧ Apply and generate | **Apply to Node** saves the draft to the workflow, which you can then save in ComfyUI. **Apply and Queue** starts the video job. This template saves to `output/video/`. |
+| ① Media | Use **Add Media** or drop images and audio into the library. Reuse an image by adding it to the selected shot's references. User-provided media in this screenshot is an example. |
+| ② Timeline and audio | Select, add, duplicate, delete, reorder or split shots. Drag a shot edge to change its duration. Drag audio from the library to the lower track, then select a clip to edit or delete that placement. |
+| ③ Shot, references and size | Set **Target seconds** and **Scene cut / Continue** for the selected shot. Choose shared or shot references, click the images to use, and optionally choose an **End image**. Aspect ratio and MP set the output size for the whole video. **Time** shows H3-aligned duration. |
+| ④ Prompts | Edit the selected scene in **Shot Prompt**, or reusable details in **Common Prompt**. **Common text on/off** controls whether the selected shot includes common text. **Generation Prompt** shows the combined text sent to the video model. |
+| ⑤ AI text | Click **Generate AI** directly below the field. **Original / AI Text** selects the text used for video generation; both are retained. Shot AI automatically receives its images, timing and size, while common text remains separate. **Generate All Shots** on the top bar processes shot text only. |
+| ⑥ Dialogue and direction | **Add Dialogue** adds a speaker, words and optional start time. Choose **Camera**, add actions, or assign a reference role below. These become model instructions rather than exact motion or speech timing controls. |
+| ⑦ Preview | Use **Layout** before generation and **Generated video** after rendering. Playback and seeking follow the timeline. Mute and volume here affect preview only. Optional **Start image** and **Shared refs** are below the player; select shared references in the shot controls to inherit them. |
+| ⑧ Apply and generate | **Apply to Node** saves the Studio draft to the workflow without rendering. **Apply and Queue** starts the video job. Save the workflow in ComfyUI to keep edits. **Output Settings** controls output and automatic splitting; **Temporary storage** manages the server's working storage. |
 
 The P-H3 prompt upsampler is optional. Without it, keep **Original** selected and generate video with the existing wiring. **Generate AI** creates and selects AI text; it does not start a video job. You can edit the AI text or switch back to **Original** before generating video.
 
@@ -42,7 +42,7 @@ The current single template is based on the supplied **FastH3 OmniRef** workflow
 | Python | **3.13 recommended**, verified with **3.13.12**. Python 3.13 is not a checkpoint-specific minimum; other Python environments have not been validated for this template. |
 | NVIDIA PyTorch | Use a **CUDA 13.0 or newer build (`cu130+`)**. Verified with **2.14.1+cu130**. A CUDA Toolkit installation alone does not upgrade PyTorch's runtime. |
 | Comfy Kitchen | Install ComfyUI's pinned dependencies; verified with **0.2.40**. Its prebuilt CUDA wheels require CUDA runtime 13.0+ and NVIDIA driver **r580+**. |
-| Default text encoder | Accelerated **NVFP4 needs Blackwell** hardware, such as RTX 50 series. For other hardware choose a matching [BF16](https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors) or [INT8 ConvRot](https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors) text encoder on the subgraph. |
+| Default text encoder | The supplied **NVFP4 AWQ encoder is not Blackwell-only**, as clarified by [Comfy-Org](https://huggingface.co/Comfy-Org/MiniMax-H3). Native NVFP4 acceleration depends on compatible hardware and kernels. Optional alternatives are [BF16](https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors) or [INT8 ConvRot](https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors) text encoders, selected on the subgraph. |
 | Video/audio output | PyAV from ComfyUI's dependencies, **17+**; verified with **19.0.2**. |
 
 The loader boundary comes from [PDD support in ComfyUI v0.42.0](https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.42.0). CUDA/Python requirements are documented by [ComfyUI](https://github.com/Comfy-Org/ComfyUI#manual-install-windows-linux) and [Comfy Kitchen](https://github.com/Comfy-Org/comfy-kitchen#requirements); model components and NVFP4 hardware support are documented in the [FastH3 model card](https://huggingface.co/FastVideo/FastH3-Omni-Comfy). The older versions and alternative GPUs have not been validated by this project.
