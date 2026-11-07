@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.2 — 2026-11-07
+
+- Replace the README walkthrough with separate Japanese and English screenshots of the current Studio UI, each with eight numbered controls and matching instructions.
+- Clarify that the supplied NVFP4 AWQ text encoder is not Blackwell-only, in both READMEs and the template's documentation note.
+- Preserve the FastH3 model connections, sampling settings and generation implementation.
+
 ## 0.11.1 — 2026-11-07
 
 - Ship the supplied FastH3 OmniRef workflow as the single template, preserving its model links, Euler/simple eight-step schedule, shifts 12/3, VSA and Comfy Kitchen attention. No additional Pika LoRA.
