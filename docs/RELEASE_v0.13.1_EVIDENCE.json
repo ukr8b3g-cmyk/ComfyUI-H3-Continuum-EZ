@@ -1,0 +1,60 @@
+{
+  "status": "success",
+  "audit_mode": "report",
+  "audits": [
+    {
+      "context_frames": 0,
+      "continuation_applicable": false,
+      "metadata_errors": [],
+      "metadata_ok": true,
+      "motion_score": 0.0,
+      "ok": true,
+      "part": 1,
+      "selection_reason": "scene start",
+      "shot": 1,
+      "transition": "cut",
+      "wrapper_actual_validations": 0,
+      "wrapper_failed_validations": 0,
+      "wrapper_full_validations": 0,
+      "wrapper_statuses": {},
+      "wrapper_validation_calls": 0
+    },
+    {
+      "audio_context_ticks": 65,
+      "audio_grid_offset": 0.0,
+      "conditioning_rows": 1,
+      "context_frames": 39,
+      "continuation_applicable": true,
+      "continuum_ref_rows": 1,
+      "metadata_errors": [],
+      "metadata_ok": true,
+      "motion_score": 0.414784,
+      "ok": true,
+      "part": 2,
+      "selection_reason": "high latent motion",
+      "shot": 1,
+      "transition": "continue",
+      "video_context_slots": 12,
+      "wrapper_actual_validations": 8,
+      "wrapper_failed_validations": 0,
+      "wrapper_full_validations": 8,
+      "wrapper_statuses": {
+        "baseline_created": 1,
+        "baseline_matched": 7
+      },
+      "wrapper_validation_calls": 8
+    }
+  ],
+  "same_model_graph_seed": true,
+  "frames": 379,
+  "fps": 24,
+  "width": 832,
+  "height": 480,
+  "audio_packets": 682,
+  "original_audio_content_and_timestamps_identical": true,
+  "source_runtime_files_match": 177,
+  "temporary_bootstrap_removed": true,
+  "next_restart_defaults_off": true,
+  "visual_quality_gate": "not assessed by this diagnostic",
+  "full_gpu_off_report_video_comparison": "not performed"
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.1
+
+- Add opt-in continuity Context and model-wrapper diagnostics; default off, no new UI controls or workflow inputs.
+- Distinguish actual layout validations from forecast-only or unexecuted fixtures; keep report mode diagnostic failures non-fatal.
+- Record real FastH3 two-chunk GPU verification: metadata valid, 8 actual validations, zero failures; audio/frame timing and workflow wiring/seeds preserved.
+- Python 340 / JavaScript 99 tests passed.
+
 ## 0.13.0 — 2026-11-08
 
 - Add editable video-oriented AI Instructions in Studio, saved in project files, with optional Engine `ai_instruction` STRING input. External input takes priority while Studio instructions are retained.

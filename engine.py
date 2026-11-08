@@ -3,6 +3,7 @@
 Managed temporary buffers only; no Resume, Review or persistent generation cache.
 """
 from __future__ import annotations
+import json
 import logging
 from contextlib import ExitStack, nullcontext
 from functools import wraps
@@ -18,7 +19,8 @@ from .vendor.continuum.constants import V2_CONTINUITY_AUTO
 from .vendor.continuum.temporal import make_extension_shape, largest_context_capacity
 from .vendor.continuum.state import (capture_state, select_context, context_fingerprint, assert_context_unchanged)
 from .vendor.continuum.continuation import prepare_conditioning, POLICY_REPLACE
-from .vendor.continuum.model_patch import clone_model_for_chunk
+from .vendor.continuum.model_patch import clone_model_for_chunk, LayoutValidationProfiler
+from .continuity_audit import get_audit_mode, inspect_context, build_audit_record
 from .vendor.continuum.reference import (prepare_reference_assets, encode_reference_latents,
                                         encode_reference_prompt, ReferenceImageBundle)
 from .vendor.continuum.driving_audio import (prepare_driving_audio_source, encode_driving_audio,
@@ -107,6 +109,8 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
     if audio_vae is None: raise PlanError('Connect the H3 Audio VAE')
     geometry = shot_geometry(plan)
     parts = execution_plan(plan)
+    audit_mode = get_audit_mode()
+    audit_records = []
     emit = progress or (lambda *a, **kw: None)
     total_frames = sum(g['frames'] for g in geometry)
     by_id = {a['id']: a for a in plan['assets']}
@@ -176,6 +180,7 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         latent = empty_h3_latent(width, height, physical)
         conditioning = attach_keyframes(base, frame_count=physical, first_latent=identity.first_latent, last_latent=identity.last_latent)
         protected = None
+        audit_context = None
         if previous is not None:
             vc, ac, phase = select_context(previous, context_frames, include_audio=True)
             protected = (vc, ac, context_fingerprint(vc, ac))
@@ -194,8 +199,23 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
             guide=slice_driving_audio_latent(audio_assets,cumulative_retained_before=0,total_frames=physical,trim_frames=0,fps=FPS)
             del window,source,audio_assets
         conditioning = attach_driving_audio(conditioning, guide)
+        if audit_mode != 'off' and protected is not None:
+            try:
+                audit_context = inspect_context(
+                    conditioning, video_context=vc, audio_context=ac,
+                    context_frames=context_frames, audio_grid_offset=phase,
+                )
+            except Exception as exc:
+                # Diagnostics must not stop report mode or expose input contents.
+                audit_context = {'metadata_ok': False, 'metadata_errors': [
+                    'context inspection failed: ' + type(exc).__name__]}
+        audit_profiler = (
+            LayoutValidationProfiler(route_markers='h3ez-reference_context_v1')
+            if audit_mode != 'off' and protected is not None else None
+        )
         chunk_model = clone_model_for_chunk(model, strict=False, debug=False, chunk_index=i+1,
-                                            context_frames=context_frames or None)
+                                            context_frames=context_frames or None,
+                                            validation_profiler=audit_profiler)
         shot_seed = derive_chunk_seed(seed, g['shot_index'], 0)
         actual_seed = shot_seed if g['part_index']==0 else derive_chunk_seed(shot_seed,g['part_index'],0)
         LOG.info('EZ Shot %d/%d part %d/%d: %.3fs seed=%s context=%df (%s)',
@@ -204,6 +224,17 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         sampled = sample_chunk(model=chunk_model, conditioning=conditioning, latent=latent,
                                sampler=sampler, sigmas=sigmas, seed=actual_seed, enable_preview=True)
         if protected: assert_context_unchanged(*protected)
+        if audit_mode != 'off':
+            proof = build_audit_record(
+                part=i+1, shot=g['shot_index']+1, transition=g['transition'],
+                context_frames=context_frames, motion_score=score,
+                selection_reason=reason, context=audit_context, profiler=audit_profiler,
+            )
+            audit_records.append(proof)
+            if not proof['ok']:
+                LOG.warning('H3EZ_CONTINUITY_AUDIT %s', json.dumps(proof, sort_keys=True, allow_nan=False))
+                if audit_mode == 'assert':
+                    raise RuntimeError('H3EZ continuity audit failed; inspect continuation evidence in server log')
         video, audio = latent_to_cpu(sampled)
         stored = latent_from_cpu(video, audio)
         previous = capture_state(stored, source_frame_count=physical, clip_index=i+1,
@@ -298,7 +329,9 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         f'Output: {output_mode}; backend: {backend}; full RGB size: {estimate/2**30:.2f} GiB ({"not allocated" if streaming else "logical size"}). Original Continuum seed derivation retained.',
         *[f"Shot {r['shot']} part {r['part_index']+1}/{r['part_count']}: {r['seconds']:.3f}s, context {r['context_frames']}f, seed {r['seed']}, {r['picture_map']}"
           + (f"; boundary {r['seam']['method']}, peak {r['seam'].get('peak_before',0):.5f} -> {r['seam'].get('peak_after',0):.5f}" if 'seam' in r else '')
-          for r in records]
+          for r in records],
+        *('H3EZ_CONTINUITY_AUDIT ' + json.dumps(audit, sort_keys=True, allow_nan=False)
+          for audit in audit_records),
     ])
     return frames_out, final_audio, float(FPS), report
 

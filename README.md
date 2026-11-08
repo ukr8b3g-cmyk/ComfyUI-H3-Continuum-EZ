@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.13.0 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.0) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json)
+[日本語](README_JA.md) · [v0.13.1 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.1) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/ComfyUI-H3-Continuum-EZ-v0.13.1.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Get started
 
-1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
-2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
+1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/ComfyUI-H3-Continuum-EZ-v0.13.1.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
+2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with two sample shots set in a garden.
 
 ## Studio walkthrough
@@ -95,5 +95,11 @@ The player mute and volume control affect preview playback only. The selected cl
 See the [prompt guide](docs/EASY_PROMPTS_EN.md) for more examples. AI text is an experimental adaptation for video prompts. Review the result before generating.
 
 ## Verification
+
+v0.13.1 adds continuity diagnostics, **off by default**. Python 340 and JavaScript 99 tests passed. A real Windows ComfyUI FastH3 two-chunk run verified Context 39f, video 12 slots, audio 65 ticks, and 8 actual model-wrapper validations with zero failures. Model wiring, seeds, all 379 frames and original audio packet contents/timestamps were preserved. This verifies the context execution path, not perceptual quality. [v0.13.1 validation](docs/RELEASE_v0.13.1_VALIDATION_JA.md).
+
+Previous v0.13.0 checks:
+
+An opt-in continuity-context diagnostic is documented in the [developer notes (Japanese)](docs/CONTINUITY_AUDIT_JA.md). It defaults to off and adds no normal workflow controls. A real two-chunk FastH3 GPU run verified 8 actual wrapper validations with zero failures; see the diagnostic notes for scope and limits.
 
 The v0.13.0 code passes 309 Python and 99 JavaScript tests. On the usual Windows ComfyUI, two real AI text jobs verified editable instructions, common/shot separation, MP retention and Original/AI selection. A matched two-chunk FastH3 GPU render reduced the boundary brightness pulse from +16.449% to −0.261%, keeping all 379 frames and identical encoded audio and timestamps. Long-video output did not allocate the full 1.69 GiB RGB buffer. See the [dated verification record and limits](docs/RELEASE_v0.13.0_VALIDATION_JA.md); these checks do not establish quality or peak memory for every model and duration.

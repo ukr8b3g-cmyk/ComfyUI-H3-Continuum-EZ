@@ -1,4 +1,4 @@
-[English](README.md) · [v0.13.0 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.0) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json)
+[English](README.md) · [v0.13.0 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.1) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/ComfyUI-H3-Continuum-EZ-v0.13.1.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@
 
 ## はじめに
 
-1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
-2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
+1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/ComfyUI-H3-Continuum-EZ-v0.13.1.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
+2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.1/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
 3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開き、素材を追加します。テンプレートには庭を舞台にした2ショットの例文が入っています。
 
 ## 画面と操作順
@@ -93,5 +93,11 @@ Studio上部の **プロジェクト** から **新規プロジェクト／プ�
 詳しい記入例は [プロンプトガイド](docs/EASY_PROMPTS_JA.md) を参照してください。AI文は動画向けに調整した実験機能です。内容を確認してから使ってください。
 
 ## 今回の検証
+
+v0.13.1は継続Context診断を追加し、**標準OFF**です。Python340・JavaScript99件成功。普段のComfyUIでFastH3の2チャンクを実GPU生成し、Context39f・映像12slots・音声65ticks、モデルwrapper実評価側の検証8回・失敗0を確認。モデル配線・シード・379フレーム・入力音声の内容と時刻を保持しました。映像の自然さとは別の検証です。[今回の検証記録](docs/RELEASE_v0.13.1_VALIDATION_JA.md)。
+
+以下はv0.13.0の確認記録です。
+
+開発用の継続Context診断については[診断手順とローカル検証](docs/CONTINUITY_AUDIT_JA.md)を参照してください。標準OFFで、通常の生成操作は変わりません。
 
 Python309件・JavaScript99件成功。普段のWindows ComfyUIで実AI推論2件、共通／ショットの分離、MP変更後の保持、原文／AI文切替を確認。同じモデル配線・seedのFastH3 2チャンク実生成では境界の平均輝度差＋16.449%→−0.261%、379フレームとAAC内容・時刻を保持し、全尺RGB1.69GiBは未確保でした。[検証範囲と限界](docs/RELEASE_v0.13.0_VALIDATION_JA.md)を参照してください。
