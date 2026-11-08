@@ -102,7 +102,8 @@ class H3ContinuumEZEngine:
             'width': ('INT', {**dimensions, 'default': DEFAULT_WIDTH, 'tooltip': 'Output width in pixels. Use a multiple of 32.'}),
             'height': ('INT', {**dimensions, 'default': DEFAULT_HEIGHT, 'tooltip': 'Output height in pixels. Use a multiple of 32.'}),
             'buffer_backend': (['Disk-backed', 'Auto', 'RAM'], {'default': 'Disk-backed', 'tooltip': 'Images mode: Disk-backed uses disk buffers to reduce RAM use. Auto selects RAM or disk based on available memory. RAM keeps buffers in memory. Long video always uses disk buffers.'}),
-            'output_mode': (['Images', 'Long video'], {'default': 'Images', 'tooltip': 'Studio can choose the output format. Both modes provide an audio/video preview and video output. Long video writes in parts to reduce RAM use. If this workflow also needs image data, image output is enabled automatically without changing any connections.'})},
+            'output_mode': (['Images', 'Long video'], {'default': 'Images', 'tooltip': 'Studio can choose the output format. Both modes provide an audio/video preview and video output. Long video writes in parts to reduce RAM use. If this workflow also needs image data, image output is enabled automatically without changing any connections.'}),
+            'ai_instruction': ('STRING', {'forceInput': True, 'lazy': True, 'tooltip': 'Optional AI system instruction. Used only by Studio AI Generate; takes priority over the Studio instruction. Original video generation does not evaluate this input.'}),},
             'hidden': {'prompt': 'PROMPT', 'unique_id': 'UNIQUE_ID'}}
 
     @classmethod
@@ -121,6 +122,7 @@ class H3ContinuumEZEngine:
         from .engine import run_engine
         prompt, unique_id = kwargs.pop('prompt', None), kwargs.pop('unique_id', None)
         kwargs.pop('prompt_clip', None)
+        kwargs.pop('ai_instruction', None)
         timeline = kwargs.get('timeline')
         studio_mode = timeline['plan'].get('output_mode') if timeline is not None else None
         if studio_mode is not None:

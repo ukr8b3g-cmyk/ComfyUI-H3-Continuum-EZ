@@ -1,5 +1,9 @@
 # H3 Continuum EZ Studio のリリース検証
 
+## v0.13.0（2026-11-08）
+
+AI指示の編集・外部STRING、Studio MP変更時のAI文保持、少数フレームによる継続境界補正を収録。Python309件・JS99件と実Core入力検証、実AI推論2件、同じモデル配線・seedの2チャンク実GPU比較を確認。平均輝度差＋16.449%→−0.261%、フレーム数とAAC内容・時刻を保持。詳しい範囲と限界は[今回の検証記録](RELEASE_v0.13.0_VALIDATION_JA.md)を参照してください。
+
 ## v0.12.0（2026-11-08）
 
 - 最終ソースでPython **290件成功**・JavaScript **91件成功**。Pythonには既存のpynvml非推奨警告1件。[Pythonログ](RELEASE_v0.12.0_CPU.txt)／[JavaScriptログ](RELEASE_v0.12.0_JS.txt)。

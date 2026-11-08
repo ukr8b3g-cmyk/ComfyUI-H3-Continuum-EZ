@@ -6,7 +6,8 @@ import {api} from '../../scripts/api.js';
 import {ensureStudioStyles,openStudio} from './studio.js';
 import {findPreviousVideo,resultVideo} from './result_preview.js';
 import {mergeProgress} from './generation.js';
-import {timelineQueue,graphNodes,normalizeModelChoices,canvasEnhancerModel,canvasEnhancerBinding,canvasGenerationSize} from './queue_status.js';
+import {timelineQueue,graphNodes,normalizeModelChoices,canvasEnhancerModel,canvasEnhancerBinding,canvasGenerationSize,canvasAIInstruction} from './queue_status.js';
+import {instructionGraph} from './instruction_graph.js';
 import {syncSeedControls} from './seed_controls.js';
 import {referenceCounts} from './node_summary.js';
 import {read,duration,roundEven} from './state.js';
@@ -156,7 +157,7 @@ function install(node){
     const previewLookup=new AbortController();
     try{
       const workflowAtOpen=activeWorkflowId();
-      const editor=openStudio({value:baseline,assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),assistIdentity:()=>({outputSize:canvasGenerationSize(node,rootGraph()),canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
+      const editor=openStudio({value:baseline,assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),getInstructionGraph:async binding=>instructionGraph((await app.graphToPrompt()).output,binding),assistIdentity:()=>({instructionBinding:canvasAIInstruction(node,rootGraph()),outputSize:canvasGenerationSize(node,rootGraph()),canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
         onApply:plan=>{
           if(!node.graph)throw new Error(t('nodeRemoved'));
           if(String(widget(node).value)!==baseline)throw new Error(t('nodeChanged'));

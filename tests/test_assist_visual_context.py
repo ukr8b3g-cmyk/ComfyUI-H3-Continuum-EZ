@@ -98,3 +98,25 @@ def test_missing_one_of_multiple_images_fails_before_queue_graph(tmp_path):
     p=fixture(tmp_path);(tmp_path/'image-1.png').unlink()
     with pytest.raises(ValueError):prepare(p,tmp_path)
     assert p['shots'][0]['prompt']=='SHOT_ONLY'
+
+
+@pytest.mark.parametrize('target',[TARGET, {'field':'global_prompt'}])
+def test_mp_change_retains_ai_selection_edit_restore_and_render(tmp_path,target):
+    p=fixture(tmp_path);p=adopt(p,prepare(p,tmp_path,target),tmp_path)
+    saved=copy.deepcopy(p['prompt_enhancer']['texts'][0])
+    for mp in (.3,.4,.6,1):
+        p['resolution']['megapixels']=mp
+        p=normalize_plan(json.dumps(p))
+        assert resolve_prompt_text(p,target)==('AI_TEXT','enhanced')
+        runtime,notes=verified_plan(p,tmp_path)
+        assert not notes and 'AI_TEXT' in compile_part_prompt(runtime,execution_plan(runtime)[0])[0]
+        assert p['prompt_enhancer']['texts'][0]==saved
+    edited=adopt_request({'plan':p,'target':target,'receipt':saved,'candidate':'EDITED_AI'},tmp_path)['entry']
+    p['prompt_enhancer']['texts']=[edited]
+    assert resolve_prompt_text(p,target)==('EDITED_AI','enhanced')
+    edited['inactive']=True
+    assert resolve_prompt_text(p,target)[1]=='off'
+    edited['inactive']=False
+    assert resolve_prompt_text(p,target)==('EDITED_AI','enhanced')
+    p['resolution']['aspect']='16:9'
+    assert resolve_prompt_text(p,target)[1]=='stale'

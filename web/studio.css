@@ -290,3 +290,9 @@
 .h3ez-studio .ez-shot-context .ez-end-image select{height:28px;min-height:28px;max-width:145px;padding:3px 6px}
 .h3ez-studio .ez-shot-context .ez-end-image img{width:32px;height:26px}
 .h3ez-studio .ez-story-tools{gap:4px;padding-top:5px;margin-top:2px}
+.h3ez-studio .ez-ai-instruction-button{border-color:#8067a8;color:#dfcff8}
+.h3ez-import.ez-instruction-dialog{width:min(800px,90vw);height:fit-content;max-height:85vh}
+.ez-instruction-dialog textarea{min-height:220px;height:40vh;max-height:50vh;resize:vertical}
+.ez-instruction-source{font-size:13px;color:#c9b7e9;margin-bottom:8px}
+.ez-instruction-dialog .ez-char-count{margin-right:auto;align-self:center;font-variant-numeric:tabular-nums}
+.h3ez-import.ez-instruction-dialog button.ez-apply{background:#284d70;border-color:#85b4e2;color:#f1f7ff}

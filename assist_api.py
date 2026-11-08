@@ -19,8 +19,8 @@ import tempfile
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from .enhancer import (CONTRACT, VISUAL_CONTRACT, MAX_AI_IMAGES, PROFILE, SYSTEM_PROMPT, canonical, dependency_payload, digest,
-                       original_text, target_key, validate_candidate, normalize_enhancer)
+from .enhancer import (CONTRACT, VISUAL_CONTRACT, MAX_AI_IMAGES, MAX_INSTRUCTION, PROFILE, SYSTEM_PROMPT, canonical, compatible_dependencies, dependency_payload, digest,
+                       original_text, resolve_prompt_text, target_key, validate_candidate, normalize_enhancer)
 from .plan import normalize_plan, asset_path, used_asset_ids, shot_geometry, execution_plan
 
 PREFIX = '/h3-continuum-ez/assist'
@@ -110,10 +110,16 @@ def _prepare_image(asset, input_root, pixel_budget=AI_PIXELS):
 
 
 def prepare_request(body, input_root, available_models, model_identity=None):
-    if not isinstance(body, dict) or set(body) - {'plan','target','external_prompt','image_id','model','loader','contract','output_size'}:
+    if not isinstance(body, dict) or set(body) - {'plan','target','external_prompt','image_id','model','loader','contract','output_size','ai_instruction','video_context'}:
         raise AssistError('Invalid AI request fields')
     plan = normalize_plan(body.get('plan'),allow_audio_overhang=True)
     require_enabled(plan)  # Before model/file work, even for hand-written API calls.
+    instruction = body.get('ai_instruction', plan.get('prompt_enhancer', {}).get('instruction', ''))
+    if not isinstance(instruction,str) or len(instruction)>MAX_INSTRUCTION or '\0' in instruction:
+        raise AssistError('AI instruction must be text of at most 8000 characters / AI指示は8000文字以内です')
+    instruction = instruction.strip() or SYSTEM_PROMPT
+    if 'video_context' in body and type(body['video_context']) is not bool:
+        raise AssistError('Invalid video context flag')
     target = body.get('target')
     target_key(target)
     external = body.get('external_prompt')
@@ -160,6 +166,12 @@ def prepare_request(body, input_root, available_models, model_identity=None):
                'reference_catalog':[{'id':x['id'],'name':x['subject_name']} for x in dep['images']],
                'selected_visual_reference': aid,
                'instruction':'Refine selected_text only. Keep its original language. Return plain prose.'}
+    # Context is read-only background, never a replacement for either text field.
+    # Retain old contracts for already saved AI text and older clients.
+    if body.get('video_context') and target['field']=='prompt':
+        shot=next(s for s in plan['shots'] if s['id']==target['shot_id'])
+        if shot.get('prompt_mode')!='replace':
+            context['common_context_do_not_repeat']=resolve_prompt_text(plan,{'field':'global_prompt'},external)[0]
     if visual:
         context.pop('selected_visual_reference')
         context['visual_inputs'] = [{'image':i+1, 'asset_id':aid} for i,aid in enumerate(selected_ids)]
@@ -175,7 +187,7 @@ def prepare_request(body, input_root, available_models, model_identity=None):
         raise AssistError('AI context exceeds the explicit input budget; simplify selected context. Nothing was truncated.')
     inputs = {'clip':[loader,0], 'prompt':prompt_text, 'max_length':1536,
               'sampling_mode':'off', 'thinking':True, 'use_default_template':True,
-              'system_prompt':SYSTEM_PROMPT, 'mtp':'off'}
+              'system_prompt':instruction, 'mtp':'off'}
     graph = {
         loader:{'class_type':'CLIPLoader', 'inputs':{'clip_name':model, **loader_settings}},
         generator:{'class_type':'TextGenerateV2', 'inputs':inputs},
@@ -190,7 +202,7 @@ def prepare_request(body, input_root, available_models, model_identity=None):
                'dependency_hash':digest(canonical(dep)), 'images':images,
                'model_identity':identity, 'profile_version':PROFILE}
     # Do not include random node IDs in the result-cache identity.
-    cache_key = digest(canonical({'receipt':receipt, 'loader':loader_settings, 'profile':PROFILE, 'max_length':1536,
+    cache_key = digest(canonical({'receipt':receipt, 'loader':loader_settings, 'profile':PROFILE, 'system_prompt':instruction, 'context':prompt_text, 'max_length':1536,
                                  'thinking':True, 'sampling':'off', 'mtp':'off'}))
     return {'request_id':request_id, 'graph':graph, 'output_id':output,
             'receipt':receipt, 'cache_key':cache_key, 'model':model,
@@ -213,7 +225,9 @@ def adopt_request(body, input_root):
     saved_output = previous_dependencies.get('output', {})
     output_size = body.get('output_size', saved_output if saved_output.get('source')=='engine' and saved_output.get('width') else None)
     dep=dependency_payload(plan,target,external,previous_dependencies.get('contract', CONTRACT),bool(previous_dependencies.get('common')),output_size)
-    if receipt.get('dependency_hash')!=digest(canonical(dep)) or receipt.get('base_text_hash')!=digest(dep['text']):
+    if (receipt.get('dependency_hash')!=digest(canonical(previous_dependencies))
+            or receipt.get('base_text_hash')!=digest(dep['text'])
+            or not compatible_dependencies(previous_dependencies, dep)):
         raise AssistError('The source changed. Generate a new candidate / 入力条件が変更されました。候補を作り直してください')
     entry={**receipt, 'text':validate_candidate(body.get('candidate'))}
     checked=normalize_enhancer({'enabled':True,'texts':[entry]},plan)['texts'][0]

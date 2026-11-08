@@ -29,6 +29,7 @@ from .vendor.continuum.v2.sampling import sample_chunk, latent_to_cpu, latent_fr
 from .vendor.continuum.v2.motion import choose_context_frames
 from .vendor.continuum.v2.seeds import derive_chunk_seed
 from .vendor.continuum.decode_base import decode_video, decode_audio
+from .seam import correct_boundary, TAIL_FRAMES
 
 LOG = logging.getLogger('h3_continuum_ez')
 
@@ -136,7 +137,7 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         writer = _stack.enter_context(StreamVideo(output_root, width, height, FPS, _cancel))
     emit('start', parts=parts)
     audio_master = render_original_audio(plan, input_root, total_frames, stack=_stack, cancel=_cancel)
-    previous, records = None, []
+    previous, records, previous_tail = None, [], None
     frames_out, generated_audio, audio_rate = None, None, None
     image_allocation = audio_allocation = None
     for i, g in enumerate(parts):
@@ -144,7 +145,8 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         shot = plan['shots'][g['shot_index']]
         event = dict(shot_id=g['shot_id'],part_index=g['part_index'],part_count=g['part_count'])
         emit('preparing', **event)
-        if g['transition'] == 'cut': previous = None
+        if g['transition'] == 'cut':
+            previous = previous_tail = None
         context_frames, score, reason = 0, 0., 'scene start'
         if previous is not None:
             context_frames, score, reason = choose_context_frames(V2_CONTINUITY_AUTO, previous)
@@ -219,6 +221,16 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         if not bool(torch.isfinite(raw).all()): raise RuntimeError('Decoded video contains NaN/Inf')
         part = raw[trim:physical]
         if part.shape[0] != g['frames']: raise RuntimeError('Decoded video count mismatch')
+        if previous_tail is not None:
+            _cancel()
+            prefix, seam = correct_boundary(previous_tail, part)
+            if prefix is not None:
+                part[:prefix.shape[0]].copy_(prefix)
+            records[-1]['seam'] = seam
+            LOG.info('EZ boundary part %d: %s', i+1, seam)
+            del prefix
+        # A clone is essential: a view would pin the entire decoded chunk in RAM.
+        previous_tail = part[-TAIL_FRAMES:].clone().contiguous()
         if not streaming:
             if frames_out is None:
                 shape = (total_frames, *part.shape[1:])
@@ -269,7 +281,7 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
             del decoded, wav, wave_part
         if backend == 'Disk-backed':
             storage.collect()
-    previous = None
+    previous = previous_tail = None
     if image_allocation:
         frames_out = image_allocation.publish()
     if audio_allocation:
@@ -284,7 +296,9 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         f'{width}x{height}, {total_frames} frames at 24 fps, {total_frames/FPS:.3f}s',
         f'Audio: {"original edited source; no generated audio mixed" if audio_master is not None else "H3 generated"}',
         f'Output: {output_mode}; backend: {backend}; full RGB size: {estimate/2**30:.2f} GiB ({"not allocated" if streaming else "logical size"}). Original Continuum seed derivation retained.',
-        *[f"Shot {r['shot']} part {r['part_index']+1}/{r['part_count']}: {r['seconds']:.3f}s, context {r['context_frames']}f, seed {r['seed']}, {r['picture_map']}" for r in records]
+        *[f"Shot {r['shot']} part {r['part_index']+1}/{r['part_count']}: {r['seconds']:.3f}s, context {r['context_frames']}f, seed {r['seed']}, {r['picture_map']}"
+          + (f"; boundary {r['seam']['method']}, peak {r['seam'].get('peak_before',0):.5f} -> {r['seam'].get('peak_after',0):.5f}" if 'seam' in r else '')
+          for r in records]
     ])
     return frames_out, final_audio, float(FPS), report
 

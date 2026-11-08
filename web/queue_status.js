@@ -102,6 +102,21 @@ function canvasConfiguration(timeline,root=timeline.graph,dimensions=false){
   }
   const engines=[...byNode.keys()].filter(n=>kind(n)==='H3ContinuumEZEngine'&&n.mode!==2&&n.mode!==4&&input(n,'timeline')?.node===timeline);
   if(!engines.length)return null;
+  if(dimensions==='instruction'){
+    const wired=engines.filter(n=>n.inputs?.some(i=>i.name==='ai_instruction'&&i.link!=null));
+    if(!wired.length)return {connected:false};
+    const sources=engines.map(n=>input(n,'ai_instruction'));
+    if(sources.some(s=>!s)||new Set(sources.map(s=>s.ctx.path+s.node.id+':'+s.slot)).size!==1)
+      return {connected:true,error:'Conflicting or unavailable AI instruction inputs / AI指示の接続先が不一致、または利用できません'};
+    const describe=(src,seen=new Set())=>{
+      if(!src)return null;
+      const id=src.ctx.path+src.node.id;if(seen.has(id))return {id,cycle:true};
+      seen=new Set(seen);seen.add(id);
+      return {id,type:kind(src.node),slot:src.slot,widgets:(src.node.widgets||[]).map(w=>[w.name,w.value]),
+        inputs:(src.node.inputs||[]).map(i=>[i.name,describe(fromLink(src.ctx,i.link,new Set()),seen)])};
+    };
+    return {connected:true,engineIds:engines.map(n=>byNode.get(n).path+n.id),signature:describe(sources[0])};
+  }
   if(dimensions){
     const scalar=(node,name,seen=new Set())=>{
       const key=(byNode.get(node)?.path||'')+node.id+':'+name;if(seen.has(key))return null;
@@ -137,6 +152,7 @@ function canvasConfiguration(timeline,root=timeline.graph,dimensions=false){
 }
 export function canvasEnhancerBinding(timeline,root=timeline.graph){return canvasConfiguration(timeline,root);}
 export function canvasGenerationSize(timeline,root=timeline.graph){return canvasConfiguration(timeline,root,true);}
+export function canvasAIInstruction(timeline,root=timeline.graph){return canvasConfiguration(timeline,root,'instruction')||{connected:false};}
 export function canvasEnhancerModel(timeline,root=timeline.graph){return canvasEnhancerBinding(timeline,root)?.model||'';}
 
 export function normalizeModelChoices(root) {

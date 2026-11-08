@@ -39,6 +39,11 @@ def verify():
         if hashlib.sha256((ROOT/'vendor/continuum'/name).read_bytes()).hexdigest()!=expected:
             raise SystemExit('Storage provenance mismatch: '+name)
         preserved+=1
+    seams=json.loads((ROOT/'vendor/continuum/SEAM_PROVENANCE.json').read_text())
+    for name,expected in seams['sha256'].items():
+        if hashlib.sha256((ROOT/'vendor/continuum'/name).read_bytes()).hexdigest()!=expected:
+            raise SystemExit('Seam provenance mismatch: '+name)
+        preserved+=1
     print(json.dumps({'package_files':len(records),'preserved_upstream_modules':preserved,'sha256':'PASS','inventory':'PASS'},ensure_ascii=False))
 
 if __name__=='__main__':verify()

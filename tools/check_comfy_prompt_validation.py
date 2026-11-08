@@ -55,6 +55,10 @@ async def main():
     assert not baseline[0] and 'ai' in baseline[3], baseline
     fixed = prepare_video_prompt({'prompt': prompt})['prompt']
     assert (await validate(fixed))[0]
+    instruction_case = deepcopy(prompt)
+    instruction_case['engine']['inputs']['ai_instruction'] = ['missing_instruction_source', 0]
+    assert (await validate(prepare_video_prompt({'prompt': instruction_case})['prompt']))[0]
+    assert instruction_case['engine']['inputs']['ai_instruction'] == ['missing_instruction_source', 0]
     for enabled in (False, True):
         for mode in ('Images', 'Long video'):
             case = deepcopy(prompt)

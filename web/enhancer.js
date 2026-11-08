@@ -68,7 +68,8 @@ export function validateCandidate(text){
 export function validateEnhancer(p){
   if(p.schema===1){if('prompt_enhancer'in p)throw new Error('Prompt enhancer requires schema 2');return;}
   const e=p.prompt_enhancer||{enabled:false,texts:[]};
-  if(!e||typeof e!=='object'||Array.isArray(e)||Object.keys(e).some(k=>!['enabled','texts','model','profile'].includes(k))||('enabled'in e&&typeof e.enabled!=='boolean')||!Array.isArray(e.texts||[])||(e.texts||[]).length>17)throw new Error('Invalid prompt enhancer settings');
+  if(!e||typeof e!=='object'||Array.isArray(e)||Object.keys(e).some(k=>!['enabled','texts','model','profile','instruction'].includes(k))||('enabled'in e&&typeof e.enabled!=='boolean')||!Array.isArray(e.texts||[])||(e.texts||[]).length>17)throw new Error('Invalid prompt enhancer settings');
+  if('instruction'in e&&(typeof e.instruction!=='string'||[...e.instruction].length>8000||e.instruction.includes('\0')))throw new Error('AI instruction must be text of at most 8000 characters');
   if('model'in e&&(typeof e.model!=='string'||e.model.length>512||e.model.includes('\0')))throw new Error('Invalid AI model');
   if('profile'in e&&e.profile!==PROFILE)throw new Error('Unsupported AI profile');
   const seen=new Set();
@@ -89,12 +90,20 @@ export function resolveText(p,target,external=null,outputSize=undefined){
   if(!entryIsCurrent(p,x,external,outputSize))return {text:original,status:'stale'};
   return {text:x.text,status:'enhanced'};
 }
+export function compatibleDependencies(saved,current){
+  saved=JSON.parse(JSON.stringify(saved));current=JSON.parse(JSON.stringify(current));
+  // MP changes only render resolution; retain the original generation receipt.
+  if(saved.output?.source==='studio'&&current.output?.source==='studio'){
+    for(const dep of [saved,current]){delete dep.output.width;delete dep.output.height;}
+  }
+  return canonical(saved)===canonical(current);
+}
 export function entryIsCurrent(p,entry,external=null,outputSize=undefined){
   try{
     const saved=entry.dependencies.output;
     const size=outputSize===undefined?(saved?.source==='engine'&&saved.width?saved:null):outputSize;
     const dep=dependencyPayload(p,entry.target,external,entry.dependencies.contract,Boolean(entry.dependencies.common),size);
-    return sha256(dep.text)===entry.base_text_hash&&sha256(canonical(dep))===entry.dependency_hash;
+    return sha256(dep.text)===entry.base_text_hash&&sha256(canonical(entry.dependencies))===entry.dependency_hash&&compatibleDependencies(entry.dependencies,dep);
   }catch{return false;}
 }
 export function setEnhancer(p,enabled){

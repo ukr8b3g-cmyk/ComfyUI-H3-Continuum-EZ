@@ -21,9 +21,9 @@ def prepare_video_prompt(request):
         if not isinstance(node, dict) or node.get('class_type') != 'H3ContinuumEZEngine':
             continue
         inputs = node.get('inputs')
-        if isinstance(inputs, dict) and 'prompt_clip' in inputs:
+        if isinstance(inputs, dict) and any(key in inputs for key in ('prompt_clip','ai_instruction')):
             updates[node_id] = {**node, 'inputs': {key: value for key, value in inputs.items()
-                                                 if key != 'prompt_clip'}}
+                                                 if key not in ('prompt_clip','ai_instruction')}}
     if not updates:
         return request
     return {**request, 'prompt': {**prompt, **updates}}

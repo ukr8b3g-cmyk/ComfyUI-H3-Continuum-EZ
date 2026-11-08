@@ -16,6 +16,7 @@ VISUAL_CONTRACT = 'h3ez-assist-visual-v3'
 MAX_AI_IMAGES = 11  # Nine references plus distinct start/end images.
 MAX_CANDIDATE = 32_000
 MAX_ENTRIES = 17
+MAX_INSTRUCTION = 8000
 HEX = re.compile(r'^[0-9a-f]{64}$')
 PROFILE = 'ez-shot-v1'
 SYSTEM_PROMPT = (
@@ -25,7 +26,7 @@ SYSTEM_PROMPT = (
     'negation and explicit constraints. Refine only the selected text. '
     'Do not repeat the common context. Do not add subjects, dialogue, music, '
     'scene cuts or camera movement unless the selected text requests them. '
-    'Describe the requested motion, not an edit to a still image. '
+    'Describe the requested motion chronologically from its starting state to its ending state, not an edit to a still image. '
     'Use all supplied images according to their listed roles. Different references may '
     'show different subjects; do not merge their identities or copy their backgrounds '
     'unless requested. Start/end images describe endpoints, not simultaneous events. '
@@ -147,7 +148,7 @@ def validate_candidate(text):
 
 
 def normalize_enhancer(raw, plan):
-    if not isinstance(raw, dict) or set(raw) - {'enabled','texts','model','profile'}:
+    if not isinstance(raw, dict) or set(raw) - {'enabled','texts','model','profile','instruction'}:
         raise ValueError('Invalid prompt enhancer settings')
     enabled = raw.get('enabled', False)
     if type(enabled) is not bool:
@@ -156,6 +157,11 @@ def normalize_enhancer(raw, plan):
     if not isinstance(texts, list) or len(texts)>MAX_ENTRIES:
         raise ValueError('Too many enhanced prompt entries')
     out = {'enabled':enabled, 'texts':[]}
+    if 'instruction' in raw:
+        instruction=raw['instruction']
+        if not isinstance(instruction,str) or len(instruction)>MAX_INSTRUCTION or '\0' in instruction:
+            raise ValueError('AI instruction must be text of at most 8000 characters')
+        out['instruction']=instruction
     if 'model' in raw:
         model = raw['model']
         if not isinstance(model,str) or len(model)>512 or '\0' in model:
@@ -203,6 +209,20 @@ def normalize_enhancer(raw, plan):
     return out
 
 
+def compatible_dependencies(saved, current):
+    """Studio MP affects render resolution, not the saved prose's meaning.
+
+    Keep original receipts intact; aspect, source, timing and reference changes
+    still invalidate them. Engine dimensions retain their existing checks.
+    """
+    saved, current = copy.deepcopy(saved), copy.deepcopy(current)
+    if saved.get('output', {}).get('source') == current.get('output', {}).get('source') == 'studio':
+        for dep in (saved, current):
+            dep['output'].pop('width', None)
+            dep['output'].pop('height', None)
+    return canonical(saved) == canonical(current)
+
+
 def resolve_prompt_text(plan, target, external=None):
     original = original_text(plan,target,external)
     enhancer=plan.get('prompt_enhancer',{})
@@ -219,7 +239,9 @@ def resolve_prompt_text(plan, target, external=None):
     saved_output = entry['dependencies'].get('output', {})
     output_size = saved_output if saved_output.get('source') == 'engine' and saved_output.get('width') else None
     deps = dependency_payload(plan,target,external,contract,bool(entry['dependencies'].get('common')),output_size)
-    if digest(original)!=entry['base_text_hash'] or digest(canonical(deps))!=entry['dependency_hash']:
+    if (digest(original)!=entry['base_text_hash']
+            or digest(canonical(entry['dependencies']))!=entry['dependency_hash']
+            or not compatible_dependencies(entry['dependencies'], deps)):
         return original,'stale'
     return entry['text'],'enhanced'
 

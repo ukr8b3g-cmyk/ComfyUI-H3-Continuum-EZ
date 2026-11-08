@@ -5,18 +5,19 @@ import {VISUAL_CONTRACT} from './assist_context.js';
 const PREFIX='/h3-continuum-ez/assist';
 export class AssistCancelled extends Error {constructor(message='Candidate request invalidated / 候補を無効化しました'){super(message);this.name='AssistCancelled';}}
 export class AssistClient {
-  constructor({api,getState,onStatus=()=>{},sleep=ms=>new Promise(r=>setTimeout(r,ms)),pollMs=900,maxPolls=4000,explicitRequests=false}){
+  constructor({api,getState,getInstructionGraph=null,onStatus=()=>{},sleep=ms=>new Promise(r=>setTimeout(r,ms)),pollMs=900,maxPolls=4000,explicitRequests=false}){
     this.api=api;this.getState=getState;this.onStatus=onStatus;this.sleep=sleep;this.pollMs=pollMs;this.maxPolls=maxPolls;
     this.epoch=0;this.active=null;this.closed=false;this.lastEnabled=!!getState().plan.prompt_enhancer?.enabled;
     this.cache=new Map();this.cacheBytes=0;this.uncertain=null;
     this.explicitRequests=explicitRequests;
+    this.getInstructionGraph=getInstructionGraph;
   }
   _status(phase,detail='',extra={}){if(!this.closed)this.onStatus({phase,detail,...extra});}
   _emit(ticket,phase,detail='',extra={}){if(ticket.epoch===this.epoch&&!ticket.invalid)this._status(phase,detail,{target:ticket.target,...extra});}
   _state(){const s=this.getState();if(this.closed||s.alive===false)throw new AssistCancelled();return s;}
   _enabled(){const s=this._state();if(!this.explicitRequests&&s.plan.prompt_enhancer?.enabled!==true)throw new Error('Prompt enhancer is OFF / プロンプトエンハンサーはOFFです');return s;}
   _requestPlan(s){const p=JSON.parse(JSON.stringify(s.plan));if(this.explicitRequests)setEnhancer(p,true);return p;}
-  _identity(state){return canonical(state.identity??{});}
+  _identity(state){return canonical({identity:state.identity??{},instruction:state.plan.prompt_enhancer?.instruction||''});}
   _assert(ticket){
     const s=this._state();
     if((!this.explicitRequests&&s.plan.prompt_enhancer?.enabled!==true)||this.epoch!==ticket.epoch||this._identity(s)!==ticket.identity)throw new AssistCancelled();
@@ -77,6 +78,19 @@ export class AssistClient {
   async _run(ticket,body){
     try{
       this._emit(ticket,'preparing');
+      if(this.explicitRequests){
+        const s=this._assert(ticket),binding=s.identity?.instructionBinding;
+        body.video_context=true;
+        if(binding?.connected){
+          if(binding.error)throw new Error(binding.error);
+          if(!this.getInstructionGraph)throw new Error('AI instruction graph is unavailable');
+          const external=await this.getInstructionGraph(binding);this._assert(ticket);
+          if(!external)throw new Error('AI instruction connection changed');
+          body.ai_instruction=typeof external.text==='string'?external.text:await this._execute(ticket,external,'ai-instruction');
+          this._assert(ticket);
+          if(typeof body.ai_instruction!=='string'||[...body.ai_instruction].length>8000||body.ai_instruction.includes('\0'))throw new Error('AI instruction must be text of at most 8000 characters / AI指示は8000文字以内です');
+        }
+      }
       let prepared;
       try{prepared=await this._post(PREFIX+'/prepare',body);}
       catch(error){
@@ -91,12 +105,23 @@ export class AssistClient {
       ticket.outputId=prepared.output_id;ticket.prepared=prepared;
       const cached=ticket.refresh?null:this.cache.get(prepared.cache_key);
       if(cached){this.cache.delete(prepared.cache_key);this.cache.set(prepared.cache_key,cached);this._emit(ticket,'ready','', {cached:true});return {...cached.value,ticket,receipt:prepared.receipt};}
+      const text=await this._execute(ticket,prepared);this._assert(ticket);
+      const result={text:validateCandidate(text),receipt:prepared.receipt,cacheKey:prepared.cache_key};
+      this._cache(prepared.cache_key,result);this._emit(ticket,'ready');return {...result,ticket};
+    }catch(error){
+      if(error instanceof AssistCancelled){this._emit(ticket,'stale',error.message);await this._removeWaiting(ticket);}
+      else if(!this.uncertain&&!this.closed)this._emit(ticket,'error',String(error.message||error));
+      throw error;
+    }
+  }
+  async _execute(ticket,prepared,kind='prompt-enhancer'){
+      ticket.outputId=prepared.output_id;ticket.promptId=null;
       this._emit(ticket,'submitting');
       let acknowledgement;
       try{
         acknowledgement=await this._post('/prompt',{prompt:prepared.graph,
           ...(this.api.clientId?{client_id:this.api.clientId}:{}),
-          extra_data:{h3ez_assist:{request_id:prepared.request_id,kind:'prompt-enhancer'}}});
+          extra_data:{h3ez_assist:{request_id:prepared.request_id,kind}}});
       }catch(error){
         // A definitive HTTP rejection is not an uncertain submission.
         if(error.status>=400&&error.status<500)throw error;
@@ -109,14 +134,7 @@ export class AssistClient {
       ticket.promptId=acknowledgement.prompt_id;
       try{this._assert(ticket);}catch(error){await this._removeWaiting(ticket);throw error;}
       this._emit(ticket,'queued','',{promptId:ticket.promptId});
-      const text=await this._poll(ticket);this._assert(ticket);
-      const result={text:validateCandidate(text),receipt:prepared.receipt,cacheKey:prepared.cache_key};
-      this._cache(prepared.cache_key,result);this._emit(ticket,'ready');return {...result,ticket};
-    }catch(error){
-      if(error instanceof AssistCancelled){this._emit(ticket,'stale',error.message);await this._removeWaiting(ticket);}
-      else if(!this.uncertain&&!this.closed)this._emit(ticket,'error',String(error.message||error));
-      throw error;
-    }
+      return this._poll(ticket);
   }
   async _recoverSubmitted(ticket){
     try{

@@ -1,5 +1,15 @@
 // English is the fallback for every ComfyUI locale other than Japanese.
 const messages = {
+  aiInstruction:['AI Instructions','AI指示'],
+  aiInstructionDefault:['Using: Video default','使用中：動画向け標準'],
+  aiInstructionStudio:['Studio instructions','Studio指示'],
+  aiInstructionExternal:['Using: External input (Engine)','使用中：外部入力（Engine）'],
+  aiInstructionHelp:['System instructions for Generate AI only. Empty uses the video default. A connected Engine ai_instruction takes priority; the Studio text is retained. Existing AI text and originals are not rewritten. External nodes run only when Generate AI is pressed.','AI生成用のシステム指示です。空欄は動画向け標準を使用します。Engineのai_instruction接続時は外部入力を優先し、Studio指示は保持します。既存のAI文・原文は書き換えません。外部ノードの実行はAI生成時だけです。'],
+  aiInstructionReset:['Reset to Default','標準に戻す'],
+  aiInstructionResetHelp:['Restore the video instructions in this editor. Save to apply.','この編集欄を動画向け標準に戻します。保存すると反映します。'],
+  aiInstructionSave:['Save','保存'],
+  aiInstructionSaveHelp:['Save Studio instructions in this project. Applies to future AI generation only.','Studio指示をこのプロジェクトに保存します。次回のAI生成から使用します。'],
+  aiInstructionLimit:['Instructions must be 8,000 characters or fewer, without null characters.','AI指示は8,000文字以内です。ヌル文字は使用できません。'],
   project:['Project','プロジェクト'],
   projectReplace:['Replace','置換'],
   projectNew:['New Project','新規プロジェクト'],

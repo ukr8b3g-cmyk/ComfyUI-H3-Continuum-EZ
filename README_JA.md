@@ -1,4 +1,4 @@
-[English](README.md) · [v0.12.0 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.12.0) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json)
+[English](README.md) · [v0.13.0 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.0) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@
 
 ## はじめに
 
-1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
-2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
+1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
+2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
 3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開き、素材を追加します。テンプレートには庭を舞台にした2ショットの例文が入っています。
 
 ## 画面と操作順
@@ -27,7 +27,15 @@
 
 P-H3アップサンプラーはAI文章生成用の任意モデルです。未導入でも、配線を変えずに **原文** で動画を生成できます。**AI生成** は文章を作成してAI文へ切り替える操作です。動画の実行前に内容を編集したり、**原文** に戻したりできます。
 
-ショットのAI生成には、そのショットで有効な参照画像・開始画像・最終画像と、秒数・アスペクト比を自動で渡します。共通文は混ぜません。共通プロンプトのAI生成には共通文と共通参照だけを使います。**AI生成** の横に送信する画像の枚数を表示し、詳細はマウスオーバーで確認できます。画像の選択操作や追加設定は不要です。AI解析用の画像は総画素数に上限を設けて縮小し、元画像は変更しません。原文・参照画像・秒数・出力サイズを変更すると、保存済みAI文は再生成が必要になります。
+ショットのAI生成には、そのショットで有効な参照画像・開始画像・最終画像と、秒数・アスペクト比を自動で渡します。共通文は混ぜません。共通プロンプトのAI生成には共通文と共通参照だけを使います。**AI生成** の横に送信する画像の枚数を表示し、詳細はマウスオーバーで確認できます。画像の選択操作や追加設定は不要です。AI解析用の画像は総画素数に上限を設けて縮小し、元画像は変更しません。原文・参照画像・秒数・アスペクト比を変更すると、保存済みAI文は再生成が必要になります。StudioのMPだけを変更した場合は、AI文と原文／AI文の選択を維持します。
+
+## AI指示
+
+Studio上部の **AI指示** から、次回の **AI生成** に使うシステム指示を編集できます。通常は動画向けの標準指示のまま使えます。**標準に戻す** で初期状態へ戻し、**保存** でStudio指示を保存します。既存のAI文・原文は書き換えません。プロジェクト保存・読込にも含まれます。
+
+任意の **Engine → ai_instruction** STRING入力を接続すると、Studio指示より外部入力を優先します。接続元の文章処理は **AI生成** を押した時だけ実行します。指示画面には外部入力を使用中であることを表示し、Studio内の指示は保持します。外部入力が空欄の場合は動画向け標準を使います。通常の動画生成はこの入力を実行しないため、AIモデルや指示ノードに依存せず **原文** で生成できます。テンプレートのモデル配線やシードを変える必要はありません。
+
+ショットAIは **共通文 ON** のとき、共通プロンプトを背景情報として参照しますが、書き換えるのはショット本文だけです。共通プロンプトのAI生成ではショット本文を変更しません。画像番号と区間形式はEZが組み立てます。システム指示は画像向けP-H3アップサンプラーの出力方針を調整するもので、動画専用モデルへの変更ではありません。
 
 ## テンプレートのモデル
 
@@ -64,6 +72,8 @@ Stability Matrixの共有フォルダーや `minimax/` などを使う場合は�
 
 出力形式は **自動／動画保存／動画＋画像** です。どちらの動画出力も音声付きで保存し、画像処理が必要な配線では画像データも自動で出力します。手動での配線切替は不要です。自動分割の初期値は **7.5秒**。例えば15秒のショットは2区間で生成します。入力した7.5は保持し、実際の区間時間だけをH3のフレーム単位に調整します。
 
+継続区間のつなぎ目には、通常Continuumの評価・色補正を使った自動補正が働きます。前の末尾2フレームと次の先頭5フレームだけをCPUで比較し、先頭1フレームだけの明るさの跳ねも、前後が安定して安全判定を満たす場合に補正します。場面転換・フレーム数・シード・音声位置は維持し、改善しない候補は使いません。動画保存では補正のために全動画分のRGBをRAMへ展開しません。
+
 ## プロジェクト
 
 1. **プロジェクト → 新規プロジェクト** で空のタイムラインを作成。
@@ -81,3 +91,7 @@ Studio上部の **プロジェクト** から **新規プロジェクト／プ�
 プレーヤーのミュートと音量はプレビュー専用です。音声クリップの音量は、生成ガイドと書き出す音声に反映します。音声は重ね合わせのない1トラックです。
 
 詳しい記入例は [プロンプトガイド](docs/EASY_PROMPTS_JA.md) を参照してください。AI文は動画向けに調整した実験機能です。内容を確認してから使ってください。
+
+## 今回の検証
+
+Python309件・JavaScript99件成功。普段のWindows ComfyUIで実AI推論2件、共通／ショットの分離、MP変更後の保持、原文／AI文切替を確認。同じモデル配線・seedのFastH3 2チャンク実生成では境界の平均輝度差＋16.449%→−0.261%、379フレームとAAC内容・時刻を保持し、全尺RGB1.69GiBは未確保でした。[検証範囲と限界](docs/RELEASE_v0.13.0_VALIDATION_JA.md)を参照してください。

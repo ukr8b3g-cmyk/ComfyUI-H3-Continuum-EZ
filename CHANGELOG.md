@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0 — 2026-11-08
+
+- Add editable video-oriented AI Instructions in Studio, saved in project files, with optional Engine `ai_instruction` STRING input. External input takes priority while Studio instructions are retained.
+- Execute external instruction nodes only for explicit AI generation; keep AI model/instruction dependencies out of ordinary video validation. Common text remains separate and provides read-only context for shot AI.
+- Preserve saved common/shot AI text and Original/AI Text selections when only Studio MP changes. Keep reference, timing, aspect and Engine-size validation.
+- Add bounded continuation-boundary correction using unchanged Continuum CPU seam metrics/color guard and a conservative isolated-exposure candidate. Inspect two previous and five current frames; retain the original when safety checks fail.
+- Preserve scene cuts, frame count, seeds and original audio timing. Stream corrected video without allocating a full-timeline RGB buffer. Report the applied method and boundary metrics.
+- Document real Windows/Chrome AI inference and two-chunk FastH3 GPU verification, alongside CPU/JavaScript tests. Keep both model workflow templates byte-identical to v0.12.0.
+
 ## 0.12.0 — 2026-11-08
 
 - Add New Project, Open Project and Save Project to the Studio toolbar. Save editing plans as `.h3ez.json`, retaining text, AI selections, media references, audio edits and output settings.

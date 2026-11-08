@@ -44,6 +44,32 @@ function fixture(explicitRequests=false){
  return{plan,target,api,client,calls,events,q,jobs,mode,enable(){setEnhancer(plan,true);client.sync();},off(){setEnhancer(plan,false);client.sync();},setIdentity(x){identity=x;client.sync();},close(){alive=false;client.dispose();},submit:()=>client.generate({target,model:'test.safetensors'})};
 }
 const spin=async predicate=>{for(let i=0;i<100;i++){if(predicate())return;await new Promise(r=>setTimeout(r,1));}throw new Error('condition timeout');};
+
+test('external instruction evaluates separately before AI and never changes the video plan',async()=>{
+ const f=fixture(true),before=clone(f.plan);f.setIdentity({instructionBinding:{connected:true,signature:'A'}});
+ f.client.getInstructionGraph=async()=>({graph:{instruction_result:{class_type:'PreviewAny',inputs:{source:'External instruction'}}},output_id:'instruction_result',request_id:'instruction-test'});
+ await f.submit();
+ const submissions=f.calls.filter(x=>x.path==='/prompt');assert.equal(submissions.length,2);
+ assert.equal(submissions[0].body.extra_data.h3ez_assist.kind,'ai-instruction');
+ assert.equal(submissions[1].body.extra_data.h3ez_assist.kind,'prompt-enhancer');
+ assert.equal(f.calls.find(x=>x.path.endsWith('/prepare')).body.ai_instruction,f.mode.text);
+ assert.deepEqual(f.plan,before);
+});
+
+test('external instruction failure or change does not submit the AI model job',async()=>{
+ const f=fixture(true);f.setIdentity({instructionBinding:{connected:true,signature:'A'}});
+ f.client.getInstructionGraph=async()=>({text:'x'.repeat(8001)});
+ await assert.rejects(f.submit(),/8000/);assert.equal(f.calls.length,0);
+ const gate=deferred();f.client.getInstructionGraph=async()=>{await gate.promise;return {text:'External instruction'};};
+ const pending=f.submit();f.setIdentity({instructionBinding:{connected:true,signature:'B'}});gate.resolve();
+ await assert.rejects(pending,AssistCancelled);assert.equal(f.calls.length,0);
+});
+
+test('changing the Studio instruction invalidates only in-flight AI work',async()=>{
+ const f=fixture(true);f.mode.prepareGate=deferred();const pending=f.submit();
+ setEnhancer(f.plan,true);f.plan.prompt_enhancer.instruction='NEW INSTRUCTION';f.client.sync();f.mode.prepareGate.resolve();
+ await assert.rejects(pending,AssistCancelled);assert.equal(f.calls.filter(x=>x.path==='/prompt').length,0);
+});
 test('OFF makes zero requests for inference and capabilities',async()=>{const f=fixture();await assert.rejects(f.submit(),/OFF/);await assert.rejects(f.client.capabilities(),/OFF/);assert.equal(f.calls.length,0);});
 test('ON alone starts no work',()=>{const f=fixture();f.enable();assert.equal(f.calls.length,0);});
 

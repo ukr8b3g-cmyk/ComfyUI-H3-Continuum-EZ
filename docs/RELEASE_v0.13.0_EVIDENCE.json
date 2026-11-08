@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-08",
+  "release": "0.13.0",
+  "gpu_tested_local_base_version": "0.12.0 + included fixes",
+  "real_AI_inferences": 2,
+  "shot_AI_seconds": 26.271,
+  "common_AI_seconds": 5.973,
+  "MP_retention_common_and_shot": true,
+  "original_AI_selection_and_final_prompt": true,
+  "two_chunk_GPU": {
+    "frames": 379,
+    "fps": 24,
+    "width": 832,
+    "height": 480,
+    "seconds": 15.791666666666666,
+    "boundary_frame": 192,
+    "before_pulse_pct": 16.449168741070565,
+    "after_pulse_pct": -0.26103597476729856,
+    "before_window_pixel_delta": 0.06586973143958438,
+    "after_window_pixel_delta": 0.042809881431204955,
+    "report_window_peak_before": 0.06553,
+    "report_window_peak_after": 0.03274,
+    "audio_payload_and_timestamps_identical": true,
+    "full_RGB_GiB_not_allocated": 1.69,
+    "observed_server_RSS_GiB": 24.090526580810547,
+    "same_model_graph_and_seed": true
+  },
+  "limits": [
+    "One tested FastH3 two-chunk condition; not a universal quality guarantee",
+    "P-H3 image upsampler may ignore sentence limits or add image-oriented descriptions",
+    "External dynamic STRING execution tested with fixtures; not real model inference across all external node types",
+    "Nodes 2.0 and hour-long peak memory not validated",
+    "Final version/docs publication does not rerun GPU inference"
+  ]
+}

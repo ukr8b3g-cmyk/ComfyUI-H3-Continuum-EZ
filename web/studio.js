@@ -3,6 +3,7 @@ import {newProject,saveProject,loadProject,MAX_PROJECT_BYTES} from './project.js
 import {applyUIHelp} from './ui_help.js';
 import {mediaLabel,mediaHelp} from './media_labels.js';
 import {AssistClient} from './assist.js';
+import {DEFAULT_INSTRUCTION} from './default_instruction.js';
 import {createAssistPanel} from './assist_panel.js';
 import {activateEntry,restoreOriginal,pruneTargets,resolveText} from './enhancer.js';
 import {storyPanel} from './story_panel.js';
@@ -22,7 +23,7 @@ const stamp=n=>`${Math.floor(n/60).toString().padStart(2,'0')}:${(n%60).toFixed(
 const studioResolutionDefaults={source:'studio',aspect:'16:9',megapixels:.3};
 const escapeDrop=e=>{e.preventDefault();e.stopPropagation();};
 
-export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnected=false,lastExternal=null,onClose=null,locale='en',resultVideo=null,generation=null,onStorage=null,assistApi=null,assistIdentity=()=>({}),getCanvasModel=()=>null}){
+export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnected=false,lastExternal=null,onClose=null,locale='en',resultVideo=null,generation=null,onStorage=null,assistApi=null,assistIdentity=()=>({}),getCanvasModel=()=>null,getInstructionGraph=null}){
   const t=translator(locale);
   ensureStudioStyles();let p=read(value),saved=JSON.stringify(p),selected=p.shots[0]?.id,selectedAudio=null,playhead=0,zoom=1,promptTab='shot',focusMode=false,busy=0,closed=false;
   const history=new History(),abort=new AbortController(),waves=new Map(),pendingWaves=new Set(),previousShotRefs=new Map();
@@ -33,7 +34,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     outputSize:assistIdentity().outputSize??null,
     externalUnknown:externalConnected&&p.prompt_source!=='studio'&&lastExternal===null,
     identity:{...assistIdentity(),canvasModel:getCanvasModel()??''},alive:!closed});
-  const assist=assistApi?new AssistClient({api:assistApi,getState:assistState,explicitRequests:true,onStatus:value=>assistPanel?.setStatus(value)}):null;
+  const assist=assistApi?new AssistClient({api:assistApi,getState:assistState,getInstructionGraph,explicitRequests:true,onStatus:value=>assistPanel?.setStatus(value)}):null;
   let editCheckTimer=null;
   const deferredChecks=()=>{assist?.sync();clearTimeout(editCheckTimer);editCheckTimer=setTimeout(()=>{if(!closed){checks();}},100);};
   let observer=null,monitorObserver=null,monitorFrame=null,monitor=null,videoSize=null,queueState={phase:'checking'},submitting=false;
@@ -135,6 +136,8 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   projectGroup.append(projectMenu,projectActions,projectFileInput);top.append(projectGroup);
   editTools.append(timelineTab,textTab,undo,redo,importButton);
   const settingsTools=el('div','ez-top-group ez-settings-tools');
+  const instructionButton=btn(t('aiInstruction'),()=>openInstruction(),'ez-ai-instruction-button');
+  instructionButton.title=t('aiInstructionHelp');settingsTools.append(instructionButton);
   if(onStorage)settingsTools.append(btn(t('storageManager'),onStorage));
   const runTools=el('div','ez-top-group ez-run-tools');
   const queueStatus=el('span','ez-queue-status');queueStatus.setAttribute('role','status');queueStatus.setAttribute('aria-live','polite');
@@ -932,6 +935,26 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   }
   function requestClose(){if((dirty()||assistPanel?.hasPendingEdits())&&!confirm(t('discardConfirm')))return;close();}
   function close(){if(closed)return;shotDragCancel?.();audioDragCancel?.();closed=true;clearTimeout(editCheckTimer);assistPanel?.dispose();observer?.disconnect();monitorObserver?.disconnect();pause();abort.abort();video.removeAttribute('src');video.load();media.removeAttribute('src');media.load();dialog.close();dialog.remove();onClose?.();}
+  function openInstruction(){
+    const d=el('dialog','h3ez-import ez-instruction-dialog');d.lang=locale;d.setAttribute('aria-label',t('aiInstruction'));
+    const heading=el('header','ez-dialog-heading'),close=btn('×',()=>d.close(),'ez-close');close.title=t('close');close.setAttribute('aria-label',t('close'));
+    heading.append(el('h3','',t('aiInstruction')),close);
+    const binding=assistIdentity().instructionBinding,source=el('div','ez-instruction-source',t(binding?.connected?'aiInstructionExternal':p.prompt_enhancer?.instruction?.trim()?'aiInstructionStudio':'aiInstructionDefault'));
+    source.title=t('aiInstructionHelp');
+    const area=el('textarea');area.value=p.prompt_enhancer?.instruction||DEFAULT_INSTRUCTION;area.setAttribute('aria-label',t('aiInstructionStudio'));area.title=t('aiInstructionHelp');area.spellcheck=false;
+    const counter=el('span','ez-char-count'),actions=el('div','ez-import-actions'),error=el('div','error');error.setAttribute('role','alert');
+    const save=btn(t('aiInstructionSave'),()=>{
+      if([...area.value].length>8000||area.value.includes('\0'))return;
+      try{mutate(()=>{p.schema=2;p.prompt_enhancer??={enabled:false,texts:[]};p.prompt_enhancer.instruction=area.value===DEFAULT_INSTRUCTION?'':area.value;},{strict:true});d.close();}
+      catch(e){error.textContent=errorText(e,t);}
+    },'ez-apply');
+    const refresh=()=>{const n=[...area.value].length;counter.textContent=`${n.toLocaleString(locale)} / 8,000`;save.disabled=n>8000||area.value.includes('\0');error.textContent=save.disabled?t('aiInstructionLimit'):'';};
+    area.oninput=refresh;refresh();
+    const reset=btn(t('aiInstructionReset'),()=>{area.value=DEFAULT_INSTRUCTION;refresh();});reset.title=t('aiInstructionResetHelp');
+    save.title=t('aiInstructionSaveHelp');
+    actions.append(reset,counter,btn(t('cancel'),()=>d.close()),save);d.append(heading,source,area,error,actions);
+    d.addEventListener('close',()=>{d.remove();instructionButton.focus();},{once:true});document.body.append(d);d.showModal();area.focus();
+  }
   function openImporter(){
     const d=el('dialog','h3ez-import');
     d.lang=locale;

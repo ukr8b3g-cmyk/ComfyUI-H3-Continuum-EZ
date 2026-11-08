@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.12.0 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.12.0) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json)
+[日本語](README_JA.md) · [v0.13.0 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.0) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Get started
 
-1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
-2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
+1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/ComfyUI-H3-Continuum-EZ-v0.13.0.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
+2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.0/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with two sample shots set in a garden.
 
 ## Studio walkthrough
@@ -27,7 +27,15 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 The P-H3 prompt upsampler is optional. Without it, keep **Original** selected and generate video with the existing wiring. **Generate AI** creates and selects AI text; it does not start a video job. You can edit the AI text or switch back to **Original** before generating video.
 
-Shot AI automatically receives the shot’s active reference images, start/end images, duration and output aspect ratio. Common text stays separate; its AI action receives only common text and shared references. The reference count beside **Generate AI** shows the images sent, with details on hover. No image selector or additional setup is needed. Images are reduced to a bounded total size for AI analysis; original assets are unchanged. Changing the original, references, duration or output size makes the saved AI text stale until regenerated.
+Shot AI automatically receives the shot’s active reference images, start/end images, duration and output aspect ratio. Common text stays separate; its AI action receives only common text and shared references. The reference count beside **Generate AI** shows the images sent, with details on hover. No image selector or additional setup is needed. Images are reduced to a bounded total size for AI analysis; original assets are unchanged. Changing the original, references, duration or aspect ratio makes the saved AI text stale until regenerated. Changing only Studio MP preserves the saved AI text and its Original / AI Text selection.
+
+## AI instructions
+
+Use **AI Instructions** in the Studio toolbar to edit the system instructions for future **Generate AI** requests. The video default is ready to use; **Reset to Default** restores it. **Save** stores the Studio instruction in the project without rewriting existing AI text or originals. Project save/open also retains it.
+
+An optional **Engine → ai_instruction** STRING connection takes priority over the Studio instruction. Its upstream text nodes run only when you explicitly generate AI text; the dialog identifies the active external source and retains the local instruction. An empty external value uses the video default. The ordinary video queue does not evaluate this connection, so Original generation remains independent of the AI model and instruction nodes. No template model connections or seed settings need changing.
+
+Shot AI uses the common prompt as read-only context when **Common text on** is selected; it rewrites only the shot field. Common-prompt AI never rewrites shot text. H3 reference numbers and segment formatting remain deterministic EZ processing. Custom system instructions steer the image-oriented P-H3 upsampler; they do not turn it into a video-trained model.
 
 ## Template models
 
@@ -72,6 +80,10 @@ Output choices are **Automatic / Save Video / Video + Images**. Video exports in
 
 Use **Project** on the Studio toolbar for **New Project**, **Open Project…** and **Save Project**. A `.h3ez.json` file retains shots, original/AI text, media references, audio edits and Studio output settings. Opening a project or creating a new one asks before replacing unsaved edits; Undo restores the previous plan. Media files remain in the ComfyUI input folder and are not embedded. Model connections, external STRING nodes and generated videos belong to the workflow/server rather than this project file. After opening, use **Apply to Node** or **Apply and Queue**. See the [project guide](docs/PROJECT_FILES_JA.md) for details.
 
+## Continuation boundaries
+
+Continuation boundaries use automatic, conservative CPU correction based on Continuum's seam metrics and color guard. Only two previous frames and five current frames are inspected. An isolated brightness pulse in the first new frame can be corrected when the surrounding frames support it and all safety checks improve. Scene cuts, frame counts, seeds and audio positions stay intact; unsafe candidates retain the original frames. Long-video output does not allocate a full-length RGB buffer for this correction.
+
 ## Audio editing
 
 Import audio through **Add Media** or the media drop area, then drag it from the library to the audio track. Importing to the library keeps the complete source duration; placing a one-minute source creates a one-minute clip. Video files can also be imported for their audio only. The source video is not placed on the picture track.
@@ -81,3 +93,7 @@ Select an audio clip to move, trim, split, duplicate or delete it. Delete/Backsp
 The player mute and volume control affect preview playback only. The selected clip's volume controls its guide audio and exported soundtrack. This version supports one non-overlapping audio track.
 
 See the [prompt guide](docs/EASY_PROMPTS_EN.md) for more examples. AI text is an experimental adaptation for video prompts. Review the result before generating.
+
+## Verification
+
+The v0.13.0 code passes 309 Python and 99 JavaScript tests. On the usual Windows ComfyUI, two real AI text jobs verified editable instructions, common/shot separation, MP retention and Original/AI selection. A matched two-chunk FastH3 GPU render reduced the boundary brightness pulse from +16.449% to −0.261%, keeping all 379 frames and identical encoded audio and timestamps. Long-video output did not allocate the full 1.69 GiB RGB buffer. See the [dated verification record and limits](docs/RELEASE_v0.13.0_VALIDATION_JA.md); these checks do not establish quality or peak memory for every model and duration.

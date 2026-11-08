@@ -1,0 +1,10 @@
+{
+  "use": "Fixed-time CPU metrics and color guard; EZ bounded exposure candidate in seam.py",
+  "source_distribution": "v3.10.2",
+  "source": "ukr8b3g-cmyk/ComfyUI-H3-Continuum",
+  "sha256": {
+    "v2/seam_guard.py": "2fd811794c4cc0f2ce050250b80484876454926b9f20fce6af3a97d728e5acdf",
+    "v2/seam_types.py": "be0d8585fa57e0ccd6d02577bbc7299629e5bfe20e186747f571fccc98b67d7e"
+  },
+  "mode": "byte-identical"
+}
