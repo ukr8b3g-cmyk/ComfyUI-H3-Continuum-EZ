@@ -1,0 +1,49 @@
+{
+  "success": true,
+  "model_graph_seed_unchanged": true,
+  "base_seed": 38527745983564,
+  "part_seeds": [
+    520966230086438534,
+    303231056385338123
+  ],
+  "after_seconds": 359.61948929999926,
+  "frames": 379,
+  "fps": 24,
+  "size": [
+    832,
+    480
+  ],
+  "audio_packet_content_and_timestamps_equal": true,
+  "audio_packets": 682,
+  "context_frames": 39,
+  "actual_wrapper_validations": 8,
+  "failed_wrapper_validations": 0,
+  "encoded_five_frame_window_peak_before": 0.03262781351804733,
+  "encoded_five_frame_window_peak_after": 0.023229526355862617,
+  "encoded_five_frame_window_peak_reduction": 0.28804526411143877,
+  "optical_flow_median_motion_peak_5frames_before": 2.0539751052856445,
+  "optical_flow_median_motion_peak_5frames_after": 1.506055474281311,
+  "sampled_RSS_peak_GiB": 24.520828247070312,
+  "process_since_start_peak_wset_GiB": 26.282485961914062,
+  "full_video_RGB_1_69_GiB_not_allocated": true,
+  "analysis_window_frames": {
+    "previous": 2,
+    "next": 5
+  },
+  "maximum_blended_frames": 2,
+  "temporary_bootstrap_removed": true,
+  "next_normal_start_mode": "off",
+  "visual_observation": "identity, clothing and bus layout retained; abrupt boundary movement reduced; localized blend softness remains",
+  "review_method": "decoded frame sequences and optical flow; no audible playback; silent comparison videos provided",
+  "limitations": [
+    "one model/seed/input-audio two-chunk case",
+    "not a guarantee of artifact-free interpolation",
+    "MP4 changes propagate through lossy codec references/lookahead; encoded unchanged frames were not promised",
+    "RAM metrics include models/VAE and are not a before/after overhead benchmark"
+  ],
+  "python_tests": 346,
+  "javascript_tests": 99,
+  "vendor_preserved": 22,
+  "our_gpu_job_complete": true,
+  "evidence_phase": "real GPU before publication; version/documentation-only edits do not rerun GPU"
+}

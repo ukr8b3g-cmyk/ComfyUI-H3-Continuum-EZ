@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.2
+
+- Reduce continuation-boundary motion hitches using unchanged Continuum cosine blending and Auto safety checks, after existing exposure/color correction.
+- Keep a fixed previous-2/next-5-frame analysis window; blend at most two leading frames only when accepted. Preserve timing, audio, model wiring, seeds and vendor algorithms.
+- Record a real FastH3 two-chunk GPU before/after comparison: boundary five-frame change peak reduced by 28.8%, 379 frames and 682 AAC packets preserved; localized softness remains.
+- Python 346 / JavaScript 99 tests passed. Continuity diagnostics remain off by default.
+
 ## 0.13.1
 
 - Add opt-in continuity Context and model-wrapper diagnostics; default off, no new UI controls or workflow inputs.
