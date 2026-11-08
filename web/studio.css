@@ -103,6 +103,13 @@
 .h3ez-studio .ez-window-tools{flex-wrap:nowrap}
 .h3ez-studio .ez-top-group button{padding-inline:8px;font-size:12px}
 .h3ez-studio .ez-top h2{font-size:16px;margin:0 5px 0 0}
+.h3ez-studio .ez-project-menu{height:32px;min-height:32px;max-width:145px;padding:5px 8px;font-size:12px;flex-shrink:0}
+.h3ez-studio .ez-project-group{position:relative;flex-shrink:0}
+.h3ez-studio .ez-project-actions{position:absolute;top:calc(100% + 5px);left:0;z-index:40;background:#202635;border:1px solid #58647e;border-radius:6px;padding:5px;min-width:190px;box-shadow:0 8px 24px #0008}
+.h3ez-studio .ez-project-actions[hidden]{display:none}
+.h3ez-studio .ez-project-actions button{display:block;width:100%;text-align:start;height:32px;border-color:transparent;background:transparent;white-space:nowrap}
+.h3ez-studio .ez-project-actions button:hover,.h3ez-studio .ez-project-actions button:focus-visible{background:#39445e}
+.h3ez-import.ez-project-confirm{width:min(480px,94vw)}
 .h3ez-studio button.ez-apply{background:#264c75;border-color:#628ab6}
 .h3ez-studio .ez-close,.h3ez-import .ez-close{width:32px;height:32px;padding:0;background:#3a282f;border-color:#62414a;font-size:20px}
 .h3ez-studio .ez-timeline-splitter{display:grid;place-items:center;background:#232a37;cursor:row-resize;touch-action:none}

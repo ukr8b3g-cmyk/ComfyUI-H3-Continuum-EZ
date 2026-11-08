@@ -1,4 +1,4 @@
-[English](README.md) · [v0.11.2 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.11.2) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/ComfyUI-H3-Continuum-EZ-v0.11.2.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/H3_Continuum_EZ_Studio.json)
+[English](README.md) · [v0.12.0 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.12.0) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@
 
 ## はじめに
 
-1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/ComfyUI-H3-Continuum-EZ-v0.11.2.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
-2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
+1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
+2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
 3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開き、素材を追加します。テンプレートには庭を舞台にした2ショットの例文が入っています。
 
 ## 画面と操作順
@@ -31,7 +31,9 @@ P-H3アップサンプラーはAI文章生成用の任意モデルです。未�
 
 ## テンプレートのモデル
 
-現在のテンプレートは、提供された **FastH3 OmniRef版** の1本です。[examples/H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json)を使用します。配布ZIPにも同じFastH3テンプレートを同梱しています。モデルと素材画像は同梱していません。
+**最初はFastH3 OmniRefの8ステップ版を使ってください。** メインのテンプレートは [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json) です。配布ZIPにも同梱しています。モデルと素材画像は含みません。
+
+従来の **REF2VA＋Pika Flex版** は[オプションのテンプレート](examples/H3_Continuum_EZ_Studio_REF2VA_Optional.json)です。それぞれのモデル配線・サンプラー・シード設定を保ったまま別々に使います。オプションには [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) を `models/diffusion_models/`、[pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) を `models/loras/` に配置します。H3テキストエンコーダー・映像／音声VAE・任意のAI文章モデルは下表と共通です。Pika LoRAはREF2VAオプション用であり、メインのFastH3版には追加しません。
 
 ### 必要環境
 
@@ -61,6 +63,14 @@ Stability Matrixの共有フォルダーや `minimax/` などを使う場合は�
 長いショットの分割やメモリーを抑える動画出力は **出力設定** で選べます。配置した音声がある場合はその音声を使い、ない場合はH3の生成音声を使います。チャンクの再生成・途中再開・Second Passを使う制作には通常版 [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum) を利用してください。
 
 出力形式は **自動／動画保存／動画＋画像** です。どちらの動画出力も音声付きで保存し、画像処理が必要な配線では画像データも自動で出力します。手動での配線切替は不要です。自動分割の初期値は **7.5秒**。例えば15秒のショットは2区間で生成します。入力した7.5は保持し、実際の区間時間だけをH3のフレーム単位に調整します。
+
+## プロジェクト
+
+1. **プロジェクト → 新規プロジェクト** で空のタイムラインを作成。
+2. **プロジェクト → プロジェクト保存** で現在の編集をPCへ保存。
+3. **プロジェクト → プロジェクト読込** で復元後、**ノード反映** または **反映・キュー追加** で使用。
+
+Studio上部の **プロジェクト** から **新規プロジェクト／プロジェクト読込／プロジェクト保存** を選べます。`.h3ez.json` にショット・原文／AI文・素材参照・音声編集・Studioの出力設定を保存。未保存の編集があれば置換前に確認し、置換後も「元に戻す」で復元できます。素材本体はComfyUIの入力フォルダーに置いたままで、ファイルには含みません。モデル配線・外部STRINGノード・生成済み動画はワークフロー／サーバー側の情報です。読込後は **ノード反映** または **反映・キュー追加** を使います。[プロジェクト操作の詳細](docs/PROJECT_FILES_JA.md)。
 
 ## 音声編集
 

@@ -112,5 +112,6 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
  return {bind,global,beginRender(){bindings=[];},update,flush,isBusy:()=>busy()||!!batch,
   setStatus(value){if(value.target){slot(value.target).job=value;update();}},
   hasPendingEdits:()=>[...slots.values()].some(s=>s.edit!=null&&s.edit!==entryFor(getState().plan,s.target)?.text),
+  reset(){slots.clear();globalMessage='';},
   dispose(){disposed=true;if(batch)batch.cancelled=true;client.dispose();slots.clear();bindings=[];}};
 }

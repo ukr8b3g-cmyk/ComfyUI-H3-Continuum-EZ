@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0 — 2026-11-08
+
+- Add New Project, Open Project and Save Project to the Studio toolbar. Save editing plans as `.h3ez.json`, retaining text, AI selections, media references, audio edits and output settings.
+- Protect unsaved edits with Cancel/Replace, a close button and Escape. Keep Undo across project replacement and reject invalid files without replacing the current plan.
+- Keep FastH3 OmniRef eight-step as the main workflow. Offer the earlier REF2VA + Pika Flex workflow as an optional template, preserving both workflows' model connections and seed settings.
+- Separate historical development test logs from the dated v0.11.2 revalidation records and document the current prompt-selection behavior.
+
 ## 0.11.2 — 2026-11-07
 
 - Replace the README walkthrough with separate Japanese and English screenshots of the current Studio UI, each with eight numbered controls and matching instructions.

@@ -1,0 +1,9 @@
+{
+  "core_validation": "PASS",
+  "baseline_reproduced": true,
+  "both_output_modes": true,
+  "both_enabled_states": true,
+  "shared_model_validation_preserved": true,
+  "explicit_AI_validation_preserved": true,
+  "model_loading": false
+}

@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def test_workflow_links_and_node_contracts():
     paths = list((ROOT/'examples').glob('*.json'))
-    assert [path.name for path in paths] == ['H3_Continuum_EZ_Studio.json']
+    assert sorted(path.name for path in paths) == ['H3_Continuum_EZ_Studio.json', 'H3_Continuum_EZ_Studio_REF2VA_Optional.json']
     for path in paths:
         if '.api.' in path.name:continue
         d=json.loads(path.read_text(encoding='utf-8'))
@@ -52,3 +52,9 @@ def test_template_has_portable_model_defaults_and_no_local_media():
         model,=loader['properties']['models']
         assert loader['widgets_values'][0]==host['widgets_values'][index]==host['widgets_values_named'][port['name']]==model['name']
         assert '/' not in model['name'] and chr(92) not in model['name']
+
+
+def test_optional_ref2va_preserves_published_workflow_and_seed():
+    import hashlib
+    path=ROOT/'examples/H3_Continuum_EZ_Studio_REF2VA_Optional.json'
+    assert hashlib.sha256(path.read_bytes()).hexdigest()=='c58ed373d5b2837868b38d5253aa3865c359d92ed8d6598ea1b485df2aba96a7'

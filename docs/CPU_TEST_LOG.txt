@@ -1,3 +1,6 @@
+# Historical development build 2.0.0 (2026-11-05) / 開発版2.0.0の履歴
+# Not current release results. See REVALIDATION_v0.11.2_20261108_JA.md and RELEASE_VALIDATION_JA.md.
+
 ........................................................................ [ 72%]
 ............................                                             [100%]
 100 passed in 1.23s

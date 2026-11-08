@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.11.2 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.11.2) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/ComfyUI-H3-Continuum-EZ-v0.11.2.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/H3_Continuum_EZ_Studio.json)
+[日本語](README_JA.md) · [v0.12.0 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.12.0) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Get started
 
-1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/ComfyUI-H3-Continuum-EZ-v0.11.2.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
-2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.11.2/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
+1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/ComfyUI-H3-Continuum-EZ-v0.12.0.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
+2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.12.0/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with two sample shots set in a garden.
 
 ## Studio walkthrough
@@ -31,7 +31,9 @@ Shot AI automatically receives the shot’s active reference images, start/end i
 
 ## Template models
 
-The current single template is based on the supplied **FastH3 OmniRef** workflow. Download it from [examples/H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json). The release ZIP includes this same FastH3 template. Model weights and reference media are not bundled.
+**Start with FastH3 OmniRef, eight steps.** This is the main template: [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json). The release ZIP includes it. Model weights and reference media are not bundled.
+
+The earlier **REF2VA + Pika Flex** workflow is an [optional template](examples/H3_Continuum_EZ_Studio_REF2VA_Optional.json). Use it separately when you want that setup; keep each template's existing model connections, sampler and seed controls. The optional template needs [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) in `models/diffusion_models/` and [pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) in `models/loras/`. It shares the H3 text encoder, video/audio VAEs and optional AI text model listed below. The Pika LoRA is for the REF2VA option; the main FastH3 template does not need it.
 
 ### Requirements
 
@@ -61,6 +63,14 @@ If you use a shared model library or a subfolder such as `minimax/`, select the 
 Use **Output Settings** to tune long-shot splitting or switch to progressive video export for lower memory use. Imported audio is used as the soundtrack when present. For chunk regeneration, resume or Second Pass, use [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum).
 
 Output choices are **Automatic / Save Video / Video + Images**. Video exports include audio; workflows that need image data receive it automatically, without connection changes. Automatic splitting defaults to **7.5 seconds**, so a 15-second shot uses two parts. The entered value is retained while actual durations follow H3's frame grid.
+
+## Projects
+
+1. Choose **Project → New Project** to start an empty timeline.
+2. Choose **Project → Save Project** to download the current editing plan.
+3. Choose **Project → Open Project…** to restore a saved plan, then **Apply to Node** or **Apply and Queue** to use it.
+
+Use **Project** on the Studio toolbar for **New Project**, **Open Project…** and **Save Project**. A `.h3ez.json` file retains shots, original/AI text, media references, audio edits and Studio output settings. Opening a project or creating a new one asks before replacing unsaved edits; Undo restores the previous plan. Media files remain in the ComfyUI input folder and are not embedded. Model connections, external STRING nodes and generated videos belong to the workflow/server rather than this project file. After opening, use **Apply to Node** or **Apply and Queue**. See the [project guide](docs/PROJECT_FILES_JA.md) for details.
 
 ## Audio editing
 

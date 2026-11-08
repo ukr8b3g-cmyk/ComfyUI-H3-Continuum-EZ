@@ -1,5 +1,18 @@
 // English is the fallback for every ComfyUI locale other than Japanese.
 const messages = {
+  project:['Project','プロジェクト'],
+  projectReplace:['Replace','置換'],
+  projectNew:['New Project','新規プロジェクト'],
+  projectLoad:['Open Project…','プロジェクト読込…'],
+  projectSave:['Save Project','プロジェクト保存'],
+  projectHelp:['New, open or save a Studio project file on this computer. Saves shots, prompts, AI text, media references, audio edits and output settings. Media files, external STRING nodes, model connections and generated videos are not embedded; use the same ComfyUI input files, or replace missing media after opening. Apply to Node separately before rendering.','新規作成・読込・保存。ショット、文章、AI文、素材参照、音声編集、出力設定をPC上のファイルに保存します。素材本体・外部STRINGノード・モデル配線・生成動画は含みません。同じComfyUIの素材を使うか、読込後に不足素材を差し替えてください。生成前にノード反映が必要です。'],
+  projectDiscard:['Replace the current project? Unsaved project edits will be replaced. Undo is available.','現在のプロジェクトを置き換えますか？未保存の編集は置き換わります。「元に戻す」で復元できます。'],
+  projectBusy:['Wait for uploads, AI processing or the current project operation to finish.','素材読込・AI処理・プロジェクト操作が終わるまでお待ちください。'],
+  projectTooLarge:['Project files must be 32 MiB or smaller.','プロジェクトファイルは32 MiB以下にしてください。'],
+  projectInvalid:['Invalid or unsupported H3 EZ project. The current project was kept.','H3 EZプロジェクトの形式または内容が不正です。現在のプロジェクトは保持しました。'],
+  projectSaved:['Project download started','プロジェクト保存を開始しました'],
+  projectCreated:['New project · apply to node before rendering','新規プロジェクト · 生成前にノード反映してください'],
+  projectLoaded:['Project opened · apply to node before rendering','プロジェクト読込済み · 生成前にノード反映してください'],
   audioLibraryHelp:["Drag to the audio track. Double-click or press Enter to add at the playhead. The complete source is retained.","音声トラックへドラッグして配置します。ダブルクリックまたはEnterで再生位置に追加。素材の全長を保持します。"],
 
   deleteAudioClip:["Delete audio clip","クリップ削除"],

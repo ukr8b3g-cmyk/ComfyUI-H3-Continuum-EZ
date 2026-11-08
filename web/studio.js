@@ -1,4 +1,5 @@
 import {editorDuration,placeAudio as placeFullAudio,fitVideoToAudio,duplicateAudio} from './audio_edit.js';
+import {newProject,saveProject,loadProject,MAX_PROJECT_BYTES} from './project.js';
 import {applyUIHelp} from './ui_help.js';
 import {mediaLabel,mediaHelp} from './media_labels.js';
 import {AssistClient} from './assist.js';
@@ -25,6 +26,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   const t=translator(locale);
   ensureStudioStyles();let p=read(value),saved=JSON.stringify(p),selected=p.shots[0]?.id,selectedAudio=null,playhead=0,zoom=1,promptTab='shot',focusMode=false,busy=0,closed=false;
   const history=new History(),abort=new AbortController(),waves=new Map(),pendingWaves=new Set(),previousShotRefs=new Map();
+  let projectSaved=JSON.stringify(p),projectName='H3_EZ_Project.h3ez.json',projectWorking=false;
   let mediaError=null, assistPanel=null, applying=false,audioDragCancel=null,selectionKind='shot';
   const roleSelection=new Map();
   const assistState=()=>({plan:p,external:externalConnected?lastExternal:null,
@@ -114,6 +116,23 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   closeButton.title=t('close');
   closeButton.setAttribute('aria-label',t('close'));
   const editTools=el('div','ez-top-group ez-edit-tools');
+  const projectGroup=el('div','ez-project-group'),projectActions=el('div','ez-project-actions');projectActions.hidden=true;projectActions.setAttribute('role','menu');
+  const projectMenu=btn(`${t('project')} ▾`,()=>{const show=projectActions.hidden;projectActions.hidden=!show;projectMenu.setAttribute('aria-expanded',String(show));if(show)projectActions.querySelector('button').focus();});
+  projectMenu.setAttribute('aria-haspopup','menu');projectMenu.setAttribute('aria-expanded','false');
+  const closeProjectMenu=()=>{projectActions.hidden=true;projectMenu.setAttribute('aria-expanded','false');};
+  for(const [action,key] of [['new','projectNew'],['load','projectLoad'],['save','projectSave']]){
+    const control=btn(t(key),()=>{closeProjectMenu();if(action==='load')pickProject();else void projectOperation(action);});control.setAttribute('role','menuitem');control.title=t('projectHelp');projectActions.append(control);
+  }
+  projectGroup.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeProjectMenu();projectMenu.focus();}
+    else if(!projectActions.hidden&&['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const buttons=[...projectActions.querySelectorAll('button')],i=buttons.indexOf(document.activeElement);buttons[e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowDown'?1:-1)+3)%3].focus();}
+  });
+  document.addEventListener('pointerdown',e=>{if(!projectGroup.contains(e.target))closeProjectMenu();},{signal:abort.signal});
+  projectGroup.addEventListener('focusout',e=>{if(!projectGroup.contains(e.relatedTarget))closeProjectMenu();});
+  projectMenu.className='ez-project-menu';projectMenu.setAttribute('aria-label',t('project'));projectMenu.title=t('projectHelp');
+  const projectFileInput=el('input');projectFileInput.type='file';projectFileInput.accept='.h3ez.json,.json,application/json';projectFileInput.hidden=true;
+  projectFileInput.onchange=()=>{if(projectFileInput.files?.[0])void projectOperation('load',projectFileInput.files[0]);};
+  projectGroup.append(projectMenu,projectActions,projectFileInput);top.append(projectGroup);
   editTools.append(timelineTab,textTab,undo,redo,importButton);
   const settingsTools=el('div','ez-top-group ez-settings-tools');
   if(onStorage)settingsTools.append(btn(t('storageManager'),onStorage));
@@ -151,6 +170,50 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     status.classList.toggle('error',error);
   }
   function dirty(){return JSON.stringify(p)!==saved;}
+  function projectReady(){
+    if(projectWorking||busy||applying||assistPanel?.isBusy())throw new Error(t('projectBusy'));
+  }
+  async function replaceProject(next,name){
+    if(JSON.stringify(p)!==projectSaved||assistPanel?.hasPendingEdits()){
+      const accepted=await new Promise(resolve=>{
+        const d=el('dialog','h3ez-import ez-project-confirm'),heading=el('div','ez-dialog-heading');d.lang=locale;d.setAttribute('aria-label',t('project'));
+        const cancel=()=>d.close(),x=btn('×',cancel,'ez-close');x.title=t('close');x.setAttribute('aria-label',t('close'));
+        heading.append(el('h3','',t('project')),x);const actions=el('div','ez-import-actions');
+        actions.append(btn(t('cancel'),cancel),btn(t('projectReplace'),()=>d.close('replace'),'primary'));
+        d.append(heading,el('p','',t('projectDiscard')),actions);dialog.append(d);
+        d.addEventListener('close',()=>{const ok=d.returnValue==='replace';d.remove();resolve(ok);},{once:true});d.showModal();d.querySelector('.ez-import-actions button').focus();
+      });
+      if(!accepted||closed)return false;
+      if(busy||applying||assistPanel?.isBusy())throw new Error(t('projectBusy'));
+    }
+    pause();shotDragCancel?.();audioDragCancel?.();assist?.invalidate('project changed');assistPanel?.reset();
+    history.record(p);p=next;selected=p.shots[0]?.id;selectedAudio=null;selectionKind='shot';playhead=0;zoom=1;
+    waves.clear();previousShotRefs.clear();roleSelection.clear();mediaError=null;
+    resultVideo=null;generation=null;resultPlanText=null;generationPlanText=null;activeVideo=null;video.removeAttribute('src');video.load();previewMode='auto';videoSize=null;
+    clearTimeout(editCheckTimer);projectName=name;projectMenu.title=`${name}\n${t('projectHelp')}`;projectSaved=JSON.stringify(p);reconcile();render();return true;
+  }
+  async function projectOperation(action,file=null){
+    try{
+      projectReady();projectWorking=true;
+      if(action==='save'){
+        await assistPanel?.flush();if(closed)return;
+        const text=saveProject(p),snapshot=JSON.stringify(p),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+        const a=el('a');a.href=url;a.download=projectName;dialog.append(a);
+        try{a.click();projectSaved=snapshot;message(t('projectSaved'));}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+      }else if(action==='new'){
+        if(await replaceProject(newProject(),'H3_EZ_Project.h3ez.json'))message(t('projectCreated'));
+      }else if(file){
+        if(file.size>MAX_PROJECT_BYTES)throw new Error(t('projectTooLarge'));
+        const next=loadProject(await file.text());if(closed)return;
+        if(busy||applying||assistPanel?.isBusy())throw new Error(t('projectBusy'));
+        if(await replaceProject(next,file.name))message(t('projectLoaded'));
+      }
+    }catch(e){clearTimeout(editCheckTimer);if(!closed)message(errorText(e,t),true);}finally{projectWorking=false;}
+  }
+  function pickProject(){
+    try{projectReady();}catch(e){message(errorText(e,t),true);return;}
+    projectFileInput.value='';projectFileInput.click();
+  }
   function current(){return p.shots.find(s=>s.id===selected)||p.shots[0];}
   function reconcile(){pruneTargets(p);refreshPlanIdentity();assist?.sync();if(!p.shots.some(s=>s.id===selected))selected=p.shots[0]?.id;if(selectedAudio&&!p.audio.some(c=>c.id===selectedAudio)){selectedAudio=null;if(selectionKind==='audio')selectionKind=null;}playhead=Math.min(playhead,duration(p));}
   function mutate(fn,{strict=false,onError=null}={}){
@@ -836,6 +899,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   };
   function render(){refreshPlanIdentity();assist?.sync();renderLibrary();renderPreview();renderInspector();renderTimeline();checks();}
   async function applyDraft(doQueue){
+    if(projectWorking){message(t('projectBusy'),true);return;}
     if(applying)return;applying=true;clearTimeout(editCheckTimer);
     try{
       if(busy)throw new Error(t('waitUpload'));
