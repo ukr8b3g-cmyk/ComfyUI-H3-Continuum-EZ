@@ -41,6 +41,8 @@ const messages = {
   invalidChunking:["Choose a split interval from 2 to 15 seconds.","分割間隔を2〜15秒で指定してください。"],
   splitDisabledLongShot:["Splitting is off. Set each shot to 15 seconds or less, or turn splitting on.","自動分割がオフです。各ショットを15秒以下にするか、自動分割をオンにしてください。"],
   queue_checking:["Checking queue…","キューを確認中…"],
+  queueNeedsInput:["Check inputs","入力を確認"],
+  applyQueueHelp:["Save the draft and add the video job to the ComfyUI queue. Input errors are shown before submission.","編集内容を保存し、動画生成をキューへ追加します。入力に問題がある場合は送信前に理由を表示します。"],
   queue_submitting:["Submitting…","キューへ送信中…"],
   queue_idle:["Not queued","キュー待機なし"],
   queue_offline:["Queue unavailable","キューを確認できません"],

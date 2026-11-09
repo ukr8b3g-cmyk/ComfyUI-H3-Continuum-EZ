@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.3
+
+- Keep Apply and Queue available on editable input errors; retain validation before queue submission and show the reason beside the action and in its tooltip.
+- Centralize temporary upload/apply/submit locking and completion/error recovery; lock immediately when applying starts.
+- Publish isolated-browser recovery observations and explicit live/native-upload testing limits. No model wiring, seed, workflow or generation-backend changes.
+
 ## 0.13.2
 
 - Reduce continuation-boundary motion hitches using unchanged Continuum cosine blending and Auto safety checks, after existing exposure/color correction.

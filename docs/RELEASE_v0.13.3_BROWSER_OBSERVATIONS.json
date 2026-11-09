@@ -1,0 +1,111 @@
+{
+  "date": "2026-11-09",
+  "scope": "Real Studio UI in isolated Chrome; apply/queue/AI/HTTP callbacks mocked; no GPU submission",
+  "observations": [
+    {
+      "phase": "before",
+      "case": "invalid",
+      "disabled": true
+    },
+    {
+      "phase": "before",
+      "case": "overhang",
+      "disabled": true
+    },
+    {
+      "case": "invalid after click",
+      "enabled": true,
+      "counts": "QA case invalid · applied 0 · queued 0"
+    },
+    {
+      "case": "invalid recovered queue",
+      "counts": "QA case invalid · applied 2 · queued 1",
+      "enabled": true
+    },
+    {
+      "case": "queue failure",
+      "enabled": true,
+      "counts": "QA case queue-failure · applied 1 · queued 1"
+    },
+    {
+      "case": "queue failure retry",
+      "enabled": true,
+      "counts": "QA case queue-failure · applied 2 · queued 2"
+    },
+    {
+      "case": "apply-failure",
+      "stage": "first",
+      "enabled": true,
+      "counts": "QA case apply-failure · applied 1 · queued 0"
+    },
+    {
+      "case": "apply-failure",
+      "stage": "recovered",
+      "enabled": true,
+      "counts": "QA case apply-failure · applied 2 · queued 1"
+    },
+    {
+      "case": "apply-pending",
+      "stage": "first",
+      "enabled": false,
+      "counts": "QA case apply-pending · applied 1 · queued 0"
+    },
+    {
+      "case": "apply-pending",
+      "stage": "recovered",
+      "enabled": true,
+      "counts": "QA case apply-pending · applied 1 · queued 1"
+    },
+    {
+      "case": "queue-pending",
+      "stage": "first",
+      "enabled": false,
+      "counts": "QA case queue-pending · applied 1 · queued 1"
+    },
+    {
+      "case": "queue-pending",
+      "stage": "recovered",
+      "enabled": true,
+      "counts": "QA case queue-pending · applied 1 · queued 1"
+    },
+    {
+      "case": "overhang",
+      "stage": "first",
+      "enabled": true,
+      "counts": "QA case overhang · applied 0 · queued 0"
+    },
+    {
+      "case": "overhang",
+      "stage": "recovered",
+      "enabled": true,
+      "counts": "QA case overhang · applied 1 · queued 1"
+    },
+    {
+      "case": "preflight failure",
+      "enabled": true,
+      "counts": "QA case preflight-failure · applied 0 · queued 0"
+    },
+    {
+      "case": "preflight retry",
+      "enabled": true,
+      "counts": "QA case preflight-failure · applied 1 · queued 1"
+    },
+    {
+      "case": "AI busy refuses video submission",
+      "enabled": true,
+      "counts": "QA case ai-busy · applied 0 · queued 0"
+    },
+    {
+      "case": "AI failure recovered",
+      "enabled": true,
+      "counts": "QA case ai-busy · applied 1 · queued 1"
+    },
+    {
+      "case": "Japanese input error",
+      "enabled": true,
+      "help": "分割間隔を2〜15秒で指定してください。"
+    }
+  ],
+  "native_upload_selection_test_incomplete": true,
+  "additional_live_checks_stopped_at_user_request": true
+}

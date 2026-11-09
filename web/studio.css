@@ -134,7 +134,7 @@
 .h3ez-studio .ez-queue-status{font-size:12px;border-radius:4px;padding:4px 6px;background:#181e29;color:var(--muted)}
 .h3ez-studio .ez-queue-status[data-phase=running]{color:#d5e9ff;background:#26496d}
 .h3ez-studio .ez-queue-status[data-phase=complete]{color:#c8edda;background:#244637}
-.h3ez-studio .ez-queue-status[data-phase=failed]{color:#ffd3d8;background:#562f38}
+.h3ez-studio .ez-queue-status[data-phase=failed],.h3ez-studio .ez-queue-status[data-phase=invalid]{color:#ffd3d8;background:#562f38}
 .h3ez-studio .ez-output-details{position:relative;font-size:12px;flex-shrink:0}
 .h3ez-studio summary{cursor:pointer;padding:5px 0}
 .h3ez-studio .ez-output-details>summary{padding:5px 8px;border:1px solid #444d61;background:#222838;border-radius:6px;white-space:nowrap}

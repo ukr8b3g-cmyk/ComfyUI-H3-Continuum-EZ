@@ -37,7 +37,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   const assist=assistApi?new AssistClient({api:assistApi,getState:assistState,getInstructionGraph,explicitRequests:true,onStatus:value=>assistPanel?.setStatus(value)}):null;
   let editCheckTimer=null;
   const deferredChecks=()=>{assist?.sync();clearTimeout(editCheckTimer);editCheckTimer=setTimeout(()=>{if(!closed){checks();}},100);};
-  let observer=null,monitorObserver=null,monitorFrame=null,monitor=null,videoSize=null,queueState={phase:'checking'},submitting=false;
+  let observer=null,monitorObserver=null,monitorFrame=null,monitor=null,videoSize=null,queueState={phase:'checking'},submitting=false,inputIssue='';
   let playing=false,frame=0,clock=0,clockStart=0,media=new Audio(),activeAudio=null,monitorImage=null,head=null,clockLabel=null,timelineWidth=1000;
   let previewVolume=1,previewMuted=false,previewLastVolume=1,refreshPreviewVolume=null;
   media.preload='auto';
@@ -241,17 +241,25 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       timeline.querySelectorAll('.has-filmstrip').forEach(e=>e.classList.remove('has-filmstrip'));
     }
     undo.disabled=!history.back.length;redo.disabled=!history.forward.length;
-    apply.disabled=busy>0||applying;queue.disabled=busy>0||submitting||applying;
+    inputIssue='';updateApplyControls();
     if(busy){message(t('uploading',busy));return;}
     try{
       validate(p);
       if(!externalConnected||p.prompt_source==='studio'||lastExternal!==null)p.shots.forEach((_,i)=>effective(p,i,externalConnected?lastExternal:null));
       const summary=t('studioStatus',t(dirty()?'unsaved':'applied'),p.shots.length,duration(p).toFixed(3))+(externalConnected?' · '+t(p.prompt_source==='studio'?'studioCommonStatus':'externalStatus'):'');
       const shortage=duration(p)-videoDuration(p);
-      if(shortage>.001)queue.disabled=true;
+      if(shortage>.001)inputIssue=t('videoShortfall',shortage.toFixed(3));
       message(mediaError?.text??(shortage>.001?t('videoShortfall',shortage.toFixed(3)):summary),mediaError!==null);
     }
-    catch(e){queue.disabled=true;message(errorText(e,t),true);}
+    catch(e){inputIssue=errorText(e,t);message(inputIssue,true);}
+    updateApplyControls();
+  }
+  function updateApplyControls(){
+    // A validation issue must remain inspectable by clicking the action. Only an
+    // operation in flight temporarily locks it; applyDraft still validates first.
+    apply.disabled=queue.disabled=busy>0||applying||submitting;
+    queue.title=busy?t('waitUpload'):(applying||submitting)?t('queue_submitting'):inputIssue||t('applyQueueHelp');
+    setQueue(queueState);
   }
   function renderLayout(){shell.classList.toggle('prompt-focus',focusMode);timelineTab.classList.toggle('selected',!focusMode);textTab.classList.toggle('selected',focusMode);renderInspector();}
   function mediaAsset(id){return p.assets.find(a=>a.id===id);}
@@ -830,6 +838,9 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   function setQueue(value){
     queueState=value||{phase:'checking'};
     const {phase,pending=0,position=0}=queueState;
+    if(inputIssue&&!applying&&!submitting&&!['waiting','running'].includes(phase)){
+      queueStatus.dataset.phase='invalid';queueStatus.textContent=t('queueNeedsInput');queueStatus.title=inputIssue;return;
+    }
     queueStatus.dataset.phase=phase;
     queueStatus.textContent=t(phase==='waiting'?'queueWaiting':phase==='running'?(pending?'queueRunningMore':'queueRunning'):'queue_'+phase,phase==='waiting'?position:pending);
     queueStatus.title=queueState.detail||t('queueStatusHelp');
@@ -903,7 +914,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   function render(){refreshPlanIdentity();assist?.sync();renderLibrary();renderPreview();renderInspector();renderTimeline();checks();}
   async function applyDraft(doQueue){
     if(projectWorking){message(t('projectBusy'),true);return;}
-    if(applying)return;applying=true;clearTimeout(editCheckTimer);
+    if(applying)return;applying=true;updateApplyControls();clearTimeout(editCheckTimer);
     try{
       if(busy)throw new Error(t('waitUpload'));
       await assistPanel?.flush();
@@ -931,7 +942,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       if(mediaError===previousMediaError)mediaError=null;
       checks();
       if(doQueue){if(!onQueue)throw new Error(t('queueUnavailable'));submitting=true;queue.disabled=true;setQueue({phase:'submitting'});await onQueue();message(t('queued'));}
-    }catch(e){if(doQueue&&submitting)setQueue({phase:'failed',detail:errorText(e,t)});message(errorText(e,t),true);}finally{applying=false;submitting=false;if(!closed){queue.disabled=busy>0||duration(p)>videoDuration(p)+.001;apply.disabled=busy>0;}}
+    }catch(e){if(doQueue&&submitting)setQueue({phase:'failed',detail:errorText(e,t)});message(errorText(e,t),true);}finally{applying=false;submitting=false;if(!closed)updateApplyControls();}
   }
   function requestClose(){if((dirty()||assistPanel?.hasPendingEdits())&&!confirm(t('discardConfirm')))return;close();}
   function close(){if(closed)return;shotDragCancel?.();audioDragCancel?.();closed=true;clearTimeout(editCheckTimer);assistPanel?.dispose();observer?.disconnect();monitorObserver?.disconnect();pause();abort.abort();video.removeAttribute('src');video.load();media.removeAttribute('src');media.load();dialog.close();dialog.remove();onClose?.();}
