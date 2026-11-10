@@ -1,2 +1,2 @@
 """Runtime version shared by the package and generation reports."""
-__version__ = '0.13.3'
+__version__ = '0.13.4'

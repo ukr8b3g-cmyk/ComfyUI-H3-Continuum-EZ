@@ -25,6 +25,22 @@ export function timelineQueue(data, ids, workflowId, plan) {
     position:jobs.find(j=>j.phase==='waiting')?.position||0,jobs};
 }
 
+// Recover terminal state even when a fast job finishes between queue polls or a
+// websocket terminal event is missed. Match the same output-connected Timeline.
+export function timelineHistory(history,ids,workflowId,plan,{knownIds=[],since=0}={}){
+  const candidates=[];
+  for(const [id,h] of Object.entries(history||{})){
+    if(knownIds.length&&!knownIds.includes(id))continue;
+    const messages=h.status?.messages||[],start=messages.find(x=>x[0]==='execution_start')?.[1]?.timestamp||0;
+    if(since&&start<since-1000)continue;
+    if(!timelineQueue({queue_running:[h.prompt]},ids,workflowId,plan).jobs.length)continue;
+    const interrupted=messages.find(x=>x[0]==='execution_interrupted'),error=messages.find(x=>x[0]==='execution_error');
+    const phase=interrupted?'interrupted':error||h.status?.status_str==='error'?'failed':h.status?.completed&&h.status?.status_str==='success'?'complete':null;
+    if(phase)candidates.push({phase,detail:error?.[1]?.exception_message||'',prompt_id:id,started:start});
+  }
+  return candidates.sort((a,b)=>b.started-a.started)[0]||null;
+}
+
 export function graphNodes(root) {
   const out=[];
   function visit(graph,prefix,parents){

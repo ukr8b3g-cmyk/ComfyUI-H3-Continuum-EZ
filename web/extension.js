@@ -6,7 +6,7 @@ import {api} from '../../scripts/api.js';
 import {ensureStudioStyles,openStudio} from './studio.js';
 import {findPreviousVideo,resultVideo} from './result_preview.js';
 import {mergeProgress} from './generation.js';
-import {timelineQueue,graphNodes,normalizeModelChoices,canvasEnhancerModel,canvasEnhancerBinding,canvasGenerationSize,canvasAIInstruction} from './queue_status.js';
+import {timelineQueue,timelineHistory,graphNodes,normalizeModelChoices,canvasEnhancerModel,canvasEnhancerBinding,canvasGenerationSize,canvasAIInstruction} from './queue_status.js';
 import {instructionGraph} from './instruction_graph.js';
 import {syncSeedControls} from './seed_controls.js';
 import {referenceCounts} from './node_summary.js';
@@ -38,9 +38,17 @@ async function refreshQueue(){
       const response=await api.fetchApi('/queue');
       if(!response.ok)throw new Error('Queue HTTP '+response.status);
       const data=await response.json(),nodes=graphNodes(rootGraph());
+      let recentHistory=null;
       for(const [node,state] of queueEditors){
         const ids=nodes.filter(x=>x.node===node).map(x=>x.id);
         const next=timelineQueue(data,ids,activeWorkflowId(),String(widget(node)?.value));
+        for(const job of next.jobs)if(!state.knownIds.includes(job.id))state.knownIds=[...state.knownIds,job.id].slice(-16);
+        if(next.phase==='idle'&&!state.terminal&&(!state.historyChecked||state.historyAttempts<4&&state.submittedAt)){
+          const responses=state.knownIds.length?await Promise.all(state.knownIds.map(async id=>{const r=await api.fetchApi('/history/'+encodeURIComponent(id));if(!r.ok)throw new Error('History HTTP '+r.status);return r.json();})):
+            [await (recentHistory??=(async()=>{const r=await api.fetchApi('/history?max_items=10');if(!r.ok)throw new Error('History HTTP '+r.status);return r.json();})())];
+          state.historyChecked=true;state.historyAttempts++;
+          state.terminal=timelineHistory(Object.assign({},...responses),ids,activeWorkflowId(),String(widget(node)?.value),{knownIds:state.knownIds,since:state.submittedAt||0});
+        }
         if(next.phase==='idle'&&state.terminal)Object.assign(next,state.terminal);
         else if(next.jobs.length)state.terminal=null;
         state.value=next;state.editor.setQueue(next);
@@ -50,14 +58,14 @@ async function refreshQueue(){
   })();return queueRequest;
 }
 function watchQueue(node,editor){
-  queueEditors.set(node,{editor,value:null,terminal:null});
+  queueEditors.set(node,{editor,value:null,terminal:null,knownIds:[],historyChecked:false,historyAttempts:0,submittedAt:0});
   if(!queueTimer)queueTimer=setInterval(()=>void refreshQueue(),1500);
   void refreshQueue();
 }
 function unwatchQueue(node){queueEditors.delete(node);if(!queueEditors.size){clearInterval(queueTimer);queueTimer=null;}}
 function queueEnded(phase,detail){
   if(!detail?.prompt_id)return;
-  for(const state of queueEditors.values())if(state.value?.jobs.some(j=>j.id===detail.prompt_id)){
+  for(const state of queueEditors.values())if(state.knownIds.includes(detail.prompt_id)||state.value?.jobs.some(j=>j.id===detail.prompt_id)){
     state.terminal={phase,detail:detail.exception_message||''};
     state.editor.setQueue({...state.value,...state.terminal,running:0});
   }
@@ -167,7 +175,7 @@ function install(node){
         },
         onQueue:async()=>{
           if(typeof app.queuePrompt!=='function')throw new Error(t('useComfyQueue'));
-          const state=queueEditors.get(node);if(state)state.terminal=null;
+          const state=queueEditors.get(node);if(state){state.terminal=null;state.submittedAt=Date.now();state.knownIds=[];state.historyChecked=false;state.historyAttempts=0;}
           normalizeModelChoices(rootGraph());
           const accepted=await app.queuePrompt(0,1);
           if(accepted===false){if(state)state.terminal={phase:'failed',detail:t('queueRejected')};throw new Error(t('queueRejected'));}

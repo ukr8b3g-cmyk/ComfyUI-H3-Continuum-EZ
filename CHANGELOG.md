@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.4
+
+- Show checking/submitting, red rejection feedback, and a green acceptance check on Apply and Queue.
+- Display actionable input errors near the button without hiding running/completed/interrupted job status.
+- Recover matching terminal status from queue history, scoped to the workflow, output-connected Timeline, known job IDs and submission time.
+- Record real mouse queue acceptance and execution start in the usual ComfyUI; subsequent interruptions were user-confirmed cancellations, not completed-render checks.
+- Preserve model wiring, seed controls, workflow templates and the generation backend.
+
 ## 0.13.3
 
 - Keep Apply and Queue available on editable input errors; retain validation before queue submission and show the reason beside the action and in its tooltip.

@@ -102,6 +102,12 @@
 .h3ez-studio .ez-run-tools{margin-inline-start:auto}
 .h3ez-studio .ez-window-tools{flex-wrap:nowrap}
 .h3ez-studio .ez-top-group button{padding-inline:8px;font-size:12px}
+.h3ez-studio .ez-run-notice{flex:1 0 100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid #a66b46;border-radius:5px;background:#3c2b22;color:#ffdbc5;font-size:13px}
+.h3ez-studio .ez-run-notice[hidden],.h3ez-studio .ez-run-notice button[hidden]{display:none}
+.h3ez-studio .ez-run-notice span{flex:1;overflow-wrap:anywhere}
+.h3ez-studio button[data-feedback=rejected]{background:#703b31;border-color:#df9475;color:#fff}
+.h3ez-studio button[data-feedback=busy]{background:#3d4670;border-color:#a4b5ff;color:#fff}
+.h3ez-studio button[data-feedback=accepted]{background:#285845;border-color:#79cda7;color:#fff}
 .h3ez-studio .ez-top h2{font-size:16px;margin:0 5px 0 0}
 .h3ez-studio .ez-project-menu{height:32px;min-height:32px;max-width:145px;padding:5px 8px;font-size:12px;flex-shrink:0}
 .h3ez-studio .ez-project-group{position:relative;flex-shrink:0}

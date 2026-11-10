@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {timelineQueue,canonicalModelChoice,normalizeModelChoices,graphNodes} from '../web/queue_status.js';
+import {timelineQueue,timelineHistory,canonicalModelChoice,normalizeModelChoices,graphNodes} from '../web/queue_status.js';
 
 const plan='{"schema":1}',id='18:7';
 const item=(job,workflow='workflow-1',output=true)=>[0,job,{
@@ -23,6 +23,23 @@ test('legacy queue needs the matching committed plan; a nested graph uses execut
   assert.equal(timelineQueue(data,[id],null,plan).pending,1);
   const child={id:7},subgraph={_nodes:[child]},root={_nodes:[{id:18,subgraph}]};
   assert.equal(graphNodes(root).find(x=>x.node===child).id,id);
+});
+
+test('history recovers interrupted runs missed between queue polls',()=>{
+ const history={ours:{prompt:item('ours'),status:{status_str:'error',completed:false,messages:[['execution_start',{timestamp:2000}],['execution_interrupted',{}]]}}};
+ assert.equal(timelineHistory(history,[id],'workflow-1',plan)?.phase,'interrupted');
+ assert.equal(timelineHistory(history,[id],'another',plan),null);
+ assert.equal(timelineHistory(history,[id],'workflow-1',plan,{since:5000}),null);
+ assert.equal(timelineHistory(history,[id],'workflow-1',plan,{knownIds:['other']}),null);
+});
+
+test('history keeps terminal errors and success distinct and excludes unused branches',()=>{
+ const history={failed:{prompt:item('failed'),status:{status_str:'error',completed:false,messages:[['execution_start',{timestamp:2000}],['execution_error',{exception_message:'Disk full'}]]}},
+ complete:{prompt:item('complete'),status:{status_str:'success',completed:true,messages:[['execution_start',{timestamp:4000}]]}},
+ unrelated:{prompt:item('unrelated','workflow-1',false),status:{status_str:'success',completed:true,messages:[['execution_start',{timestamp:6000}]]}}};
+ assert.equal(timelineHistory(history,[id],'workflow-1',plan)?.prompt_id,'complete');
+ const failed=timelineHistory(history,[id],'workflow-1',plan,{knownIds:['failed']});assert.equal(failed.phase,'failed');assert.equal(failed.detail,'Disk full');
+ history.complete.status.completed=false;assert.equal(timelineHistory(history,[id],'workflow-1',plan)?.prompt_id,'failed');
 });
 test('only an unambiguous existing model filename is normalized, never another model',()=>{
   const good='minimax\\DasiwaMinimaxH3_dasiwaHybridV4_int8.safetensors',unix=good.replaceAll('\\','/');

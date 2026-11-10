@@ -37,7 +37,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   const assist=assistApi?new AssistClient({api:assistApi,getState:assistState,getInstructionGraph,explicitRequests:true,onStatus:value=>assistPanel?.setStatus(value)}):null;
   let editCheckTimer=null;
   const deferredChecks=()=>{assist?.sync();clearTimeout(editCheckTimer);editCheckTimer=setTimeout(()=>{if(!closed){checks();}},100);};
-  let observer=null,monitorObserver=null,monitorFrame=null,monitor=null,videoSize=null,queueState={phase:'checking'},submitting=false,inputIssue='';
+  let observer=null,monitorObserver=null,monitorFrame=null,monitor=null,videoSize=null,queueState={phase:'checking'},submitting=false,inputIssue='',submissionError='',noticeKey='',queueAcknowledged=false;
   let playing=false,frame=0,clock=0,clockStart=0,media=new Audio(),activeAudio=null,monitorImage=null,head=null,clockLabel=null,timelineWidth=1000;
   let previewVolume=1,previewMuted=false,previewLastVolume=1,refreshPreviewVolume=null;
   media.preload='auto';
@@ -141,6 +141,8 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   if(onStorage)settingsTools.append(btn(t('storageManager'),onStorage));
   const runTools=el('div','ez-top-group ez-run-tools');
   const queueStatus=el('span','ez-queue-status');queueStatus.setAttribute('role','status');queueStatus.setAttribute('aria-live','polite');
+  const runNotice=el('div','ez-run-notice'),runNoticeText=el('span');runNotice.hidden=true;runNotice.setAttribute('role','alert');
+  const fitNotice=btn(t('fitVideoAudio'),()=>mutate(()=>{p=fitVideoToAudio(p);}));fitNotice.title=t('videoShortfallHelp');runNotice.append(runNoticeText,fitNotice);
   runTools.append(queueStatus,apply,queue);
   const windowTools=el('div','ez-top-group ez-window-tools');
   windowTools.append(restore,closeButton);
@@ -165,7 +167,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   document.addEventListener('pointerdown',e=>{if(advanced.open&&!advanced.contains(e.target))advanced.open=false;},{signal:abort.signal});
   advanced.addEventListener('keydown',e=>{if(e.key==='Escape'&&advanced.open){e.preventDefault();e.stopPropagation();advanced.open=false;advanced.querySelector('summary').focus();}});
   settingsTools.append(advanced);
-  top.append(editTools,settingsTools,runTools,windowTools);
+  top.append(editTools,settingsTools,runTools,windowTools,runNotice);
   footer.append(status);preview.title=t('previewHelp');
   function message(text,error=false){
     status.textContent=text;
@@ -234,14 +236,13 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     refreshPlanIdentity();assist?.sync();assistPanel?.update();
     output.value = p.output_mode ?? '';
     chunkToggle.checked=p.chunking?.enabled??true;chunkSeconds.value=p.chunking?.seconds??DEFAULT_CHUNK_SECONDS;chunkSeconds.disabled=!chunkToggle.checked;
-    queue.textContent = t('applyAndQueue');
     updateResultState();
     if(!runMatches()&&!samePlan()){
       timeline.querySelectorAll('.ez-shot-status,.ez-filmstrip').forEach(e=>e.remove());
       timeline.querySelectorAll('.has-filmstrip').forEach(e=>e.classList.remove('has-filmstrip'));
     }
     undo.disabled=!history.back.length;redo.disabled=!history.forward.length;
-    inputIssue='';updateApplyControls();
+    const previousInputIssue=inputIssue;inputIssue='';updateApplyControls();
     if(busy){message(t('uploading',busy));return;}
     try{
       validate(p);
@@ -252,14 +253,23 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       message(mediaError?.text??(shortage>.001?t('videoShortfall',shortage.toFixed(3)):summary),mediaError!==null);
     }
     catch(e){inputIssue=errorText(e,t);message(inputIssue,true);}
+    if(submissionError===previousInputIssue&&inputIssue!==previousInputIssue)submissionError='';
     updateApplyControls();
   }
   function updateApplyControls(){
     // A validation issue must remain inspectable by clicking the action. Only an
     // operation in flight temporarily locks it; applyDraft still validates first.
     apply.disabled=queue.disabled=busy>0||applying||submitting;
+    const acknowledged=queueAcknowledged&&!dirty();
+    queue.textContent=applying?t(submitting?'queue_submitting':'queueValidating'):submissionError?t('queueInputError'):(acknowledged?'✓ ':'')+t('applyAndQueue');
+    queue.dataset.feedback=applying?'busy':submissionError?'rejected':acknowledged?'accepted':'';
+    queue.setAttribute('aria-busy',String(applying||submitting));
     queue.title=busy?t('waitUpload'):(applying||submitting)?t('queue_submitting'):inputIssue||t('applyQueueHelp');
     setQueue(queueState);
+  }
+  function refreshRunNotice(){
+    const text=inputIssue||submissionError||(queueState.phase==='failed'?queueState.detail:'')||'',fit=!!text&&duration(p)>videoDuration(p)+.001,key=text+'|'+fit;
+    if(key===noticeKey)return;noticeKey=key;runNotice.hidden=!text;runNoticeText.textContent=text;fitNotice.hidden=!fit;
   }
   function renderLayout(){shell.classList.toggle('prompt-focus',focusMode);timelineTab.classList.toggle('selected',!focusMode);textTab.classList.toggle('selected',focusMode);renderInspector();}
   function mediaAsset(id){return p.assets.find(a=>a.id===id);}
@@ -838,12 +848,10 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   function setQueue(value){
     queueState=value||{phase:'checking'};
     const {phase,pending=0,position=0}=queueState;
-    if(inputIssue&&!applying&&!submitting&&!['waiting','running'].includes(phase)){
-      queueStatus.dataset.phase='invalid';queueStatus.textContent=t('queueNeedsInput');queueStatus.title=inputIssue;return;
-    }
     queueStatus.dataset.phase=phase;
     queueStatus.textContent=t(phase==='waiting'?'queueWaiting':phase==='running'?(pending?'queueRunningMore':'queueRunning'):'queue_'+phase,phase==='waiting'?position:pending);
-    queueStatus.title=queueState.detail||t('queueStatusHelp');
+    queueStatus.title=queueState.detail||(['complete','interrupted','failed'].includes(phase)?t('queueLastRunHelp',t('queue_'+phase)):t('queueStatusHelp'));
+    refreshRunNotice();
   }
   function syncAudio(){
     updatePreviewAudio();
@@ -914,7 +922,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   function render(){refreshPlanIdentity();assist?.sync();renderLibrary();renderPreview();renderInspector();renderTimeline();checks();}
   async function applyDraft(doQueue){
     if(projectWorking){message(t('projectBusy'),true);return;}
-    if(applying)return;applying=true;updateApplyControls();clearTimeout(editCheckTimer);
+    if(applying)return;submissionError='';queueAcknowledged=false;applying=true;updateApplyControls();clearTimeout(editCheckTimer);
     try{
       if(busy)throw new Error(t('waitUpload'));
       await assistPanel?.flush();
@@ -941,8 +949,8 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       saved=JSON.stringify(draft);
       if(mediaError===previousMediaError)mediaError=null;
       checks();
-      if(doQueue){if(!onQueue)throw new Error(t('queueUnavailable'));submitting=true;queue.disabled=true;setQueue({phase:'submitting'});await onQueue();message(t('queued'));}
-    }catch(e){if(doQueue&&submitting)setQueue({phase:'failed',detail:errorText(e,t)});message(errorText(e,t),true);}finally{applying=false;submitting=false;if(!closed)updateApplyControls();}
+      if(doQueue){if(!onQueue)throw new Error(t('queueUnavailable'));submitting=true;queue.disabled=true;setQueue({phase:'submitting'});await onQueue();queueAcknowledged=true;message(t('queued'));}
+    }catch(e){submissionError=errorText(e,t);if(doQueue&&submitting)setQueue({phase:'failed',detail:submissionError});message(submissionError,true);}finally{applying=false;submitting=false;if(!closed)updateApplyControls();}
   }
   function requestClose(){if((dirty()||assistPanel?.hasPendingEdits())&&!confirm(t('discardConfirm')))return;close();}
   function close(){if(closed)return;shotDragCancel?.();audioDragCancel?.();closed=true;clearTimeout(editCheckTimer);assistPanel?.dispose();observer?.disconnect();monitorObserver?.disconnect();pause();abort.abort();video.removeAttribute('src');video.load();media.removeAttribute('src');media.load();dialog.close();dialog.remove();onClose?.();}

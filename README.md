@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.13.3 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.3) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.3/ComfyUI-H3-Continuum-EZ-v0.13.3.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.3/H3_Continuum_EZ_Studio.json)
+[日本語](README_JA.md) · [v0.13.4 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/H3_Continuum_EZ_Studio.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,8 +6,8 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Get started
 
-1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.3/ComfyUI-H3-Continuum-EZ-v0.13.3.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
-2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.3/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
+1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
+2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with two sample shots set in a garden.
 
 ## Studio walkthrough
@@ -95,6 +95,10 @@ The player mute and volume control affect preview playback only. The selected cl
 See the [prompt guide](docs/EASY_PROMPTS_EN.md) for more examples. AI text is an experimental adaptation for video prompts. Review the result before generating.
 
 ## Verification
+
+v0.13.4 makes queue actions visible inside Studio: the button changes while checking/submitting, shows a red **Not submitted** result on rejection, and a green check after acceptance. Specific input errors appear near the button, independently of the running/completed/stopped job status. A missed terminal event can be recovered from matching queue history. Real mouse input in the usual ComfyUI confirmed acceptance, the green check and **Running**; the user then intentionally stopped the tests. This verifies queue acceptance and execution start, not a finished render. No further live UI checks or GPU runs were performed for publication. [v0.13.4 validation](docs/RELEASE_v0.13.4_VALIDATION_JA.md).
+
+Previous v0.13.3 checks:
 
 v0.13.3 fixes **Apply and Queue** becoming unavailable on input errors. The action stays clickable to show the reason; invalid input still fails validation before submission. **Check inputs** and a tooltip explain the issue. Upload/apply/submit operations temporarily lock the action, with recovery in the shared completion/error path. Isolated Chrome checks covered invalid split intervals, audio longer than video, apply/queue/preflight failures, pending operations and AI-busy recovery. The usual ComfyUI showed the updated enabled button; further live checks were stopped at the user’s request. Native upload selection testing remains incomplete. No new GPU generation was performed for this fix. [v0.13.3 validation](docs/RELEASE_v0.13.3_VALIDATION_JA.md).
 

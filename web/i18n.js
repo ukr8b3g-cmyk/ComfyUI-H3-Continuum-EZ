@@ -31,6 +31,7 @@ const messages = {
   audioClipLimit:["At most 128 audio clips are supported.","音声クリップは128個までです。"],
   fitVideoAudio:["Match video to audio","映像尺合わせ"],
   videoShortfall:["Video is {0}s shorter than the audio. Match video to audio before generating.","映像不足 {0}秒 · 映像尺合わせで生成時間を調整"],
+  videoShortfallHelp:["Extend the video to the audio end. To keep the video duration, trim the placed audio clip instead. The source file is retained.","音声の終わりまで映像を延長します。映像時間を維持する場合は配置した音声クリップをトリムしてください。元の素材は保持します。"],
   audioEndSummary:[" · Audio ends at {0}s"," · 音声 {0}秒まで"],
 
   shotTimingHelp: ["Duration is aligned to the H3 time grid.", "生成時間はH3の時間グリッドに合わせて調整しています。"],
@@ -42,6 +43,10 @@ const messages = {
   splitDisabledLongShot:["Splitting is off. Set each shot to 15 seconds or less, or turn splitting on.","自動分割がオフです。各ショットを15秒以下にするか、自動分割をオンにしてください。"],
   queue_checking:["Checking queue…","キューを確認中…"],
   queueNeedsInput:["Check inputs","入力を確認"],
+  queueValidating:["Checking…","確認中…"],
+  queueNotSubmitted:["Not queued · Check inputs","未送信・入力確認"],
+  queueInputError:["Not submitted","未送信"],
+  queueLastRunHelp:["Last submitted run: {0}. Draft edits do not change a queued job.","直前の実行：{0}。編集中の変更は受付済みジョブには反映しません。"],
   applyQueueHelp:["Save the draft and add the video job to the ComfyUI queue. Input errors are shown before submission.","編集内容を保存し、動画生成をキューへ追加します。入力に問題がある場合は送信前に理由を表示します。"],
   queue_submitting:["Submitting…","キューへ送信中…"],
   queue_idle:["Not queued","キュー待機なし"],

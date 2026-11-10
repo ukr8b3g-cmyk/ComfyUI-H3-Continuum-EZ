@@ -1,0 +1,17 @@
+{
+  "native_mouse_hit_test_passed": true,
+  "mouse_queue_acceptance_running_and_green_check_observed": true,
+  "history_interruption_restored_in_studio": true,
+  "selected_clip_trimmed_seconds": 10.121,
+  "video_aligned_seconds": 10.125,
+  "original_source_audio_seconds": 60,
+  "model_graph_preserved": true,
+  "seed_control_not_edited": "existing randomize retained; normal queue actions advance the seed",
+  "gpu_completed": false,
+  "core_history_records_interruption": true,
+  "interruption_source": "User confirmed they stopped/cancelled the test",
+  "interruption_user_confirmed": true,
+  "test_servers_started": false,
+  "backend_restart": false,
+  "scope": "Observed 2026-11-10 before publication; queue acceptance/start only; user stopped the runs. No new UI/GPU run for publication."
+}
