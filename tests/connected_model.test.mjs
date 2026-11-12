@@ -3,7 +3,7 @@ import {canvasEnhancerBinding,canvasEnhancerModel} from '../web/queue_status.js'
 import {mediaLabel} from '../web/media_labels.js';
 import {referenceCounts} from '../web/node_summary.js';
 export function fixture(){
- const d=JSON.parse(fs.readFileSync(new URL('../examples/H3_Continuum_EZ_Studio.json',import.meta.url),'utf8'));
+ const d=JSON.parse(fs.readFileSync(new URL('../examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json',import.meta.url),'utf8'));
  const build=data=>{const graph={_nodes:data.nodes,links:new Map(data.links.map(l=>Array.isArray(l)?[l[0],l]:[l.id,l])),inputNode:data.inputNode,inputs:data.inputs,outputs:data.outputs};
   for(const n of graph._nodes){n.graph=graph;n.widgets=Object.entries(n.widgets_values_named||{}).map(([name,value])=>({name,value}));const sub=d.definitions?.subgraphs.find(s=>s.id===n.type);if(sub)n.subgraph=build(sub);}return graph;};
  const root=build(d),timeline=root._nodes.find(n=>n.type==='H3ContinuumEZTimeline'),host=root._nodes.find(n=>n.subgraph),engine=host.subgraph._nodes.find(n=>n.type==='H3ContinuumEZEngine'),loader=host.subgraph._nodes.find(n=>n.outputs?.some(o=>o.links?.some(id=>host.subgraph.links.get(id)?.target_slot===engine.inputs.findIndex(i=>i.name==='prompt_clip'))));

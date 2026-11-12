@@ -1,4 +1,4 @@
-[English](README.md) · [v0.13.4 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [ワークフローテンプレート](examples)
+[English](README.md) · [v0.13.4 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)
 
 # H3 Continuum EZ Studio
 
@@ -7,7 +7,7 @@
 ## はじめに
 
 1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
-2. リポジトリの [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。
+2. [FastH3 OmniRef版のワークフローJSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) を保存して、ComfyUIへドラッグします。リンクを右クリックして **名前を付けてリンク先を保存** を選び、拡張子は `.json` のままにします。
 3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開きます。テンプレートには1:1・0.5 MPで歌う10秒のショットが入っています。参照画像を使う場合は、手持ちの素材やComfyUIの `example.png` を追加します。
 
 ## 画面と操作順
@@ -41,9 +41,9 @@ Studio上部の **AI指示** から、次回の **AI生成** に使うシステ�
 
 ## テンプレートのモデル
 
-**最初はFastH3 OmniRefの8ステップ版を使ってください。** メインのテンプレートは [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json) です。配布ZIPにも同梱しています。モデルと素材画像は含みません。
+**最初はFastH3 OmniRefの8ステップ版を使ってください。** [H3_Continuum_EZ_Studio_FastH3_OmniRef.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json)。モデルと素材画像は含みません。
 
-従来の **REF2VA＋Pika Flex版** は[オプションのテンプレート](examples/H3_Continuum_EZ_Studio_REF2VA_Optional.json)です。それぞれのモデル配線・サンプラー・シード設定を保ったまま別々に使います。オプションには [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) を `models/diffusion_models/`、[pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) を `models/loras/` に配置します。H3テキストエンコーダー・映像／音声VAE・任意のAI文章モデルは下表と共通です。Pika LoRAはREF2VAオプション用であり、メインのFastH3版には追加しません。
+**REF2VA＋Pika Flex版** は [H3_Continuum_EZ_Studio_REF2VA.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)。このワークフローには [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) を `models/diffusion_models/`、[pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) を `models/loras/` に配置します。H3テキストエンコーダー・映像／音声VAE・任意のAI文章モデルは下表と共通です。Pika LoRAはREF2VA用です。
 
 ### 必要環境
 

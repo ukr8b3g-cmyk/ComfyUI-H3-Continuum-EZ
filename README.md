@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.13.4 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [Workflow templates](examples)
+[日本語](README_JA.md) · [v0.13.4 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)
 
 # H3 Continuum EZ Studio
 
@@ -7,7 +7,7 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 ## Get started
 
 1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
-2. Drag the repository's [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json) into ComfyUI.
+2. Download the [FastH3 OmniRef workflow JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) and drag it into ComfyUI. To save it directly, right-click the link and choose **Save link as…**. Keep the `.json` extension.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with a 10-second singing shot at 1:1 and 0.5 MP. For an image reference, add your own image or ComfyUI's `example.png` if available.
 
 ## Studio walkthrough
@@ -41,9 +41,9 @@ Shot AI uses the common prompt as read-only context when **Common text on** is s
 
 ## Template models
 
-**Start with FastH3 OmniRef, eight steps.** This is the main template: [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json). The release ZIP includes it. Model weights and reference media are not bundled.
+**Start with FastH3 OmniRef, eight steps.** [Download H3_Continuum_EZ_Studio_FastH3_OmniRef.json](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json). Model weights and reference media are not bundled.
 
-The earlier **REF2VA + Pika Flex** workflow is an [optional template](examples/H3_Continuum_EZ_Studio_REF2VA_Optional.json). Use it separately when you want that setup; keep each template's existing model connections, sampler and seed controls. The optional template needs [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) in `models/diffusion_models/` and [pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) in `models/loras/`. It shares the H3 text encoder, video/audio VAEs and optional AI text model listed below. The Pika LoRA is for the REF2VA option; the main FastH3 template does not need it.
+For **REF2VA + Pika Flex**, [download H3_Continuum_EZ_Studio_REF2VA.json](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json). This workflow needs [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) in `models/diffusion_models/` and [pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) in `models/loras/`. It shares the H3 text encoder, video/audio VAEs and optional AI text model listed below. The Pika LoRA is for REF2VA.
 
 ### Requirements
 
