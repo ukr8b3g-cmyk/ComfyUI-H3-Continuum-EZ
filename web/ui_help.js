@@ -5,7 +5,6 @@ export function applyUIHelp(root,locale='en'){
  const ja=locale==='ja',t=translator(locale),pick=(en,jp)=>ja?jp:en;
  const rows=[
   ['timelineTab','Show the timeline and preview.','タイムラインとプレビューを表示します。'],
-  ['widePrompt','Expand the prompt editor. Return with Timeline.','文章の編集領域を広げます。タイムラインで戻ります。'],
   ['expandEditor','Expand the editor; click again to return.','文章の編集領域を広げます。もう一度押すと戻ります。'],
   ['returnToTimeline','Show the timeline and preview.','タイムラインとプレビューを表示します。'],
   ['applyToNode','Save the Studio draft to the Timeline node without running it.','Studioの編集内容をTimelineノードへ保存します。生成は開始しません。'],

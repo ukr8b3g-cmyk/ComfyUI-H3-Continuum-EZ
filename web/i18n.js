@@ -20,7 +20,9 @@ const messages = {
   projectBusy:['Wait for uploads, AI processing or the current project operation to finish.','素材読込・AI処理・プロジェクト操作が終わるまでお待ちください。'],
   projectTooLarge:['Project files must be 32 MiB or smaller.','プロジェクトファイルは32 MiB以下にしてください。'],
   projectInvalid:['Invalid or unsupported H3 EZ project. The current project was kept.','H3 EZプロジェクトの形式または内容が不正です。現在のプロジェクトは保持しました。'],
-  projectSaved:['Project download started','プロジェクト保存を開始しました'],
+  projectFileType:['Studio project','Studioプロジェクト'],
+  projectSaved:['Project saved','プロジェクトを保存しました'],
+  projectDownloadStarted:['Project download started','プロジェクトのダウンロードを開始しました'],
   projectCreated:['New project · apply to node before rendering','新規プロジェクト · 生成前にノード反映してください'],
   projectLoaded:['Project opened · apply to node before rendering','プロジェクト読込済み · 生成前にノード反映してください'],
   audioLibraryHelp:["Drop on the audio track to place from the beginning, in the first space where the clip fits. Double-click or press Enter to add from the playhead.","音声トラックにドロップすると、先頭から探して入る最初の空き位置に配置します。ダブルクリックまたはEnterでは再生位置から配置します。"],
@@ -186,7 +188,6 @@ const messages = {
 
   openStudio: ["Open Timeline Studio", "タイムラインStudio"],
   timelineTab: ["Timeline", "タイムライン"],
-  widePrompt: ["Expand Prompt", "プロンプト拡大"],
   undo: ["Undo", "元に戻す"],
   redo: ["Redo", "やり直す"],
   importText: ["Import Text", "文章取り込み"],

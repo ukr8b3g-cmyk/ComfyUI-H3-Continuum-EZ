@@ -1,1 +1,1 @@
-{"private":true,"version":"0.13.4","type":"module","scripts":{"test":"node --test tests/*.test.mjs"}}
+{"private":true,"version":"0.13.5","type":"module","scripts":{"test":"node --test tests/*.test.mjs"}}

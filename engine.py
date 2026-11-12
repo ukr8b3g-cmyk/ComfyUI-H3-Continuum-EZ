@@ -124,7 +124,7 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
             '16:9' if aspect is None else aspect,
             load_image(paths[first], (2048,2048)) if first else None,
         )
-    plan, assist_warnings = verified_plan(plan, input_root, {'width':width, 'height':height})
+    plan, assist_warnings = verified_plan(plan, input_root)
     for warning in assist_warnings: LOG.warning('Prompt enhancer: %s', warning)
     estimate = total_frames * width * height * 3 * 4
     if streaming:

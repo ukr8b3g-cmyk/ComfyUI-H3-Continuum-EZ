@@ -91,13 +91,17 @@ export function resolveText(p,target,external=null,outputSize=undefined){
   return {text:x.text,status:'enhanced'};
 }
 export function compatibleDependencies(saved,current){
-  saved=JSON.parse(JSON.stringify(saved));current=JSON.parse(JSON.stringify(current));
-  // Reuse saved AI text across Studio framing and resolution changes.
-  if(saved.output?.source==='studio'&&current.output?.source==='studio'){
+  if(saved.contract===VISUAL_CONTRACT&&current.contract===VISUAL_CONTRACT){
+    // Timing and output geometry guide new AI requests. An existing text
+    // choice survives these edits, and its receipt still records both values.
+    saved=JSON.parse(JSON.stringify(saved));
+    current=JSON.parse(JSON.stringify(current));
     for(const dep of [saved,current]){
-      delete dep.output.aspect;
-      delete dep.output.width;
-      delete dep.output.height;
+      delete dep.output;
+      if(!Array.isArray(dep.scope))continue;
+      for(const shot of dep.scope){
+        if(shot&&typeof shot==='object')delete shot.timing;
+      }
     }
   }
   return canonical(saved)===canonical(current);

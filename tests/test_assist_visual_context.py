@@ -72,27 +72,31 @@ def test_maximum_references_are_all_sent_with_total_pixel_budget(tmp_path):
     assert pixels<=AI_TOTAL_PIXELS
     assert len(normalize_plan(adopt(p,r,tmp_path))['prompt_enhancer']['texts'][0]['images'])==11
 
-@pytest.mark.parametrize('change',['seconds','aspect','reference','last','pixels'])
+@pytest.mark.parametrize('change',['seconds','aspect','megapixels','reference','last','pixels'])
 def test_changed_visual_condition_rejects_late_ai_and_preserves_original(tmp_path,change):
     p=fixture(tmp_path);r=prepare(p,tmp_path)
     if change=='seconds':p['shots'][0]['seconds']=8
     if change=='aspect':p['resolution']['aspect']='16:9'
+    if change=='megapixels':p['resolution']['megapixels']=.7
     if change=='reference':p['shots'][0]['refs']=[3]
     if change=='last':p['shots'][0]['last_image']='a9'
     if change=='pixels':Image.new('RGB',(20,20),'blue').save(tmp_path/'image-1.png')
     with pytest.raises(ValueError):adopt(p,r,tmp_path)
     assert p['shots'][0]['prompt']=='SHOT_ONLY' and p['global_prompt']=='COMMON_ONLY'
 
-def test_engine_size_receipt_is_checked_again_at_video_execution(tmp_path):
+def test_saved_ai_text_survives_new_engine_size(tmp_path):
     p=fixture(tmp_path);p['resolution']['source']='engine'
     r=prepare(p,tmp_path,output_size={'width':736,'height':416});_,c=context(r)
     assert c['output_frame']=={'source':'engine','aspect':'23:13','width':736,'height':416}
     p=adopt(p,r,tmp_path)
-    same,notes=verified_plan(p,tmp_path,{'width':736,'height':416});assert not notes
-    assert resolve_prompt_text(same,TARGET)==('AI_TEXT','enhanced')
-    changed,notes=verified_plan(p,tmp_path,{'width':512,'height':768});assert notes
-    assert resolve_prompt_text(changed,TARGET)[0]=='SHOT_ONLY'
-    assert p['prompt_enhancer']['texts'][0]['text']=='AI_TEXT'
+    saved=copy.deepcopy(p['prompt_enhancer']['texts'][0])
+    request={'plan':p,'target':TARGET,'receipt':saved,'candidate':'EDITED_AI',
+             'output_size':{'width':512,'height':768}}
+    p['prompt_enhancer']['texts']=[adopt_request(request,tmp_path)['entry']]
+    runtime,notes=verified_plan(p,tmp_path)
+    assert not notes
+    assert 'EDITED_AI' in compile_part_prompt(runtime,execution_plan(runtime)[0])[0]
+    assert p['prompt_enhancer']['texts'][0]['dependencies']==saved['dependencies']
 
 def test_missing_one_of_multiple_images_fails_before_queue_graph(tmp_path):
     p=fixture(tmp_path);(tmp_path/'image-1.png').unlink()
@@ -101,10 +105,11 @@ def test_missing_one_of_multiple_images_fails_before_queue_graph(tmp_path):
 
 
 @pytest.mark.parametrize('target',[TARGET, {'field':'global_prompt'}])
-def test_studio_size_change_retains_ai_selection_edit_restore_and_render(tmp_path,target):
+def test_timing_and_size_changes_retain_ai_selection_edit_restore_and_render(tmp_path,target):
     p=fixture(tmp_path);p=adopt(p,prepare(p,tmp_path,target),tmp_path)
     saved=copy.deepcopy(p['prompt_enhancer']['texts'][0])
-    for aspect, mp in (('2:3',.3),('16:9',.4),('9:16',.6),('1:1',1)):
+    for seconds, aspect, mp in ((3,'2:3',.3),(20,'16:9',.4),(7.5,'9:16',.6),(4,'1:1',1)):
+        p['shots'][0]['seconds']=seconds
         p['resolution'].update(aspect=aspect, megapixels=mp)
         p=normalize_plan(json.dumps(p))
         assert resolve_prompt_text(p,target)==('AI_TEXT','enhanced')
@@ -119,4 +124,4 @@ def test_studio_size_change_retains_ai_selection_edit_restore_and_render(tmp_pat
     edited['inactive']=False
     assert resolve_prompt_text(p,target)==('EDITED_AI','enhanced')
     p['resolution']['source']='engine'
-    assert resolve_prompt_text(p,target)[1]=='stale'
+    assert resolve_prompt_text(p,target)==('EDITED_AI','enhanced')

@@ -210,15 +210,17 @@ def normalize_enhancer(raw, plan):
     return out
 
 
-def compatible_dependencies(saved, current, *, ignore_studio_aspect=True):
-    """Reuse saved AI text across Studio framing and resolution changes."""
-    saved, current = copy.deepcopy(saved), copy.deepcopy(current)
-    if saved.get('output', {}).get('source') == current.get('output', {}).get('source') == 'studio':
+def compatible_dependencies(saved, current, *, saved_text=True):
+    """Keep the selected saved text across timing and output geometry edits."""
+    if saved_text and saved.get('contract') == current.get('contract') == VISUAL_CONTRACT:
+        saved, current = copy.deepcopy(saved), copy.deepcopy(current)
         for dep in (saved, current):
-            dep['output'].pop('width', None)
-            dep['output'].pop('height', None)
-            if ignore_studio_aspect:
-                dep['output'].pop('aspect', None)
+            dep.pop('output', None)
+            scope = dep.get('scope')
+            if isinstance(scope, list):
+                for shot in scope:
+                    if isinstance(shot, dict):
+                        shot.pop('timing', None)
     return canonical(saved) == canonical(current)
 
 
@@ -235,9 +237,7 @@ def resolve_prompt_text(plan, target, external=None):
         return original,'stale'
     # Legacy AI text depends on the context it actually saw, even when the
     # user later changes whether that context is included in the video.
-    saved_output = entry['dependencies'].get('output', {})
-    output_size = saved_output if saved_output.get('source') == 'engine' and saved_output.get('width') else None
-    deps = dependency_payload(plan,target,external,contract,bool(entry['dependencies'].get('common')),output_size)
+    deps = dependency_payload(plan,target,external,contract,bool(entry['dependencies'].get('common')))
     if (digest(original)!=entry['base_text_hash']
             or digest(canonical(entry['dependencies']))!=entry['dependency_hash']
             or not compatible_dependencies(entry['dependencies'], deps)):
@@ -245,7 +245,7 @@ def resolve_prompt_text(plan, target, external=None):
     return entry['text'],'enhanced'
 
 
-def verified_plan(plan, input_root, output_size=None):
+def verified_plan(plan, input_root):
     """Invalidate changed input bytes on a runtime copy, never erase saved text."""
     if not plan.get('prompt_enhancer',{}).get('enabled',False): return plan,[]
     result=copy.deepcopy(plan); notes=[]; by_id={a['id']:a for a in plan['assets']}; hashes={}
@@ -253,12 +253,6 @@ def verified_plan(plan, input_root, output_size=None):
     rejected=set()
     for entry in result['prompt_enhancer']['texts']:
         if entry.get('inactive',False): continue
-        saved_output = entry['dependencies'].get('output', {})
-        if output_size and saved_output.get('source') == 'engine' and saved_output.get('width') and any(
-                saved_output[k] != output_size[k] for k in ('width','height')):
-            rejected.add(target_key(entry['target']))
-            notes.append(target_key(entry['target'])+': output size changed; original prompt used')
-            continue
         for image in entry.get('images',[]):
             aid=image['id']
             if aid not in hashes:

@@ -53,6 +53,12 @@
 .h3ez-studio .ez-ref-chip img{width:32px;height:24px;object-fit:cover;border-radius:2px}
 .h3ez-studio .ez-timeline{border-top:1px solid var(--line);background:#141a24;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;padding:9px 16px;gap:7px}
 .h3ez-studio .ez-track-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;flex:0 0 auto}
+.h3ez-studio .ez-track-head button.ez-timeline-add{background:#256b57;border-color:#72cbb0;color:#fff}
+.h3ez-studio .ez-track-head button.ez-timeline-add:not(:disabled):hover{background:#2d7d65}
+.h3ez-studio .ez-track-head button.ez-timeline-duplicate{background:#294969;border-color:#749cc8;color:#f1f7ff}
+.h3ez-studio .ez-track-head button.ez-timeline-duplicate:not(:disabled):hover{background:#365a80}
+.h3ez-studio .ez-track-head button.ez-timeline-delete{background:#512e3a;border-color:#a86675;color:#ffe1e7}
+.h3ez-studio .ez-track-head button.ez-timeline-delete:not(:disabled):hover{background:#673b49}
 .h3ez-studio .ez-zoom-controls{display:flex;gap:8px;flex:0 0 auto;margin-left:auto}
 .h3ez-studio .ez-track-head h3{margin:0 8px 0 0}
 .h3ez-studio .ez-scroll{overflow:auto;scrollbar-gutter:stable;min-width:0;min-height:0;width:100%;flex:1;position:relative;padding-bottom:5px}

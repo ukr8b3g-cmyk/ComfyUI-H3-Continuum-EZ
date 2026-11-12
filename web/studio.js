@@ -48,12 +48,12 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   let previewLoop=false,previewVolume=1,previewMuted=false,previewLastVolume=1,refreshPreviewVolume=null;
   media.preload='auto';
   let previewMode='auto', resultLabel=null, resultToggle=null, playControl=null, resultMatches=false,activeVideo=null,shotDragCancel=null,suppressShotClick=false;
+  let previewRunId=null;
   // Compare the plan only after edits or incoming generation records, never per animation frame.
   let planText=JSON.stringify(p),resultPlanText=resultVideo?JSON.stringify(read(resultVideo.plan)):null,
       generationPlanText=generation?JSON.stringify(generation.plan):null;
   function refreshPlanIdentity(){planText=JSON.stringify(p);}
   const video=el('video','ez-result-video');video.controls=true;video.playsInline=true;video.preload='metadata';
-  if(resultVideo)video.src=resultVideo.url;
   const samePlan=()=>!!resultVideo&&resultPlanText===planText;
   const runMatches=()=>!!generation&&generationPlanText===planText;
   const partialAt=time=>generation?.clips.find(c=>time>=c.start&&time<c.end);
@@ -65,11 +65,28 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     // A partial clip must reach its ended event so the next available clip can play.
     video.loop=previewLoop&&resultActive()&&activeVideo.end==null;
   }
-  function updateResultState(){
+  function updateResultState({keepEndFrame=true}={}){
     const wasSynced=resultActive()&&resultMatches;
-    resultMatches=runMatches()||samePlan();
+    const currentRun=runMatches()?generation:null;
+    const hasClips=!!currentRun?.clips.length;
+    const firstPreview=hasClips&&previewRunId!==currentRun.runId;
+    const resume=firstPreview&&playing;
+    if(firstPreview){
+      previewRunId=currentRun.runId;
+      pause();
+      previewMode='auto';
+      if(!partialAt(playhead))playhead=currentRun.clips[0].start;
+    }
+    const hasFinal=!currentRun&&samePlan();
+    resultMatches=hasClips||hasFinal;
     if(resultMatches && previewMode==='previous')previewMode='auto';
-    const source=previewMode==='previous'?resultVideo:runMatches()?partialAt(playhead):(samePlan()?resultVideo:null);
+    let source=null;
+    if(hasClips){
+      source=partialAt(playhead);
+      if(!source&&keepEndFrame)source=currentRun.clips.find(clip=>clip.url===activeVideo?.url&&clip.end===playhead);
+    }else if(previewMode==='previous'||hasFinal){
+      source=resultVideo;
+    }
     const changed=activeVideo?.url!==source?.url;
     activeVideo=source||null;
     if(changed&&activeVideo){videoSize=null;video.src=activeVideo.url;video.currentTime=Math.max(0,playhead-videoOffset());}
@@ -79,14 +96,15 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     if(!wasSynced && resultActive() && resultMatches)video.currentTime=Math.max(0,playhead-videoOffset());
     if(resultToggle){
       resultToggle.textContent=t(resultVideo&&!resultMatches?'previousVideo':'resultPreview');
-      resultToggle.disabled=runMatches()?!generation.clips.length:!resultVideo;
+      resultToggle.disabled=!hasClips&&!resultVideo;
       resultToggle.classList.toggle('selected',resultActive());
     }
     updatePlayhead();
+    if(resume&&resultActive())playback();
   }
   function updateVideoTime(){
     if(!resultActive())return;
-    if(resultMatches)playhead=Math.min(videoDuration(p),videoOffset()+video.currentTime);
+    if(resultMatches)playhead=Math.min(activeVideo.end??videoDuration(p),videoOffset()+video.currentTime);
     updatePlayhead();
   }
   video.addEventListener('play',()=>{if(!resultActive()){video.pause();return;}media.pause();playing=true;cancelAnimationFrame(frame);frame=requestAnimationFrame(tick);});
@@ -129,7 +147,6 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   shell.append(top,work,timelineSplitter,timeline,footer);work.append(library,preview,splitter,inspector);dialog.append(shell);
   top.append(el('h2','','H3 Continuum EZ Studio'));
   const timelineTab=btn(t('timelineTab'),()=>{focusMode=false;renderLayout();},'selected');
-  const textTab=btn(t('widePrompt'),()=>{focusMode=!focusMode;renderLayout();});
   const undo=btn('↶',()=>{p=history.undo(p);reconcile();render();});undo.title=t('undo');undo.setAttribute('aria-label',t('undo'));
   const redo=btn('↷',()=>{p=history.redo(p);reconcile();render();});redo.title=t('redo');
   const importButton=btn(t('importText'),()=>openImporter());
@@ -157,7 +174,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   const projectFileInput=el('input');projectFileInput.type='file';projectFileInput.accept='.h3ez.json,.json,application/json';projectFileInput.hidden=true;
   projectFileInput.onchange=()=>{if(projectFileInput.files?.[0])void projectOperation('load',projectFileInput.files[0]);};
   projectGroup.append(projectMenu,projectActions,projectFileInput);top.append(projectGroup);
-  editTools.append(timelineTab,textTab,undo,redo,importButton);
+  editTools.append(timelineTab,undo,redo,importButton);
   const settingsTools=el('div','ez-top-group ez-settings-tools');
   const instructionButton=btn(t('aiInstruction'),()=>openInstruction(),'ez-ai-instruction-button');
   instructionButton.title=t('aiInstructionHelp');settingsTools.append(instructionButton);
@@ -228,17 +245,43 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     pause();shotDragCancel?.();audioDragCancel?.();assist?.invalidate('project changed');assistPanel?.reset();
     history.record(p);p=next;useSizePreference(p);selected=p.shots[0]?.id;selectedAudio=null;selectionKind='shot';playhead=0;zoom=1;
     waves.clear();previousShotRefs.clear();roleSelection.clear();mediaError=null;
-    resultVideo=null;generation=null;resultPlanText=null;generationPlanText=null;activeVideo=null;video.removeAttribute('src');video.load();previewMode='auto';videoSize=null;
+    resultVideo=null;generation=null;resultPlanText=null;generationPlanText=null;activeVideo=null;video.removeAttribute('src');video.load();previewMode='auto';previewRunId=null;videoSize=null;
     clearTimeout(editCheckTimer);projectName=name;projectMenu.title=`${name}\n${t('projectHelp')}`;projectSaved=JSON.stringify(p);reconcile();render();return true;
   }
   async function projectOperation(action,file=null){
+    try{projectReady();}catch(e){message(errorText(e,t),true);return;}
+    projectWorking=true;
     try{
-      projectReady();projectWorking=true;
       if(action==='save'){
+        let fileHandle=null;
+        if(typeof window.showSaveFilePicker==='function'){
+          // Open the picker while the project menu click still grants user activation.
+          try{
+            fileHandle=await window.showSaveFilePicker({
+              id:'h3ez-project',suggestedName:projectName,
+              types:[{description:t('projectFileType'),accept:{'application/json':['.json']}}],
+            });
+          }catch(error){
+            if(error.name==='AbortError')return;
+            if(error.name!=='SecurityError')throw error;
+          }
+        }
+        if(closed)return;
         await assistPanel?.flush();if(closed)return;
-        const text=saveProject(p),snapshot=JSON.stringify(p),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
-        const a=el('a');a.href=url;a.download=projectName;dialog.append(a);
-        try{a.click();projectSaved=snapshot;message(t('projectSaved'));}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+        const text=saveProject(p),snapshot=JSON.stringify(p);
+        if(fileHandle){
+          const writer=await fileHandle.createWritable();
+          try{await writer.write(text);await writer.close();}
+          catch(error){await writer.abort().catch(()=>{});throw error;}
+          projectName=fileHandle.name;
+          projectMenu.title=`${projectName}\n${t('projectHelp')}`;
+          message(t('projectSaved'));
+        }else{
+          const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+          const a=el('a');a.href=url;a.download=projectName;dialog.append(a);
+          try{a.click();message(t('projectDownloadStarted'));}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+        }
+        projectSaved=snapshot;
       }else if(action==='new'){
         if(await replaceProject(newProject(),'H3_EZ_Project.h3ez.json'))message(t('projectCreated'));
       }else if(file){
@@ -308,7 +351,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     }
     runNotice.hidden=!text||noticeDismissed;
   }
-  function renderLayout(){shell.classList.toggle('prompt-focus',focusMode);timelineTab.classList.toggle('selected',!focusMode);textTab.classList.toggle('selected',focusMode);renderInspector();}
+  function renderLayout(){shell.classList.toggle('prompt-focus',focusMode);timelineTab.classList.toggle('selected',!focusMode);renderInspector();}
   function mediaAsset(id){return p.assets.find(a=>a.id===id);}
   function img(id,cls=''){const e=el('img',cls);const a=mediaAsset(id);if(a){e.src=mediaUrl(a);e.alt=a.label;e.loading='lazy';}return e;}
   function bindDrop(target,handler,{label='',kind=null,assetOnly=false,shotLabel=''}={}){
@@ -996,9 +1039,9 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     const scrollBefore=nextScroll??timeline.querySelector('.ez-scroll')?.scrollLeft??0;
     const focusedZoom=timeline.contains(document.activeElement)?document.activeElement.dataset.zoomAction:null;
     timeline.replaceChildren();const controls=el('div','ez-track-head');
-    controls.append(el('h3','',t('timelineDuration',duration(p).toFixed(3))),btn(t('addShot'),()=>mutate(()=>{selected=insertShot(p,p.shots.findIndex(x=>x.id===selected)).id;selectedAudio=null;selectionKind='shot';})),
-      btn(t('duplicate'),()=>mutate(()=>{if(selectedAudio){selectedAudio=duplicateAudio(p,selectedAudio).id;selectionKind='audio';return;}if(p.shots.length>=16)throw new Error(t('maxShots'));const i=p.shots.indexOf(current()),copy={...clone(current()),id:uid('shot'),label:`${current().label} copy`};p.shots.splice(i+1,0,copy);selected=copy.id;selectedAudio=null;selectionKind='shot';})),
-      btn(t(selectedAudio?'deleteAudioClip':'deleteShot'),deleteSelection),
+    controls.append(el('h3','',t('timelineDuration',duration(p).toFixed(3))),btn(t('addShot'),()=>mutate(()=>{selected=insertShot(p,p.shots.findIndex(x=>x.id===selected)).id;selectedAudio=null;selectionKind='shot';}),'ez-timeline-add'),
+      btn(t('duplicate'),()=>mutate(()=>{if(selectedAudio){selectedAudio=duplicateAudio(p,selectedAudio).id;selectionKind='audio';return;}if(p.shots.length>=16)throw new Error(t('maxShots'));const i=p.shots.indexOf(current()),copy={...clone(current()),id:uid('shot'),label:`${current().label} copy`};p.shots.splice(i+1,0,copy);selected=copy.id;selectedAudio=null;selectionKind='shot';}),'ez-timeline-duplicate'),
+      btn(t(selectedAudio?'deleteAudioClip':'deleteShot'),deleteSelection,'ez-timeline-delete'),
       btn('←',()=>{if(!selectedAudio)mutate(()=>moveShot(p,selected,p.shots.indexOf(current())-1));}),btn('→',()=>{if(!selectedAudio)mutate(()=>moveShot(p,selected,p.shots.indexOf(current())+1));}),
       btn(t('splitHere'),()=>mutate(()=>{if(selectedAudio){splitAudio(p,selectedAudio,playhead);return;}const g=geometry(p).find(g=>g.id===selected);splitShot(p,selected,playhead-g.start);})),el('span','spacer'));
     const zoomControls=el('div','ez-zoom-controls');
@@ -1257,7 +1300,10 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   }
   function playback(){
     if(resultActive()){
-      if(resultMatches)video.currentTime=Math.max(0,(playhead>=videoDuration(p)?videoOffset():playhead)-videoOffset());
+      if(resultMatches){
+        if(video.ended||playhead>=(activeVideo.end??videoDuration(p)))playhead=videoOffset();
+        video.currentTime=Math.max(0,playhead-videoOffset());
+      }
       else if(video.ended)video.currentTime=0;
       video.play().catch(()=>message(t('videoError'),true));return;
     }
@@ -1268,7 +1314,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   function seek(position){
     const resume=playing;
     playhead=Math.max(0,Math.min(duration(p),position));
-    updateResultState();
+    updateResultState({keepEndFrame:false});
     if(resultActive()&&resultMatches)video.currentTime=Math.max(0,playhead-videoOffset());
     if(resume&&resultActive())video.play().catch(()=>message(t('videoError'),true));
     if(playing){clock=performance.now();clockStart=playhead;}
@@ -1411,7 +1457,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   dialog.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();});
   dialog.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();});
   document.body.append(dialog);dialog.showModal();
-  if(focusMode){shell.classList.add('prompt-focus');timelineTab.classList.remove('selected');textTab.classList.add('selected');}
+  if(focusMode){shell.classList.add('prompt-focus');timelineTab.classList.remove('selected');}
   render();if(view?.scroll)timeline.querySelector('.ez-scroll').scrollLeft=view.scroll;
   if(restoredDraft)message(t('draftRestored'));else if(draftReadError)message(t('draftReadError'),true);
   let timelineWidthObserved=timeline.clientWidth;
@@ -1428,13 +1474,14 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   const originalClose=close; // observer is also released by the public cleanup below.
   dialog.addEventListener('close',()=>observer.disconnect(),{once:true});
   function setResult(result,{restored=false}={}){
-    pause();
     resultVideo=result;resultPlanText=JSON.stringify(read(result.plan));
-    generation=null;generationPlanText=null;
-    video.src=result.url;
-    if(!restored)previewMode='auto';
+    if(!restored){
+      pause();
+      generation=null;generationPlanText=null;
+      previewMode='auto';
+    }
     updateResultState();
-    if(resultActive()&&resultMatches)seek(playhead);
+    if(!restored&&resultActive()&&resultMatches)seek(playhead);
     renderTimeline();
   }
   function setProgress(value){generation=value;generationPlanText=value?JSON.stringify(value.plan):null;updateRenderStatus();if(shotDragCancel)return;updateResultState();renderTimeline();if(value?.warning)message(t('partialPreviewUnavailable'),true);}

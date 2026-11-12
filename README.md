@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.13.4 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)
+[日本語](README_JA.md) · [v0.13.5 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.5) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,28 +6,32 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Get started
 
-1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
+1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
 2. Download the [FastH3 OmniRef workflow JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) and drag it into ComfyUI. To save it directly, right-click the link and choose **Save link as…**. Keep the `.json` extension.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with a 10-second singing shot at 1:1 and 0.5 MP. For an image reference, add your own image or ComfyUI's `example.png` if available.
 
 ## Studio walkthrough
 
-![Studio screenshot with eight numbered controls described below.](docs/studio-guide-en.svg)
+![Studio during video generation, with twelve numbered controls described below.](docs/studio-guide-en.svg)
 
 | No. | What to do |
 | --- | --- |
-| ① Media | Use **Add Media** or drop images and audio into the library. Reuse an image by adding it to the selected shot's references. User-provided media in this screenshot is an example. |
-| ② Timeline and audio | Select, add, duplicate, delete, reorder or split shots. Drag a shot edge to change its duration. Drag audio from the library to the lower track, then select a clip to edit or delete that placement. |
-| ③ Shot, references and size | Set **Target seconds** and **Scene cut / Continue** for the selected shot. Choose shared or shot references, click the images to use, and optionally choose an **End image**. Aspect ratio and MP set the output size for the whole video. **Time** shows H3-aligned duration. |
-| ④ Prompts | Edit the selected scene in **Shot Prompt**, or reusable details in **Common Prompt**. **Common text on/off** controls whether the selected shot includes common text. **Generation Prompt** shows the combined text sent to the video model. |
-| ⑤ AI text | Click **Generate AI** directly below the field. **Original / AI Text** selects the text used for video generation; both are retained. Shot AI automatically receives its images, timing and size, while common text remains separate. **Generate All Shots** on the top bar processes shot text only. |
-| ⑥ Dialogue and direction | **Add Dialogue** adds a speaker, words and optional start time. Choose **Camera**, add actions, or assign a reference role below. These become model instructions rather than exact motion or speech timing controls. |
-| ⑦ Preview | Use **Layout** before generation and **Generated video** after rendering. Playback and seeking follow the timeline. Mute and volume here affect preview only. Optional **Start image** and **Shared refs** are below the player; select shared references in the shot controls to inherit them. |
-| ⑧ Apply and generate | **Apply to Node** saves the Studio draft to the workflow without rendering. **Apply and Queue** starts the video job. Save the workflow in ComfyUI to keep edits. **Output Settings** controls output and automatic splitting; **Temporary storage** manages the server's working storage. |
+| ① Media | Use **Add Media** or drop images and audio into the library. Click images in the shot's reference row to use them. |
+| ② Timeline and audio | Add, duplicate, delete, reorder or split shots. Drag a shot edge to adjust its duration. Use **Fit** to see the whole timeline. Drop audio on the lower track, then select a clip to move, trim or change its volume. |
+| ③ Shot and references | Set **Target seconds** and **Scene cut / Continue**. Choose shared or shot references and an optional **End image**. **Time** shows the H3-aligned duration and automatic part count. |
+| ④ Prompts | Write the selected scene in **Shot Prompt** and reusable details in **Common Prompt**. **Common text on/off** controls their combination. Check the text sent to the model in **Generation Prompt**, or use **Expand Editor** for more writing space. |
+| ⑤ AI text | Use **Generate AI Text** below the field. Choose **Original / AI Text** for video generation. **Generate All AI Text** processes shot text and **All Originals** switches back to originals. |
+| ⑥ Dialogue and direction | **Add Dialogue** sets the speaker, words and optional start time. Use **Camera**, **+ Action** and **Reference** to describe how the shot should look and move. |
+| ⑦ Preview | **Layout** shows the editing preview. As soon as a generated chunk is available, Studio switches to **Generated video** and you can play that chunk. Use **Start**, **Loop**, and the preview volume controls. Set the optional **Start image** and **Shared refs** below the player. |
+| ⑧ Apply and queue | **Apply to Node** copies the draft to the workflow. **Apply and Queue** also submits the video job, and **✓ Queued** confirms submission. Save the workflow in ComfyUI to keep the applied edits. |
+| ⑨ Project and editing | Use **Project** to create, open, or save a `.h3ez.json` project. **Save Project** lets you choose a file name and folder in supported browsers. **Import Text** loads a script into the shot prompts. |
+| ⑩ Settings | **AI Instructions** sets the guidance for new AI text. **Temporary storage** manages the server's working storage. **Output Settings** sets the output mode and automatic splitting. |
+| ⑪ Render progress | The progress bar shows the active shot and chunk and how many chunks are complete. The timeline shows thumbnails for generated sections. |
+| ⑫ Output size | Choose a ratio or select **Match Image Aspect Ratio** to use an image's proportions. **MP** controls resolution independently. The resulting pixel dimensions appear on the right. |
 
 The P-H3 prompt upsampler is optional. Without it, keep **Original** selected and generate video with the existing wiring. **Generate AI** creates and selects AI text; it does not start a video job. You can edit the AI text or switch back to **Original** before generating video.
 
-Shot AI automatically receives the shot’s active reference images, start/end images, duration and output aspect ratio. Common text stays separate; its AI action receives only common text and shared references. The reference count beside **Generate AI** shows the images sent, with details on hover. No image selector or additional setup is needed. Images are reduced to a bounded total size for AI analysis; original assets are unchanged. Changing the original, references, duration or aspect ratio makes the saved AI text stale until regenerated. Changing only Studio MP preserves the saved AI text and its Original / AI Text selection.
+Shot AI automatically receives the shot’s active reference images, start/end images, duration and output aspect ratio. Common text stays separate; its AI action receives only common text and shared references. The reference count beside **Generate AI** shows the images sent, with details on hover. No image selector or additional setup is needed. Images are reduced to a bounded total size for AI analysis; original assets are unchanged. Changing shot duration or output size keeps saved AI text and its Original / AI Text selection. If the original text or relevant image or direction changes, Studio uses the original and retains the previous AI text.
 
 ## AI instructions
 
@@ -83,10 +87,10 @@ After submission, **✓ Queued** confirms acceptance. While the video job is run
 ## Projects
 
 1. Choose **Project → New Project** to start an empty timeline.
-2. Choose **Project → Save Project** to download the current editing plan.
+2. Choose **Project → Save Project** and select a file name and folder.
 3. Choose **Project → Open Project…** to restore a saved plan, then **Apply to Node** or **Apply and Queue** to use it.
 
-Use **Project** on the Studio toolbar for **New Project**, **Open Project…** and **Save Project**. A `.h3ez.json` file retains shots, original/AI text, media references, audio edits and Studio output settings. Opening a project or creating a new one asks before replacing unsaved edits; Undo restores the previous plan. Media files remain in the ComfyUI input folder and are not embedded. Model connections, external STRING nodes and generated videos belong to the workflow/server rather than this project file. After opening, use **Apply to Node** or **Apply and Queue**. See the [project guide](docs/PROJECT_FILES_JA.md) for details.
+Use **Project** on the Studio toolbar for **New Project**, **Open Project…** and **Save Project**. If the browser cannot show the save dialog, Studio uses the browser's download settings. A `.h3ez.json` file retains shots, original/AI text, media references, audio edits and Studio output settings. Opening a project or creating a new one asks before replacing unsaved edits; Undo restores the previous plan. Media files remain in the ComfyUI input folder and are not embedded. Model connections, external STRING nodes and generated videos belong to the workflow/server rather than this project file. After opening, use **Apply to Node** or **Apply and Queue**. See the [project guide](docs/PROJECT_FILES_JA.md) for details.
 
 When closing Studio with unapplied edits, choose **Save Draft and Close**, **Discard and Close**, or **Cancel**. The draft reopens with the same Timeline in the same browser; it does not replace the node or download a project file.
 
@@ -106,7 +110,7 @@ See the [prompt guide](docs/EASY_PROMPTS_EN.md) for more examples. AI text is an
 
 ## Verification
 
-v0.13.4 makes queue actions visible inside Studio: the button changes while checking/submitting, shows a red **Not submitted** result on rejection, and a green check after acceptance. Specific input errors appear near the button, independently of the running/completed/stopped job status. A missed terminal event can be recovered from matching queue history. Real mouse input in the usual ComfyUI confirmed acceptance, the green check and **Running**; the user then intentionally stopped the tests. This verifies queue acceptance and execution start, not a finished render. No further live UI checks or GPU runs were performed for publication. [v0.13.4 validation](docs/RELEASE_v0.13.4_VALIDATION_JA.md).
+v0.13.4 makes queue actions visible inside Studio: the button changes while checking/submitting, shows a red **Not submitted** result on rejection, and a green check after acceptance. Specific input errors appear near the button, independently of the running/completed/stopped job status. A missed terminal event can be recovered from matching queue history. Real mouse input in the usual ComfyUI confirmed acceptance, the green check and **Running**; the user then intentionally stopped the tests. This verifies queue acceptance and execution start, not a finished render. No further live UI checks or GPU runs were performed for publication. [v0.13.5 validation](docs/RELEASE_v0.13.4_VALIDATION_JA.md).
 
 Previous v0.13.3 checks:
 

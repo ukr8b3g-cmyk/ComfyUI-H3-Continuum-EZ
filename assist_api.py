@@ -228,7 +228,7 @@ def adopt_request(body, input_root):
     is_saved_entry = receipt in plan.get('prompt_enhancer', {}).get('texts', [])
     if (receipt.get('dependency_hash')!=digest(canonical(previous_dependencies))
             or receipt.get('base_text_hash')!=digest(dep['text'])
-            or not compatible_dependencies(previous_dependencies, dep, ignore_studio_aspect=is_saved_entry)):
+            or not compatible_dependencies(previous_dependencies, dep, saved_text=is_saved_entry)):
         raise AssistError('The source changed. Generate a new candidate / 入力条件が変更されました。候補を作り直してください')
     entry={**receipt, 'text':validate_candidate(body.get('candidate'))}
     checked=normalize_enhancer({'enabled':True,'texts':[entry]},plan)['texts'][0]

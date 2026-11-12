@@ -1,22 +1,46 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import crypto from 'node:crypto';
-import {initial,read,validate,executionPlan,effective,clone,History,splitShot} from '../web/state.js';
+import {initial,read,validate,executionPlan,effective,clone,History,insertShot,resizeShot,splitShot} from '../web/state.js';
+import {loadProject,saveProject} from '../web/project.js';
 import {VISUAL_CONTRACT} from '../web/assist_context.js';
 import {sha256,canonical,resolveText,setEnhancer,dependencyPayload,adoptEntry,activateEntry,restoreOriginal,validateEnhancer,validateCandidate} from '../web/enhancer.js';
 const fixtures=JSON.parse(fs.readFileSync(new URL('./contracts/assist_parity.json',import.meta.url),'utf8'));
-test('Studio size changes preserve both AI fields, selection, saved receipts and compiled prompt',()=>{
- const p=initial();p.global_prompt='COMMON';p.shots[0].prompt='SHOT';p.resolution={source:'studio',aspect:'16:9',megapixels:.3};
+test('timeline and output edits preserve both AI fields through project reload and compilation',()=>{
+ let p=initial();p.global_prompt='COMMON';p.shots[0].prompt='SHOT';p.resolution={source:'studio',aspect:'16:9',megapixels:.3};
+ insertShot(p);
+ p.assets=[
+  {id:'ref',kind:'image',label:'Ref',file:{name:'ref.png',type:'input'}},
+  {id:'other',kind:'image',label:'Other',file:{name:'other.png',type:'input'}},
+  {id:'sound',kind:'audio',label:'Sound',duration:30,file:{name:'sound.wav',type:'input'}},
+ ];
+ p.reference_slots[0]='ref';p.reference_slots[1]='other';p.global_refs=[1];
  const targets=[{field:'global_prompt'},{field:'prompt',shot_id:p.shots[0].id}];
  for(const target of targets){const dependencies=dependencyPayload(p,target,null,VISUAL_CONTRACT);activateEntry(p,{target,text:`AI_${target.field}`,dependencies,base_text_hash:sha256(dependencies.text),dependency_hash:sha256(canonical(dependencies)),images:[]});}
  const saved=clone(p.prompt_enhancer);
- for(const [aspect,mp] of [['16:9',.4],['2:3',.6],['9:16',1]]){
-  Object.assign(p.resolution,{aspect,megapixels:mp});const loaded=read(JSON.stringify(p));validate(loaded);
+ const changes=[
+  ()=>{p.shots[0].seconds=20;},
+  ()=>{p=resizeShot(p,p.shots[0].id,'right',9,{disableSnap:true}).plan;},
+  ()=>{p.shots[0].label='Renamed';p.assets[0].label='New label';p.shots[0].refs=[1];},
+  ()=>{Object.assign(p.shots[1],{seconds:12,prompt:'Different next shot',refs:[2],transition:'cut'});},
+  ()=>{p.chunking.seconds=6;p.output_mode='Images';},
+  ()=>{p.audio.push({id:'clip',asset_id:'sound',start:0,source_in:1,duration:25,volume:.5});},
+  ()=>{Object.assign(p.resolution,{aspect:'9:16',megapixels:.6});},
+  ()=>{p.resolution.source='engine';},
+ ];
+ for(const change of changes){
+  change();
+  const loaded=loadProject(saveProject(p));
   for(const target of targets)assert.equal(resolveText(loaded,target).status,'enhanced');
   assert.match(effective(loaded,0).text,/AI_global_prompt[\s\S]*AI_prompt/);
-  assert.deepEqual(p.prompt_enhancer,saved);
+  assert.deepEqual(loaded.prompt_enhancer,saved);
  }
- restoreOriginal(p,targets[1]);p.resolution.megapixels=.5;assert.equal(resolveText(p,targets[1]).status,'off');
+ restoreOriginal(p,targets[1]);p.shots[0].seconds=8;assert.equal(resolveText(p,targets[1]).status,'off');
  activateEntry(p,p.prompt_enhancer.texts[1]);assert.equal(resolveText(p,targets[1]).status,'enhanced');
- p.shots[0].seconds=8;assert.equal(resolveText(p,targets[1]).status,'stale');
+ p.shots[0].prompt='Rewritten original';assert.equal(resolveText(p,targets[1]).status,'stale');
+ assert.equal(p.prompt_enhancer.texts[1].text,'AI_prompt');
+ p.shots[0].prompt='SHOT';p.shots[0].refs=[2];
+ assert.equal(resolveText(p,targets[1]).status,'stale');
+ assert.equal(resolveText(p,targets[0]).status,'enhanced');
+ assert.deepEqual(loadProject(saveProject(p)).prompt_enhancer,saved);
 });
 for(const text of ['', 'abc','日本語😀\\"\r\n','長文'.repeat(10000)])test('SHA-256 parity '+text.slice(0,10),()=>assert.equal(sha256(text),crypto.createHash('sha256').update(text).digest('hex')));
 for(const f of fixtures)test('Python/JS compile parity '+f.scenario,()=>{

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.5
+
+- Preview the first generated chunk while later chunks are still rendering. The finished video replaces the chunk preview when it is ready.
+- Keep saved AI text selected when shot timing or output dimensions change.
+- Let **Save Project** choose a file name and folder in supported browsers, with a browser download as a fallback.
+- Remove the toolbar's **Expand Prompt** shortcut. **Expand Editor** remains in the prompt panel.
+- Distinguish the add, duplicate and delete timeline actions with color and update the English and Japanese README walkthroughs with twelve numbered controls.
+
 ## 0.13.4
 
 - Show checking/submitting, red rejection feedback, and a green acceptance check on Apply and Queue.
