@@ -112,7 +112,7 @@ def _prepare_image(asset, input_root, pixel_budget=AI_PIXELS):
 def prepare_request(body, input_root, available_models, model_identity=None):
     if not isinstance(body, dict) or set(body) - {'plan','target','external_prompt','image_id','model','loader','contract','output_size','ai_instruction','video_context'}:
         raise AssistError('Invalid AI request fields')
-    plan = normalize_plan(body.get('plan'),allow_audio_overhang=True)
+    plan = normalize_plan(body.get('plan'))
     require_enabled(plan)  # Before model/file work, even for hand-written API calls.
     instruction = body.get('ai_instruction', plan.get('prompt_enhancer', {}).get('instruction', ''))
     if not isinstance(instruction,str) or len(instruction)>MAX_INSTRUCTION or '\0' in instruction:
@@ -212,7 +212,7 @@ def prepare_request(body, input_root, available_models, model_identity=None):
 def adopt_request(body, input_root):
     if not isinstance(body, dict) or set(body)-{'plan','target','external_prompt','receipt','candidate','output_size'}:
         raise AssistError('Invalid candidate adoption fields')
-    plan=normalize_plan(body.get('plan'),allow_audio_overhang=True); require_enabled(plan)
+    plan=normalize_plan(body.get('plan')); require_enabled(plan)
     target=body.get('target'); target_key(target)
     receipt=body.get('receipt')
     if not isinstance(receipt,dict) or receipt.get('target') != target:
@@ -225,9 +225,10 @@ def adopt_request(body, input_root):
     saved_output = previous_dependencies.get('output', {})
     output_size = body.get('output_size', saved_output if saved_output.get('source')=='engine' and saved_output.get('width') else None)
     dep=dependency_payload(plan,target,external,previous_dependencies.get('contract', CONTRACT),bool(previous_dependencies.get('common')),output_size)
+    is_saved_entry = receipt in plan.get('prompt_enhancer', {}).get('texts', [])
     if (receipt.get('dependency_hash')!=digest(canonical(previous_dependencies))
             or receipt.get('base_text_hash')!=digest(dep['text'])
-            or not compatible_dependencies(previous_dependencies, dep)):
+            or not compatible_dependencies(previous_dependencies, dep, ignore_studio_aspect=is_saved_entry)):
         raise AssistError('The source changed. Generate a new candidate / 入力条件が変更されました。候補を作り直してください')
     entry={**receipt, 'text':validate_candidate(body.get('candidate'))}
     checked=normalize_enhancer({'enabled':True,'texts':[entry]},plan)['texts'][0]
@@ -246,18 +247,18 @@ def adopt_request(body, input_root):
 
 def preflight_request(body,input_root):
     if not isinstance(body,dict) or set(body)-{'plan'}:raise AssistError('Invalid preflight request')
-    plan=normalize_plan(body.get('plan'),allow_audio_overhang=True);used=used_asset_ids(plan)
+    plan=normalize_plan(body.get('plan'));used=used_asset_ids(plan)
     errors=[];warnings=[]
     for asset in plan['assets']:
         try:asset_path(asset,input_root)
         except (ValueError,OSError) as exc:
             (errors if asset['id'] in used else warnings).append({'asset_id':asset['id'],'message':str(exc),'used':asset['id'] in used})
     geometry=shot_geometry(plan);parts=execution_plan(plan)
-    return {'ok':not errors and max((c['start']+c['duration']for c in plan['audio']),default=0)<=sum(g['frames']for g in geometry)/24+.001,'errors':errors,'warnings':warnings,'shots':len(geometry),
+    frames = sum(g['frames'] for g in geometry)
+    return {'ok':not errors,'errors':errors,'warnings':warnings,'shots':len(geometry),
             'parts':len(parts),'part_times':[{'shot':x['shot_index']+1,'start':x['start'],'end':x['end']}for x in parts],
-            'frames':sum(g['frames'] for g in geometry),
-            'seconds':max(sum(g['frames'] for g in geometry)/24,max((c['start']+c['duration']for c in plan['audio']),default=0)),
-            'video_shortfall':max(0,max((c['start']+c['duration']for c in plan['audio']),default=0)-sum(g['frames'] for g in geometry)/24),'audio_clip_volume':True,'model_validation':'runtime'}
+            'frames':frames,'seconds':geometry[-1]['end'],
+            'audio_clip_volume':True,'model_validation':'runtime'}
 
 
 def register_routes(server=None):
@@ -305,7 +306,7 @@ def register_routes(server=None):
                 result=await asyncio.to_thread(inspect_audio,body['file'],root)
             elif operation=='prepare':
                 # No model discovery or path work before the explicit enable guard.
-                checked_plan=normalize_plan(body.get('plan'),allow_audio_overhang=True)
+                checked_plan=normalize_plan(body.get('plan'))
                 require_enabled(checked_plan)
                 available=await asyncio.to_thread(caps)
                 if available['missing_nodes']:

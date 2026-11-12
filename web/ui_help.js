@@ -28,9 +28,7 @@ export function applyUIHelp(root,locale='en'){
   ['addShot','Insert a shot after the selected shot.','選択ショットの後ろにショットを追加します。'],
   ['duplicate','Copy the selected shot, including its text and references.','選択ショットの本文と参照を複製します。'],
   ['delete','Remove the selected shot or audio clip. Source files are retained.','選択したショットまたは音声配置を削除します。元ファイルは保持します。'],
-  ['deleteAudioClip','Remove the selected audio clip. Keep its source in the library; Undo restores the clip.','選択した音声クリップを削除します。素材は残り、元に戻すで復元できます。'],
   ['deleteShot','Remove the selected shot. Undo restores it.','選択したショットを削除します。元に戻すで復元できます。'],
-  ['fitVideoAudio','Extend the last shot to cover the audio and enable automatic splitting when needed. Audio is not trimmed.','音声の終わりまで最後のショットを延長します。必要に応じて自動分割を有効にします。音声は切り詰めません。'],
   ['splitHere','Split the selected shot at the playhead. Each part must be at least two seconds.','再生位置でショットを分割します。分割後は各2秒以上が必要です。'],
   ['seekStart','Seek to the start of the selected shot.','選択ショットの先頭へ移動します。'],
   ['playPause','Play or pause the preview.','プレビューを再生・一時停止します。'],
@@ -44,7 +42,7 @@ export function applyUIHelp(root,locale='en'){
   ['×','Remove this assignment. The source file is retained.','この割り当てを外します。元ファイルは保持します。']
  ])labels.set(label,pick(en,jp));
  for(const e of root.querySelectorAll('button,summary,input,select,textarea,[role=button]')){
-  if(e.title||e.type==='hidden')continue;
+  if(e.title||e.type==='hidden'||e.matches('textarea.ez-prompt'))continue;
   const label=e.getAttribute('aria-label')||e.closest('label')?.querySelector('span')?.textContent||e.textContent.trim();
   e.title=labels.get(label)||label||pick('Edit value','値を編集');
   if(!e.getAttribute('aria-label')&&['INPUT','SELECT','TEXTAREA'].includes(e.tagName))e.setAttribute('aria-label',label||e.title);

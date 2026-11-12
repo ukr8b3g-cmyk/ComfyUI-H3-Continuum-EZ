@@ -1,6 +1,7 @@
 import json
 import pytest
 from h3ezstudio.plan import ASPECT_RATIOS, DEFAULT_JSON, default_plan, normalize_plan, studio_resolution, PlanError
+from h3ezstudio.enhancer import dependency_payload, VISUAL_CONTRACT
 from .test_engine_boundary import runtime, call
 
 @pytest.mark.parametrize('aspect', ASPECT_RATIOS)
@@ -31,6 +32,27 @@ def test_engine_size_source(runtime,tmp_path,source,width,height,expected):
     result=call(runtime,tmp_path,p,width=width,height=height)
     assert tuple(result[0].shape[1:3])==expected
 
+
+def test_matched_image_aspect_reaches_ai_context_and_engine(runtime, tmp_path):
+    plan = default_plan()
+    plan['shots'][0]['seconds'] = 2
+    plan['resolution'] = {'source': 'studio', 'aspect': 'image', 'megapixels': .01,
+                          'image_aspect': '55:74'}
+    saved = normalize_plan(json.dumps(plan))
+    assert saved['resolution'] == plan['resolution']
+    assert studio_resolution(saved['resolution']) == (96, 128)
+    output = dependency_payload(saved, {'field': 'global_prompt'}, contract=VISUAL_CONTRACT)['output']
+    assert output == {'source': 'studio', 'aspect': '55:74', 'width': 96, 'height': 128}
+    assert tuple(call(runtime, tmp_path, saved, width=32, height=32)[0].shape[1:3]) == (128, 96)
+    saved['resolution']['megapixels'] = .5
+    assert studio_resolution(saved['resolution']) == (608, 832)
+    saved['resolution']['image_aspect'] = '1:0'
+    with pytest.raises(PlanError, match='Invalid image aspect ratio'):
+        normalize_plan(saved)
+    saved['resolution'] = {'source': 'studio', 'aspect': 'image', 'megapixels': .3,
+                           'image_size': {'width': 896, 'height': 1184}}
+    assert normalize_plan(saved)['resolution'] == {'source': 'studio', 'aspect': 'image',
+                                                  'megapixels': .3, 'image_aspect': '28:37'}
 
 
 def test_music3_fails_before_sampling(runtime, tmp_path, monkeypatch):

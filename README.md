@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.13.4 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [Workflow](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/H3_Continuum_EZ_Studio.json)
+[日本語](README_JA.md) · [v0.13.4 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [Workflow templates](examples)
 
 # H3 Continuum EZ Studio
 
@@ -7,8 +7,8 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 ## Get started
 
 1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
-2. Drag [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/H3_Continuum_EZ_Studio.json) into ComfyUI. The [same template](examples/H3_Continuum_EZ_Studio.json) is in the repository.
-3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with two sample shots set in a garden.
+2. Drag the repository's [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json) into ComfyUI.
+3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with a 10-second singing shot at 1:1 and 0.5 MP. For an image reference, add your own image or ComfyUI's `example.png` if available.
 
 ## Studio walkthrough
 
@@ -32,6 +32,8 @@ Shot AI automatically receives the shot’s active reference images, start/end i
 ## AI instructions
 
 Use **AI Instructions** in the Studio toolbar to edit the system instructions for future **Generate AI** requests. The video default is ready to use; **Reset to Default** restores it. **Save** stores the Studio instruction in the project without rewriting existing AI text or originals. Project save/open also retains it.
+
+If the library has images and the prompt has none assigned, **Generate AI Text** asks whether to add a reference or continue with text only. Saved AI text remains selected when you change the Studio aspect ratio or MP.
 
 An optional **Engine → ai_instruction** STRING connection takes priority over the Studio instruction. Its upstream text nodes run only when you explicitly generate AI text; the dialog identifies the active external source and retains the local instruction. An empty external value uses the video default. The ordinary video queue does not evaluate this connection, so Original generation remains independent of the AI model and instruction nodes. No template model connections or seed settings need changing.
 
@@ -66,11 +68,17 @@ The loader boundary comes from [PDD support in ComfyUI v0.42.0](https://github.c
 | Video VAE | `vae_name` | [minimax_h3_video_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors) | `vae/` |
 | Audio VAE | `vae_name_1` | [minimax_h3_audio_vae_fp32.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors) | `vae/` |
 
-If you use a shared model library or a subfolder such as `minimax/`, select the installed filenames on the subgraph. The FastH3 template keeps **Euler / simple / 8 steps**, **video shift 12 / audio shift 3**, **Comfy Kitchen attention**, **VSA 10% over the full interval**, and portrait **2:3 at 0.5 MP** from the supplied workflow. **Do not add the Pika LoRA** used by the earlier REF2VA template. The text encoder and VAEs remain shared H3 components; the internal sampling and attention settings also differ, so replacing only the diffusion filename in the older workflow does not reproduce this setup. The `clip_name_1` model powers the optional AI text controls.
+If you use a shared model library or a subfolder such as `minimax/`, select the installed filenames on the subgraph. The FastH3 template uses **Euler / simple / 8 steps**, **video shift 12 / audio shift 3**, **Comfy Kitchen attention**, and **VSA 10% over the full interval**. Both templates start at **1:1 and 0.5 MP (704 × 704)**. The `clip_name_1` model powers the optional AI text controls.
 
 Use **Output Settings** to tune long-shot splitting or switch to progressive video export for lower memory use. Imported audio is used as the soundtrack when present. For chunk regeneration, resume or Second Pass, use [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum).
 
 Output choices are **Automatic / Save Video / Video + Images**. Video exports include audio; workflows that need image data receive it automatically, without connection changes. Automatic splitting defaults to **7.5 seconds**, so a 15-second shot uses two parts. The entered value is retained while actual durations follow H3's frame grid.
+
+Set aspect ratio and MP in Studio to see the output dimensions. If the workflow supplies width and height through its nodes, use **ComfyUI Settings → H3 Continuum EZ → Output Settings → Output size source**. The default, **Use workflow setting**, keeps existing workflows as saved. After changing the preference, reopen Studio and apply the plan.
+
+Use **Match Image Aspect Ratio** to take only the aspect ratio from an image. Choose an image if several are in Media. Your MP setting stays editable, and Studio shows the resulting width × height rounded to multiples of 32 pixels. A check mark indicates that the image's ratio is in use. Choose a preset to switch ratios.
+
+After submission, **✓ Queued** confirms acceptance. While the video job is running, a thin progress bar at the top shows the current stage and the number of completed chunks.
 
 ## Projects
 
@@ -80,15 +88,17 @@ Output choices are **Automatic / Save Video / Video + Images**. Video exports in
 
 Use **Project** on the Studio toolbar for **New Project**, **Open Project…** and **Save Project**. A `.h3ez.json` file retains shots, original/AI text, media references, audio edits and Studio output settings. Opening a project or creating a new one asks before replacing unsaved edits; Undo restores the previous plan. Media files remain in the ComfyUI input folder and are not embedded. Model connections, external STRING nodes and generated videos belong to the workflow/server rather than this project file. After opening, use **Apply to Node** or **Apply and Queue**. See the [project guide](docs/PROJECT_FILES_JA.md) for details.
 
+When closing Studio with unapplied edits, choose **Save Draft and Close**, **Discard and Close**, or **Cancel**. The draft reopens with the same Timeline in the same browser; it does not replace the node or download a project file.
+
 ## Continuation boundaries
 
 Continuation boundaries use automatic, conservative CPU correction based on Continuum's seam metrics and color guard. Only two previous frames and five current frames are inspected. An isolated brightness pulse in the first new frame can be corrected when the surrounding frames support it and all safety checks improve. Scene cuts, frame counts, seeds and audio positions stay intact; unsafe candidates retain the original frames. Long-video output does not allocate a full-length RGB buffer for this correction.
 
 ## Audio editing
 
-Import audio through **Add Media** or the media drop area, then drag it from the library to the audio track. Importing to the library keeps the complete source duration; placing a one-minute source creates a one-minute clip. Video files can also be imported for their audio only. The source video is not placed on the picture track.
+Drop an audio file on the audio track, or drag it there from the media library. Studio places the full clip at 0 seconds if it fits, or in the first gap that can hold it. Video files can also be imported for their audio only. The source video is not placed on the picture track.
 
-Select an audio clip to move, trim, split, duplicate or delete it. Delete/Backspace removes the selected placement; the source stays in the library and Undo restores the edit. Audio extending beyond the shots remains visible. Use **Match Video to Audio** to extend the last shot before generating; generation does not silently cut the audio or extend shots.
+Select an audio clip to move it, set its length, split it at the playhead, duplicate it, or delete it. **Trim to Video** shortens the selected clip to the end of the video only when clicked. **Delete** (or Delete/Backspace) removes the placement. The source stays in the library, and Undo restores the edit. Shot durations determine the video length; export uses audio within that range.
 
 The player mute and volume control affect preview playback only. The selected clip's volume controls its guide audio and exported soundtrack. This version supports one non-overlapping audio track.
 

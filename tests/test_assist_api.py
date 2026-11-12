@@ -132,6 +132,24 @@ def test_preflight_unused_missing_warns_used_missing_blocks(tmp_path):
     p['global_refs']=[1];result=preflight_request({'plan':p},tmp_path);assert not result['ok'] and len(result['errors'])==1
 
 
+def test_preflight_keeps_video_length_and_ignores_audio_after_end(tmp_path):
+    p = default_plan()
+    p['shots'][0]['seconds'] = 10
+    p['assets'] = [
+        {'id':'music','kind':'audio','duration':30,'file':{'name':'music.wav','type':'input'}},
+        {'id':'later','kind':'audio','duration':5,'file':{'name':'later.wav','type':'input'}},
+    ]
+    p['audio'] = [
+        {'id':'clip','asset_id':'music','start':0,'source_in':0,'duration':29.977},
+        {'id':'tail','asset_id':'later','start':30,'source_in':0,'duration':5},
+    ]
+    (tmp_path/'music.wav').touch()
+    result = preflight_request({'plan':p},tmp_path)
+    assert result['ok'] and result['errors'] == []
+    assert result['frames'] == 243 and result['seconds'] == 10.125
+    assert [warning['asset_id'] for warning in result['warnings']] == ['later']
+
+
 def test_unknown_keys_rejected(tmp_path):
     with pytest.raises(AssistError):prepare_request(request(exec='run'),tmp_path,[DEFAULT_MODEL])
 

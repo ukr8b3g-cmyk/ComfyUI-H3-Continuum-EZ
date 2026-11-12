@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image, ImageOps
-from .plan import PlanError, asset_path, FPS
+from .plan import PlanError, asset_path, audio_clips_for_video, FPS
 
 
 def load_image(path: Path, target_size=None) -> torch.Tensor:
@@ -69,20 +69,21 @@ def load_audio(path: Path) -> dict:
 
 
 def render_original_audio(plan: dict, root: Path, total_frames: int, *, loader=load_audio, resampler=None, stack=None, cancel=lambda:None) -> dict | None:
-    if not plan['audio']: return None
+    clips = audio_clips_for_video(plan, total_frames / FPS)
+    if not clips: return None
     if stack is not None:
-        return _render_audio_to_disk(plan, root, total_frames, stack, cancel)
+        return _render_audio_to_disk(plan, clips, root, total_frames, stack, cancel)
     by_id = {a['id']: a for a in plan['assets']}
     loaded = {}
-    for clip in plan['audio']:
+    for clip in clips:
         aid = clip['asset_id']
         if aid not in loaded: loaded[aid] = loader(asset_path(by_id[aid], root))
-    rate = int(loaded[plan['audio'][0]['asset_id']]['sample_rate'])
+    rate = int(loaded[clips[0]['asset_id']]['sample_rate'])
     output = torch.zeros((1, 2, round(total_frames * rate / FPS)), dtype=torch.float32)
     if resampler is None:
         from .vendor.continuum.audio_compat import resample_audio
         resampler = resample_audio
-    for clip in plan['audio']:
+    for clip in clips:
         source = loaded[clip['asset_id']]
         src_rate, waveform = int(source['sample_rate']), source['waveform']
         if waveform.ndim != 3 or waveform.shape[0] != 1 or waveform.shape[1] not in (1, 2):
@@ -96,22 +97,21 @@ def render_original_audio(plan: dict, root: Path, total_frames: int, *, loader=l
         if part.shape[1] == 1: part = part.repeat(1, 2, 1)
         if src_rate != rate: part = resampler(part, src_rate, rate)
         start = round(clip['start'] * rate)
-        stop = round((clip['start'] + clip['duration']) * rate)
+        stop = min(output.shape[-1], round((clip['start'] + clip['duration']) * rate))
         wanted = stop - start
-        if stop > output.shape[-1]: raise PlanError('Audio exceeds rendered timeline')
         if abs(part.shape[-1] - wanted) > 2: raise PlanError('Audio resampler returned an unexpected sample count')
         count = min(wanted, part.shape[-1])
         output[..., start:start+count].copy_(part[..., :count])
     return {'waveform': output.contiguous(), 'sample_rate': rate}
 
 
-def _render_audio_to_disk(plan, root, total_frames, stack, cancel):
+def _render_audio_to_disk(plan, clips, root, total_frames, stack, cancel):
     """Decode in bounded blocks; no whole source or full timeline PCM RAM copy."""
     import av
     from . import storage
     assets = {a['id']:a for a in plan['assets']}
-    paths = {c['asset_id']:asset_path(assets[c['asset_id']], root) for c in plan['audio']}
-    with av.open(str(paths[plan['audio'][0]['asset_id']])) as container:
+    paths = {c['asset_id']:asset_path(assets[c['asset_id']], root) for c in clips}
+    with av.open(str(paths[clips[0]['asset_id']])) as container:
         if not container.streams.audio: raise PlanError('File contains no audio stream')
         stream = container.streams.audio[0]
         rate = int(stream.codec_context.sample_rate or stream.rate or 32000)
@@ -120,8 +120,18 @@ def _render_audio_to_disk(plan, root, total_frames, stack, cancel):
     output = allocation.tensor
     output.zero_()
     for aid, path in paths.items():
-        clips = [c for c in plan['audio'] if c['asset_id']==aid]
-        spans = [(round(c['source_in']*rate), round((c['source_in']+c['duration'])*rate), round(c['start']*rate), c.get('volume',1.0)) for c in clips]
+        spans = []
+        for clip in clips:
+            if clip['asset_id'] != aid:
+                continue
+            dest = round(clip['start'] * rate)
+            start = round(clip['source_in'] * rate)
+            stop = min(round((clip['source_in'] + clip['duration']) * rate),
+                       start + output.shape[-1] - dest)
+            if stop > start:
+                spans.append((start, stop, dest, clip.get('volume', 1.0)))
+        if not spans:
+            continue
         required = max(b for a,b,d,gain in spans)
         cursor = 0
         def copy_block(frame):
@@ -134,8 +144,7 @@ def _render_audio_to_disk(plan, root, total_frames, stack, cancel):
                 lo,hi = max(a,cursor), min(b,stop)
                 if hi>lo:
                     dst = d+lo-a
-                    count = min(hi-lo, output.shape[-1]-dst)
-                    if count<hi-lo: raise PlanError('Audio exceeds rendered timeline')
+                    count = hi-lo
                     output[...,dst:dst+count].copy_(block[...,lo-cursor:lo-cursor+count])
                     if gain != 1.0: output[...,dst:dst+count].mul_(gain)
             cursor=stop

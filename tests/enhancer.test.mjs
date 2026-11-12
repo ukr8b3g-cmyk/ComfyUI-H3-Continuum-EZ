@@ -3,20 +3,20 @@ import {initial,read,validate,executionPlan,effective,clone,History,splitShot} f
 import {VISUAL_CONTRACT} from '../web/assist_context.js';
 import {sha256,canonical,resolveText,setEnhancer,dependencyPayload,adoptEntry,activateEntry,restoreOriginal,validateEnhancer,validateCandidate} from '../web/enhancer.js';
 const fixtures=JSON.parse(fs.readFileSync(new URL('./contracts/assist_parity.json',import.meta.url),'utf8'));
-test('MP changes preserve both AI fields, selection, saved receipts and compiled prompt',()=>{
+test('Studio size changes preserve both AI fields, selection, saved receipts and compiled prompt',()=>{
  const p=initial();p.global_prompt='COMMON';p.shots[0].prompt='SHOT';p.resolution={source:'studio',aspect:'16:9',megapixels:.3};
  const targets=[{field:'global_prompt'},{field:'prompt',shot_id:p.shots[0].id}];
  for(const target of targets){const dependencies=dependencyPayload(p,target,null,VISUAL_CONTRACT);activateEntry(p,{target,text:`AI_${target.field}`,dependencies,base_text_hash:sha256(dependencies.text),dependency_hash:sha256(canonical(dependencies)),images:[]});}
  const saved=clone(p.prompt_enhancer);
- for(const mp of [.4,.6,1]){
-  p.resolution.megapixels=mp;const loaded=read(JSON.stringify(p));validate(loaded);
+ for(const [aspect,mp] of [['16:9',.4],['2:3',.6],['9:16',1]]){
+  Object.assign(p.resolution,{aspect,megapixels:mp});const loaded=read(JSON.stringify(p));validate(loaded);
   for(const target of targets)assert.equal(resolveText(loaded,target).status,'enhanced');
   assert.match(effective(loaded,0).text,/AI_global_prompt[\s\S]*AI_prompt/);
   assert.deepEqual(p.prompt_enhancer,saved);
  }
  restoreOriginal(p,targets[1]);p.resolution.megapixels=.5;assert.equal(resolveText(p,targets[1]).status,'off');
  activateEntry(p,p.prompt_enhancer.texts[1]);assert.equal(resolveText(p,targets[1]).status,'enhanced');
- p.resolution.aspect='2:3';assert.equal(resolveText(p,targets[1]).status,'stale');
+ p.shots[0].seconds=8;assert.equal(resolveText(p,targets[1]).status,'stale');
 });
 for(const text of ['', 'abc','日本語😀\\"\r\n','長文'.repeat(10000)])test('SHA-256 parity '+text.slice(0,10),()=>assert.equal(sha256(text),crypto.createHash('sha256').update(text).digest('hex')));
 for(const f of fixtures)test('Python/JS compile parity '+f.scenario,()=>{

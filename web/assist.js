@@ -1,6 +1,6 @@
 // Own only the auxiliary text job. Never alter the user's graph or interrupt
 // another queue item. Core performs inference, allocation, caching and offload.
-import {canonical,dependencyPayload,validateCandidate,DEFAULT_MODEL,setEnhancer} from './enhancer.js';
+import {canonical,compatibleDependencies,dependencyPayload,validateCandidate,DEFAULT_MODEL,setEnhancer} from './enhancer.js';
 import {VISUAL_CONTRACT} from './assist_context.js';
 const PREFIX='/h3-continuum-ez/assist';
 export class AssistCancelled extends Error {constructor(message='Candidate request invalidated / 候補を無効化しました'){super(message);this.name='AssistCancelled';}}
@@ -21,8 +21,13 @@ export class AssistClient {
   _assert(ticket){
     const s=this._state();
     if((!this.explicitRequests&&s.plan.prompt_enhancer?.enabled!==true)||this.epoch!==ticket.epoch||this._identity(s)!==ticket.identity)throw new AssistCancelled();
-    let current;try{current=canonical(dependencyPayload(s.plan,ticket.target,s.external??null,ticket.contract,ticket.includeCommon,s.outputSize??null));}catch{throw new AssistCancelled();}
-    if(current!==ticket.dependency)throw new AssistCancelled('Input changed; candidate is stale / 入力条件が変更されたため候補を無効化しました');
+    let current;
+    try{current=dependencyPayload(s.plan,ticket.target,s.external??null,ticket.contract,ticket.includeCommon,s.outputSize??null);}
+    catch{throw new AssistCancelled();}
+    const matches=ticket.savedTextDependency
+      ?compatibleDependencies(ticket.savedTextDependency,current)
+      :canonical(current)===ticket.dependency;
+    if(!matches)throw new AssistCancelled('Input changed; candidate is stale / 入力条件が変更されたため候補を無効化しました');
     return s;
   }
   async _json(path,options={}){
@@ -179,7 +184,7 @@ export class AssistClient {
     const s=this._enabled();
     const contract=entry.dependencies.contract,includeCommon=Boolean(entry.dependencies.common);
     const ticket={epoch:this.epoch,target:{...entry.target},identity:this._identity(s),contract,includeCommon,
-      dependency:canonical(dependencyPayload(s.plan,entry.target,s.external??null,contract,includeCommon,s.outputSize??null))};
+      savedTextDependency:dependencyPayload(s.plan,entry.target,s.external??null,contract,includeCommon,s.outputSize??null)};
     return this.adopt({ticket,receipt:entry,text},text);
   }
   async confirmUnknownSubmission(){

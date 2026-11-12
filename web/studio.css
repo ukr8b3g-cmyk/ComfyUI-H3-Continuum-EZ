@@ -116,6 +116,9 @@
 .h3ez-studio .ez-project-actions button{display:block;width:100%;text-align:start;height:32px;border-color:transparent;background:transparent;white-space:nowrap}
 .h3ez-studio .ez-project-actions button:hover,.h3ez-studio .ez-project-actions button:focus-visible{background:#39445e}
 .h3ez-import.ez-project-confirm{width:min(480px,94vw)}
+.h3ez-import.ez-close-draft{width:min(540px,94vw)}
+.ez-close-draft .ez-import-actions{flex-wrap:wrap}
+.ez-close-draft .ez-draft-error{color:#ffc6b2}
 .h3ez-studio button.ez-apply{background:#264c75;border-color:#628ab6}
 .h3ez-studio .ez-close,.h3ez-import .ez-close{width:32px;height:32px;padding:0;background:#3a282f;border-color:#62414a;font-size:20px}
 .h3ez-studio .ez-timeline-splitter{display:grid;place-items:center;background:#232a37;cursor:row-resize;touch-action:none}
@@ -141,6 +144,17 @@
 .h3ez-studio .ez-queue-status[data-phase=running]{color:#d5e9ff;background:#26496d}
 .h3ez-studio .ez-queue-status[data-phase=complete]{color:#c8edda;background:#244637}
 .h3ez-studio .ez-queue-status[data-phase=failed],.h3ez-studio .ez-queue-status[data-phase=invalid]{color:#ffd3d8;background:#562f38}
+.h3ez-studio .ez-render-progress{flex:1 0 100%;min-width:0;display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap;padding:2px 0 0;color:#e6f2ff;font-size:12px}
+.h3ez-studio .ez-render-progress[hidden]{display:none}
+.h3ez-studio .ez-render-detail{min-width:0;overflow-wrap:anywhere}
+.h3ez-studio .ez-render-count{margin-inline-start:auto;font-variant-numeric:tabular-nums}
+.h3ez-studio .ez-render-bar{display:block;flex:1 0 100%;width:100%;height:3px;appearance:none;border:0;border-radius:4px;overflow:hidden;background:#303c51;color:#8ab8ef}
+.h3ez-studio .ez-render-bar::-webkit-progress-bar{background:transparent}
+.h3ez-studio .ez-render-bar::-webkit-progress-value{background:#8ab8ef;border-radius:4px}
+.h3ez-studio .ez-render-bar::-moz-progress-bar{background:#8ab8ef;border-radius:4px}
+.h3ez-studio .ez-render-bar:indeterminate{background:linear-gradient(90deg,transparent,#8ab8ef,transparent) 0 0/35% 100% no-repeat,#303c51;animation:ez-render-moving 1.6s ease-in-out infinite alternate}
+@keyframes ez-render-moving{to{background-position:100% 0}}
+@media(prefers-reduced-motion:reduce){.h3ez-studio .ez-render-bar:indeterminate{animation:none}}
 .h3ez-studio .ez-output-details{position:relative;font-size:12px;flex-shrink:0}
 .h3ez-studio summary{cursor:pointer;padding:5px 0}
 .h3ez-studio .ez-output-details>summary{padding:5px 8px;border:1px solid #444d61;background:#222838;border-radius:6px;white-space:nowrap}
@@ -152,6 +166,11 @@
 .h3ez-studio .ez-resolution input{width:65px}
 .h3ez-studio .ez-resolution-readout{display:flex;gap:6px;align-items:baseline}
 .h3ez-studio .ez-resolution-size{font-size:15px;font-weight:600}
+.h3ez-studio .ez-resolution .ez-fit-image{font-size:12px;min-height:28px;padding:3px 8px}
+.h3ez-studio .ez-resolution .ez-fit-image.selected{background:#254a43;border-color:#69ad9a;color:#d4f5ec}
+.ez-image-fit-dialog .ez-ai-ref-choice{margin-top:12px}
+.ez-image-fit-dialog .ez-fit-thumb:empty{display:none}
+.ez-image-fit-dialog .ez-fit-caption{font-variant-numeric:tabular-nums}
 .h3ez-studio .ez-resolution-estimate{font-size:10px;color:var(--muted)}
 .h3ez-studio input.ez-seconds{font-size:16px;font-weight:600}
 .h3ez-studio .ez-shot-controls{display:grid;gap:6px;min-width:0;flex:none;margin-bottom:8px}
@@ -259,7 +278,7 @@
 .h3ez-studio .ez-shot-controls :is(input,select),.h3ez-studio .ez-prompt-toolbar :is(button,select){height:32px;min-height:32px;line-height:20px;padding:5px 7px}
 .h3ez-studio .ez-shot-controls .ez-ref-chip{height:32px;min-height:32px;padding:3px 6px}
 .h3ez-studio .ez-shot-title>input{width:150px}
-.h3ez-studio .ez-shot-title input[type=number]{width:74px}
+.h3ez-studio .ez-shot-title input.ez-seconds{width:calc(7ch + 36px);font-variant-numeric:tabular-nums}
 .h3ez-studio .ez-shot-controls .ez-resolution :is(input,select){font-size:12px}
 .h3ez-studio .ez-prompt-toolbar{gap:5px 8px}
 .h3ez-studio .ez-prompt-toolbar button{font-size:12px}
@@ -274,6 +293,15 @@
 
 .h3ez-studio .ez-library-drag{position:fixed;z-index:30;pointer-events:none;background:#23505c;color:#fff;border:1px solid #8bd9d8;padding:6px 10px;border-radius:5px}
 .ez-remove-media{padding:18px;width:min(480px,90vw)}
+.ez-remove-media .ez-remove-name{margin:12px 0 0;font-weight:650;overflow-wrap:anywhere}
+.ez-remove-media .ez-remove-filename,.ez-remove-media .ez-remove-note{color:#b7c1d5;font-size:13px;overflow-wrap:anywhere}
+.ez-remove-media h4{font-size:13px;margin:14px 0 4px}
+.ez-remove-media .ez-remove-usage{margin:0;padding:7px 12px 7px 28px;max-height:32vh;overflow:auto;overflow-wrap:anywhere;border:1px solid #40485a;border-radius:6px}
+.ez-remove-media .ez-remove-usage li+li{margin-top:5px}
+.ez-ai-ref-dialog .ez-import-actions{flex-wrap:wrap}
+.ez-ai-ref-choice{display:flex;align-items:center;gap:10px;min-width:0}
+.ez-ai-ref-choice img{width:48px;height:48px;object-fit:contain;border-radius:4px;background:#101620}
+.ez-ai-ref-choice select{flex:1;min-width:0}
 
 /* Compact editing rows, with color reserved for the target and AI action. */
 .h3ez-studio .ez-prompt-toolbar :is(button,select),.h3ez-studio button.ez-dialogue-add{height:28px;min-height:28px;line-height:18px;padding:3px 8px;font-size:12px}
@@ -297,6 +325,44 @@
 .h3ez-studio .ez-shot-context .ez-end-image img{width:32px;height:26px}
 .h3ez-studio .ez-story-tools{gap:4px;padding-top:5px;margin-top:2px}
 .h3ez-studio .ez-ai-instruction-button{border-color:#8067a8;color:#dfcff8}
+
+.h3ez-studio .ez-drop-compact{padding:5px 6px;font-size:12px}
+.h3ez-studio .ez-asset-usage{display:block;color:#b9dfd7;font-size:11px;line-height:1.4;margin-top:2px;overflow-wrap:anywhere}
+.h3ez-studio .ez-asset-usage[hidden]{display:none}
+.h3ez-studio [data-drop-label]:not(.ez-shot){position:relative}
+.h3ez-studio [data-drop-label].drop-hover::after{
+  content:attr(data-drop-label);position:absolute;inset-inline:3px;bottom:3px;
+  z-index:5;padding:2px 5px;border-radius:4px;background:#302747;color:#fff;
+  text-align:center;font-size:12px;line-height:1.35;pointer-events:none;
+}
+.h3ez-studio .ez-prompt-target{
+  flex:1 1 7em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#d9c9f8;font-size:12px;
+}
+.h3ez-studio .ez-ai-generate:not(:disabled){background:#433659;border-color:#896bb5;color:#f4ebff}
+.h3ez-studio .ez-ai-generate:not(:disabled):hover{background:#584274}
+.h3ez-studio .ez-monitor-label{
+  max-width:calc(100% - 16px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.h3ez-studio .ez-shot>:is(strong,small){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h3ez-studio .ez-shot.has-filmstrip>:is(strong,small){max-width:100%}
+.h3ez-studio .ez-shot-narrow>.ez-shot-prompt{display:none}
+.h3ez-studio .ez-shot-status{
+  top:auto;bottom:5px;right:13px;max-width:calc(100% - 24px);text-overflow:ellipsis;
+}
+.h3ez-studio .ez-shot-boundary{
+  position:absolute;pointer-events:none;z-index:4;transform:translateX(-50%);
+}
+.h3ez-studio .ez-shot-boundary.continue{
+  top:50%;width:13px;height:7px;border:1px solid #a1dbd3;border-radius:5px;background:#335f61;
+}
+.h3ez-studio .ez-shot-boundary.cut{
+  top:0;bottom:0;width:1px;background:#b69c9c;
+}
+.h3ez-studio .ez-shot-boundary.cut:not(:empty){
+  color:#ffe6dc;font-size:10px;line-height:13px;text-indent:5px;white-space:nowrap;
+  padding-top:64px;text-shadow:0 1px 3px #10141b,0 0 3px #10141b;
+}
 .h3ez-import.ez-instruction-dialog{width:min(800px,90vw);height:fit-content;max-height:85vh}
 .ez-instruction-dialog textarea{min-height:220px;height:40vh;max-height:50vh;resize:vertical}
 .ez-instruction-source{font-size:13px;color:#c9b7e9;margin-bottom:8px}

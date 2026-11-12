@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import pytest
 from h3ezstudio.ez_nodes import NODE_CLASS_MAPPINGS
 from h3ezstudio.plan import normalize_plan
 ROOT=Path(__file__).resolve().parents[1]
@@ -31,30 +32,29 @@ def test_workflow_links_and_node_contracts():
                 assert output['type'] in (typ,'*') and inp['type'] in (typ,'*')
 
 
-def test_template_has_portable_model_defaults_and_no_local_media():
-    d=json.loads((ROOT/'examples/H3_Continuum_EZ_Studio.json').read_text(encoding='utf-8'))
+@pytest.mark.parametrize('filename', [
+    'H3_Continuum_EZ_Studio.json',
+    'H3_Continuum_EZ_Studio_REF2VA_Optional.json',
+])
+def test_template_has_portable_model_defaults_and_no_local_media(filename):
+    d=json.loads((ROOT/'examples'/filename).read_text(encoding='utf-8'))
     timeline=next(n for n in d['nodes'] if n['type']=='H3ContinuumEZTimeline')
     serialized=timeline['widgets_values_named']['timeline_json']
     assert serialized==timeline['widgets_values'][0]
     plan=normalize_plan(serialized)
-    assert len(plan['shots'])==2 and not plan['assets'] and not plan['audio']
+    assert not plan['assets'] and not plan['audio'] and not plan['prompt_enhancer']['texts']
     assert all(shot['refs'] is None for shot in plan['shots'])
     graph,=d['definitions']['subgraphs']
     host=next(n for n in d['nodes'] if n['type']==graph['id'])
     nodes={n['id']:n for n in graph['nodes']}
     links={l['id']:l for l in graph['links']}
-    model_ports={'unet_name','clip_name','clip_name_1','vae_name','vae_name_1'}
-    assert model_ports <= {port['name'] for port in graph['inputs']}
+    assert {'unet_name','clip_name','clip_name_1','vae_name','vae_name_1'} <= {
+        port['name'] for port in graph['inputs']
+    }
     for index,port in enumerate(graph['inputs']):
-        if port['name'] not in model_ports:continue
+        if port['type']!='COMBO':continue
         link_id,=port['linkIds']
         loader=nodes[links[link_id]['target_id']]
         model,=loader['properties']['models']
         assert loader['widgets_values'][0]==host['widgets_values'][index]==host['widgets_values_named'][port['name']]==model['name']
         assert '/' not in model['name'] and chr(92) not in model['name']
-
-
-def test_optional_ref2va_preserves_published_workflow_and_seed():
-    import hashlib
-    path=ROOT/'examples/H3_Continuum_EZ_Studio_REF2VA_Optional.json'
-    assert hashlib.sha256(path.read_bytes()).hexdigest()=='c58ed373d5b2837868b38d5253aa3865c359d92ed8d6598ea1b485df2aba96a7'

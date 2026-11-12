@@ -1,4 +1,4 @@
-[English](README.md) · [v0.13.4 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [ワークフロー](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/H3_Continuum_EZ_Studio.json)
+[English](README.md) · [v0.13.4 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.4) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) · [ワークフローテンプレート](examples)
 
 # H3 Continuum EZ Studio
 
@@ -7,8 +7,8 @@
 ## はじめに
 
 1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/ComfyUI-H3-Continuum-EZ-v0.13.4.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
-2. [H3_Continuum_EZ_Studio.json](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.4/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。[同じテンプレートのソース](examples/H3_Continuum_EZ_Studio.json)もリポジトリ内にあります。
-3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開き、素材を追加します。テンプレートには庭を舞台にした2ショットの例文が入っています。
+2. リポジトリの [H3_Continuum_EZ_Studio.json](examples/H3_Continuum_EZ_Studio.json) をComfyUIへドラッグします。
+3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開きます。テンプレートには1:1・0.5 MPで歌う10秒のショットが入っています。参照画像を使う場合は、手持ちの素材やComfyUIの `example.png` を追加します。
 
 ## 画面と操作順
 
@@ -32,6 +32,8 @@ P-H3アップサンプラーはAI文章生成用の任意モデルです。未�
 ## AI指示
 
 Studio上部の **AI指示** から、次回の **AI生成** に使うシステム指示を編集できます。通常は動画向けの標準指示のまま使えます。**標準に戻す** で初期状態へ戻し、**保存** でStudio指示を保存します。既存のAI文・原文は書き換えません。プロジェクト保存・読込にも含まれます。
+
+素材欄に画像があり、参照が未設定なら、**AI文生成** の前に画像を参照へ追加するか、文章だけで生成するかを選べます。Studioで縦横比・MPを変えても、選択中のAI文はそのまま使えます。
 
 任意の **Engine → ai_instruction** STRING入力を接続すると、Studio指示より外部入力を優先します。接続元の文章処理は **AI生成** を押した時だけ実行します。指示画面には外部入力を使用中であることを表示し、Studio内の指示は保持します。外部入力が空欄の場合は動画向け標準を使います。通常の動画生成はこの入力を実行しないため、AIモデルや指示ノードに依存せず **原文** で生成できます。テンプレートのモデル配線やシードを変える必要はありません。
 
@@ -66,13 +68,19 @@ Studio上部の **AI指示** から、次回の **AI生成** に使うシステ�
 | 映像VAE | `vae_name` | [minimax_h3_video_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors) | `vae/` |
 | 音声VAE | `vae_name_1` | [minimax_h3_audio_vae_fp32.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors) | `vae/` |
 
-Stability Matrixの共有フォルダーや `minimax/` などを使う場合は、サブグラフ上で実際のファイルを選び直します。FastH3テンプレートは、提供版の **Euler／simple／8ステップ、映像Shift 12／音声Shift 3、Comfy Kitchen attention、VSA 10%・全区間、縦長2:3・0.5 MP** を維持しています。従来のREF2VA版に使う **Pika LoRAは追加しません**。テキストエンコーダーとVAEは共通のH3用ですが、内部のSampling・Attention設定も異なるため、旧版で拡散モデル名だけを変えても同じ構成にはなりません。AI文章生成には `clip_name_1` のモデルを使います。
+Stability Matrixの共有フォルダーや `minimax/` などを使う場合は、サブグラフ上で実際のファイルを選び直します。FastH3テンプレートの設定は **Euler／simple／8ステップ、映像Shift 12／音声Shift 3、Comfy Kitchen attention、VSA 10%・全区間** です。両テンプレートの初期サイズは **1:1・0.5 MP（704 × 704）** です。AI文章生成には `clip_name_1` のモデルを使います。
 
 長いショットの分割やメモリーを抑える動画出力は **出力設定** で選べます。配置した音声がある場合はその音声を使い、ない場合はH3の生成音声を使います。チャンクの再生成・途中再開・Second Passを使う制作には通常版 [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum) を利用してください。
 
 出力形式は **自動／動画保存／動画＋画像** です。どちらの動画出力も音声付きで保存し、画像処理が必要な配線では画像データも自動で出力します。手動での配線切替は不要です。自動分割の初期値は **7.5秒**。例えば15秒のショットは2区間で生成します。入力した7.5は保持し、実際の区間時間だけをH3のフレーム単位に調整します。
 
 継続区間のつなぎ目には、通常Continuumの評価・色補正を使った自動補正が働きます。前の末尾2フレームと次の先頭5フレームだけをCPUで比較し、先頭1フレームだけの明るさの跳ねも、前後が安定して安全判定を満たす場合に補正します。場面転換・フレーム数・シード・音声位置は維持し、改善しない候補は使いません。動画保存では補正のために全動画分のRGBをRAMへ展開しません。
+
+Studioで縦横比・MPを指定すると、出力の幅×高さを確認できます。ワークフロー側のノードで幅・高さを指定する場合は、**ComfyUI設定 → H3 Continuum EZ → 出力設定 → 出力サイズの設定元** で切り替えます。初期値の **ワークフローに従う** は保存済みの設定を維持します。切り替え後はStudioを開き直してノードに反映してください。
+
+縦横比の横にある **画像に合わせる** を押すと、素材画像の縦横比だけを取り込みます。素材が複数ある場合は画像を選びます。MPはそのまま調整でき、出力の幅×高さは32ピクセル単位で表示されます。画像の縦横比を使用中はボタンにチェックが付きます。別の縦横比に戻すときは一覧から選びます。
+
+キューに受け付けられると **✓ キュー追加済み** と表示します。動画生成中は、上部の細いプログレスバーで処理段階と完了区間数を確認できます。
 
 ## プロジェクト
 
@@ -82,11 +90,13 @@ Stability Matrixの共有フォルダーや `minimax/` などを使う場合は�
 
 Studio上部の **プロジェクト** から **新規プロジェクト／プロジェクト読込／プロジェクト保存** を選べます。`.h3ez.json` にショット・原文／AI文・素材参照・音声編集・Studioの出力設定を保存。未保存の編集があれば置換前に確認し、置換後も「元に戻す」で復元できます。素材本体はComfyUIの入力フォルダーに置いたままで、ファイルには含みません。モデル配線・外部STRINGノード・生成済み動画はワークフロー／サーバー側の情報です。読込後は **ノード反映** または **反映・キュー追加** を使います。[プロジェクト操作の詳細](docs/PROJECT_FILES_JA.md)。
 
+未反映の編集がある状態でStudioを閉じるときは、**下書き保存して閉じる／破棄して閉じる／キャンセル** を選べます。同じブラウザーで同じタイムラインを開くと下書きが復元されます。ノード反映やプロジェクトファイルの書き出しは行いません。
+
 ## 音声編集
 
-**素材追加** または素材欄へのドロップで読み込み、素材一覧から音声トラックへドラッグします。素材は元の長さを保持し、1分の音声は1分のクリップとして配置します。動画ファイルも音声だけ取り込めます。映像はタイムラインへ追加しません。
+音声ファイルを音声トラックに直接ドロップするか、素材一覧からドラッグします。クリップは元の長さで0秒に配置し、重なる場合は先頭から探して入る最初の空き位置に置きます。動画ファイルも音声だけ取り込めます。映像はタイムラインへ追加しません。
 
-音声クリップを選択すると、移動・トリム・分割・複製・削除ができます。Delete／Backspaceで選択した配置を削除しても素材は残り、**元に戻す** で復元できます。音声が映像より長い場合も全体を表示します。生成前に **映像尺合わせ** で最後のショットを延ばします。音声を勝手に短縮したり、ショットを無断で延ばしたりしません。
+音声クリップを選択すると、移動・長さ指定・再生位置での分割・複製・削除ができます。**映像に合わせる** を押した場合だけ、そのクリップを映像の末尾でトリムします。**削除**（またはDelete／Backspace）で配置を外しても素材は残り、**元に戻す** で復元できます。動画の長さはショットの秒数で決まり、書き出しにはその範囲の音声が使われます。
 
 プレーヤーのミュートと音量はプレビュー専用です。音声クリップの音量は、生成ガイドと書き出す音声に反映します。音声は重ね合わせのない1トラックです。
 

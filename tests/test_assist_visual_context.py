@@ -101,11 +101,11 @@ def test_missing_one_of_multiple_images_fails_before_queue_graph(tmp_path):
 
 
 @pytest.mark.parametrize('target',[TARGET, {'field':'global_prompt'}])
-def test_mp_change_retains_ai_selection_edit_restore_and_render(tmp_path,target):
+def test_studio_size_change_retains_ai_selection_edit_restore_and_render(tmp_path,target):
     p=fixture(tmp_path);p=adopt(p,prepare(p,tmp_path,target),tmp_path)
     saved=copy.deepcopy(p['prompt_enhancer']['texts'][0])
-    for mp in (.3,.4,.6,1):
-        p['resolution']['megapixels']=mp
+    for aspect, mp in (('2:3',.3),('16:9',.4),('9:16',.6),('1:1',1)):
+        p['resolution'].update(aspect=aspect, megapixels=mp)
         p=normalize_plan(json.dumps(p))
         assert resolve_prompt_text(p,target)==('AI_TEXT','enhanced')
         runtime,notes=verified_plan(p,tmp_path)
@@ -118,5 +118,5 @@ def test_mp_change_retains_ai_selection_edit_restore_and_render(tmp_path,target)
     assert resolve_prompt_text(p,target)[1]=='off'
     edited['inactive']=False
     assert resolve_prompt_text(p,target)==('EDITED_AI','enhanced')
-    p['resolution']['aspect']='16:9'
+    p['resolution']['source']='engine'
     assert resolve_prompt_text(p,target)[1]=='stale'

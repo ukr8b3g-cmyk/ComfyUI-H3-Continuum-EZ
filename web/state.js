@@ -2,6 +2,8 @@ import {StudioError} from './i18n.js';
 import {assemblePrompt} from './prompting.js';
 import {resolveText,validateEnhancer} from './enhancer.js';
 import {validateStory,storyText,actionPositions} from './story_tools.js';
+import {resolutionAspect,resolutionSize,roundEven} from './resolution.js';
+export {ASPECT_RATIOS,resolutionSize,roundEven} from './resolution.js';
 // Pure editor model. Numeric duration planning mirrors the original Continuum grid.
 export const clone = v => JSON.parse(JSON.stringify(v));
 export const uid = p => `${p}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
@@ -15,14 +17,13 @@ export function initial() {
 export function read(value) {
   const p = typeof value === 'string' ? JSON.parse(value) : clone(value);
   if (!p || ![1,2].includes(p.schema) || !Array.isArray(p.shots)) throw new StudioError('unsupportedSchema');
+  if(p.resolution?.aspect==='image'&&'image_size' in p.resolution){
+    try{
+      p.resolution.image_aspect=resolutionAspect(p.resolution);
+      delete p.resolution.image_size;
+    }catch{/* Leave invalid settings for validation. */}
+  }
   return p;
-}
-export function roundEven(n) { const f=Math.floor(n), d=n-f; return Math.abs(d-.5)<1e-10 ? (f%2 ? f+1 : f) : Math.round(n); }
-export const ASPECT_RATIOS=['1:1','2:3','3:2','3:4','4:3','9:16','16:9','21:9'];
-export function resolutionSize(value){
-  if(!value||!['studio','engine'].includes(value.source)||!ASPECT_RATIOS.includes(value.aspect)||typeof value.megapixels!=='number'||!Number.isFinite(value.megapixels)||value.megapixels<.01||value.megapixels>16)throw new StudioError('invalidResolution');
-  const [a,b]=value.aspect.split(':').map(Number),mp=value.megapixels;
-  return {width:Math.max(32,roundEven(Math.sqrt(mp*1e6*a/b)/32)*32),height:Math.max(32,roundEven(Math.sqrt(mp*1e6*b/a)/32)*32)};
 }
 export function geometry(p) {
   let cursor=0;
@@ -90,7 +91,7 @@ export function effective(p,index,external=null,partIndex=0,outputSize=undefined
   }
   return {text:assemblePrompt(text,Object.values(map),{hasFirst,continuing:part.transition==='continue',lastPicture:hasLast?`<Picture ${1+Number(hasFirst)}>`:null}),map};
 }
-export function validate(p,{allowAudioOverhang=false}={}) {
+export function validate(p) {
   if(p.chunking!==undefined&&(!p.chunking||typeof p.chunking.enabled!=='boolean'||!Number.isFinite(p.chunking.seconds)||p.chunking.seconds<2||p.chunking.seconds>15))throw new StudioError('invalidChunking');
   if(p.chunking?.enabled===false&&p.shots.some(s=>s.seconds>15))throw new StudioError('splitDisabledLongShot');
   if('prompt_source' in p&&!['studio','external'].includes(p.prompt_source))throw new StudioError('invalidPromptSource');
@@ -129,7 +130,6 @@ export function validate(p,{allowAudioOverhang=false}={}) {
     if(a?.kind!=='audio')throw new StudioError('audioMissing');
     if(![c.start,c.source_in,c.duration].every(Number.isFinite)||c.start<0||c.source_in<0||c.duration<=0)throw new StudioError('invalidTrim');
     if(c.volume!==undefined&&(!Number.isFinite(c.volume)||c.volume<0||c.volume>1))throw new StudioError('invalidVolume');
-    if(!allowAudioOverhang&&c.start+c.duration>total+.001)throw new StudioError('audioPastEnd');
     if(c.start+c.duration>MAX_TIMELINE_SECONDS)throw new StudioError('timelineLimit');
     if(c.source_in+c.duration>a.duration+.01)throw new StudioError('trimPastEnd');
     if(i&&clips[i-1].start+clips[i-1].duration>c.start+.000001)throw new StudioError('overlap');
@@ -142,12 +142,48 @@ export function registerReference(p,assetId) {
   i=p.reference_slots.indexOf(null);if(i<0)throw new StudioError('refLimit');
   p.reference_slots[i]=assetId;return i+1;
 }
+export function assetUsage(p,id,externalPrompt=null) {
+  const slot=p.reference_slots.indexOf(id)+1;
+  const tag=slot?`@R${slot}`:null;
+  const mentionsTag=text=>tag!==null&&typeof text==='string'&&(text.match(/@R\d+/g)?.includes(tag)??false);
+  return {
+    shared:slot>0&&p.global_refs.includes(slot),
+    first:p.first_image===id,
+    tag,
+    commonPrompt:mentionsTag(p.global_prompt),
+    externalPrompt:mentionsTag(externalPrompt),
+    shots:p.shots.map((shot,index)=>({
+      index,label:shot.label,
+      first:shot.first_image===id,
+      inheritedFirst:shot.first_image!==id&&firstFor(p,index)===id,
+      last:shot.last_image===id,
+      reference:slot>0&&refsFor(p,shot).includes(slot)?(shot.refs==null?'shared':'shot'):null,
+      role:shot.reference_roles?.some(role=>role.asset_id===id),
+      dialogue:(shot.dialogue??[]).flatMap((line,i)=>line.speaker===id?[i+1]:[]),
+      prompt:mentionsTag(shot.prompt),
+      direction:shot.actions?.some(action=>mentionsTag(action.text))||shot.reference_roles?.some(role=>role.asset_id!==id&&mentionsTag(role.description)),
+    })).filter(shot=>shot.first||shot.inheritedFirst||shot.last||shot.reference||shot.role||shot.dialogue.length||shot.prompt||shot.direction),
+    audio:p.audio.filter(clip=>clip.asset_id===id).sort((a,b)=>a.start-b.start),
+  };
+}
 export function removeAsset(p,id) {
-  if(p.shots.some(s=>s.dialogue?.some(d=>d.speaker===id)))throw new StudioError('speakerReferenceRequired');
-  p.assets=p.assets.filter(a=>a.id!==id);p.audio=p.audio.filter(c=>c.asset_id!==id);
+  p.assets=p.assets.filter(a=>a.id!==id);
+  p.audio=p.audio.filter(c=>c.asset_id!==id);
   if(p.first_image===id)p.first_image=null;
-  const slot=p.reference_slots.indexOf(id)+1;if(slot){p.reference_slots[slot-1]=null;p.global_refs=p.global_refs.filter(r=>r!==slot);}
-  for(const s of p.shots){if(s.reference_roles)s.reference_roles=s.reference_roles.filter(r=>r.asset_id!==id);if(s.first_image===id)s.first_image=null;if(s.last_image===id)s.last_image=null;if(s.refs!==null)s.refs=s.refs.filter(r=>r!==slot);}
+  const slot=p.reference_slots.indexOf(id)+1;
+  if(slot){
+    p.reference_slots[slot-1]=null;
+    p.global_refs=p.global_refs.filter(r=>r!==slot);
+  }
+  for(const shot of p.shots){
+    if(shot.first_image===id)shot.first_image=null;
+    if(shot.last_image===id)shot.last_image=null;
+    if(slot&&shot.refs!==null)shot.refs=shot.refs.filter(r=>r!==slot);
+    if(shot.reference_roles)shot.reference_roles=shot.reference_roles.filter(role=>role.asset_id!==id);
+    for(const line of shot.dialogue??[]){
+      if(line.speaker===id)line.speaker=null;
+    }
+  }
 }
 export function insertShot(p,after=-1) {
   if(p.shots.length>=16)throw new StudioError('maxShots');
@@ -180,7 +216,7 @@ export function splitShot(p,id,localSeconds) {
   }
   s.seconds=splitAt;p.shots.splice(i+1,0,right);return right;
 }
-export function resizeShot(p,id,edge,at,{snapTimes=[],scale=1,disableSnap=false,allowAudioOverhang=false}={}){
+export function resizeShot(p,id,edge,at,{snapTimes=[],scale=1,disableSnap=false}={}){
   const next=clone(p),gs=geometry(p),i=p.shots.findIndex(s=>s.id===id);
   if(i<0||!Number.isFinite(at)||!['left','right'].includes(edge)||(edge==='left'&&i===0))throw new StudioError('invalidResize');
   let snapped=false;
@@ -193,7 +229,7 @@ export function resizeShot(p,id,edge,at,{snapTimes=[],scale=1,disableSnap=false,
   const wanted=roundEven((at-gs[j].start)*FPS),frames=Math.max(lo,Math.min(hi,q+17*roundEven((wanted-q)/17)));
   next.shots[j].seconds=Math.min(MAX_SHOT_SECONDS,frames/FPS);
   if(edge==='left')next.shots[i].seconds=Math.min(MAX_SHOT_SECONDS,(total-frames)/FPS);
-  validate(next,{allowAudioOverhang});
+  validate(next);
   const actual=geometry(next)[j].end;
   return {plan:next,at:actual,snapped:snapped&&Math.abs(actual-at)*scale<=8};
 }

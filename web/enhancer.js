@@ -92,9 +92,13 @@ export function resolveText(p,target,external=null,outputSize=undefined){
 }
 export function compatibleDependencies(saved,current){
   saved=JSON.parse(JSON.stringify(saved));current=JSON.parse(JSON.stringify(current));
-  // MP changes only render resolution; retain the original generation receipt.
+  // Reuse saved AI text across Studio framing and resolution changes.
   if(saved.output?.source==='studio'&&current.output?.source==='studio'){
-    for(const dep of [saved,current]){delete dep.output.width;delete dep.output.height;}
+    for(const dep of [saved,current]){
+      delete dep.output.aspect;
+      delete dep.output.width;
+      delete dep.output.height;
+    }
   }
   return canonical(saved)===canonical(current);
 }

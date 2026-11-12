@@ -1,12 +1,54 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {initial,clone,geometry,effective,validate,registerReference,removeAsset,insertShot,moveShot,splitShot,splitAudio,parseScript,History} from '../web/state.js';
+import {initial,read,clone,geometry,effective,validate,registerReference,assetUsage,removeAsset,insertShot,moveShot,splitShot,splitAudio,parseScript,History} from '../web/state.js';
+import {imageAspectFromDimensions,resolutionSize} from '../web/resolution.js';
+import {visualOutput} from '../web/assist_context.js';
+import {saveProject,loadProject} from '../web/project.js';
 const asset=id=>({id,kind:'image',label:id,file:{name:id+'.png',type:'input',subfolder:''}});
 test('5 second initial and continuation use original grid',()=>{const p=initial();insertShot(p);assert.equal(geometry(p)[0].frames,124);assert.equal(geometry(p)[1].frames,119);});
 test('long Japanese prompt is not truncated',()=>{const p=initial();p.global_prompt='長文\n'.repeat(10000);assert.ok(effective(p,0).text.includes(p.global_prompt));assert.equal(effective(p,0).text.split(p.global_prompt).length,2);});
 test('external common does not rewrite draft',()=>{const p=initial();p.global_prompt='saved';p.shots[0].prompt='motion';assert.ok(effective(p,0,'external').text.includes('external\n\nmotion'));assert.ok(!effective(p,0,'external').text.includes('saved'));assert.equal(p.global_prompt,'saved');});
 test('references follow stable slots through reordering',()=>{const p=initial();p.assets.push(asset('a'),asset('b'));const r=registerReference(p,'b');p.global_refs=[r];p.first_image='a';p.global_prompt='@R1';assert.equal(effective(p,0).map['@R1'],'<Picture 2>');assert.ok(effective(p,0).text.includes('<Picture 2>'));p.first_image=null;assert.equal(effective(p,0).map['@R1'],'<Picture 1>');assert.ok(effective(p,0).text.includes('<Picture 1>'));});
 test('inactive reference rejected',()=>{const p=initial();p.global_prompt='@R8';assert.throws(()=>effective(p,0));});
+test('matching an image keeps MP independent and saves the exact source aspect ratio',()=>{
+  const p=initial();p.assets.push(asset('a'));
+  p.resolution={...p.resolution,aspect:'image',image_aspect:imageAspectFromDimensions(880,1184)};
+  removeAsset(p,'a');
+  const loaded=loadProject(saveProject(p));
+  assert.deepEqual(loaded.resolution,{source:'studio',aspect:'image',image_aspect:'55:74',megapixels:.3});
+  assert.deepEqual(visualOutput(loaded),{source:'studio',aspect:'55:74',width:480,height:640});
+  loaded.resolution.megapixels=.5;
+  assert.deepEqual(visualOutput(loaded),{source:'studio',aspect:'55:74',width:608,height:832});
+  assert.throws(()=>imageAspectFromDimensions(0,651),{key:'imageSizeReadError'});
+  assert.throws(()=>validate({...p,resolution:{...p.resolution,image_aspect:'0:1'}}),{key:'invalidImageSize'});
+  assert.throws(()=>resolutionSize({...p.resolution,image_aspect:'1:99999999'}),{key:'imageAspectLimit'});
+  const legacy=read({...p,resolution:{source:'studio',aspect:'image',megapixels:.3,image_size:{width:896,height:1184}}});
+  assert.deepEqual(legacy.resolution,{source:'studio',aspect:'image',image_aspect:'28:37',megapixels:.3});
+});
 test('remove image unlinks without filesystem writes',()=>{const p=initial();p.assets.push(asset('a'));p.global_refs=[registerReference(p,'a')];p.first_image='a';removeAsset(p,'a');assert.deepEqual(p.global_refs,[]);assert.equal(p.first_image,null);assert.deepEqual(p.assets,[]);});
+test('removing a speaker image reports assignments across shots and preserves the dialogue',()=>{
+  const p=initial();p.schema=2;p.assets.push(asset('maid'),asset('other'));
+  const maid=registerReference(p,'maid'),other=registerReference(p,'other');
+  p.global_refs=[maid,other];p.first_image='maid';
+  const first=p.shots[0],second=insertShot(p,0),third=insertShot(p,1);
+  second.refs=[maid];second.last_image='maid';second.reference_roles=[{asset_id:'maid',role:'character'}];
+  second.dialogue=[{speaker:'maid',text:'Hello',at:1}];
+  first.dialogue=[{speaker:'other',text:'Welcome',at:0}];
+  third.transition='cut';third.refs=[];
+  validate(p);
+  const usage=assetUsage(p,'maid','Keep @R1 consistent.');
+  assert.ok(usage.shared&&usage.first&&usage.externalPrompt);
+  assert.deepEqual(usage.shots.map(s=>[s.index,s.reference,s.inheritedFirst,s.last,s.role,s.dialogue]),[
+    [0,'shared',true,false,undefined,[]],[1,'shot',true,true,true,[1]],
+  ]);
+  assert.equal(assetUsage(p,'maid','@R10').externalPrompt,false);
+  const history=new History(),before=clone(p);history.record(before);removeAsset(p,'maid');
+  assert.deepEqual(p.global_refs,[other]);assert.equal(p.first_image,null);
+  assert.deepEqual(second.refs,[]);assert.equal(second.last_image,null);assert.deepEqual(second.reference_roles,[]);
+  assert.deepEqual(second.dialogue,[{speaker:null,text:'Hello',at:1}]);
+  assert.equal(first.dialogue[0].speaker,'other');
+  assert.ok(effective(p,1).text.includes('An off-screen narrator says: "Hello"'));
+  validate(p);assert.deepEqual(history.undo(p),before);
+});
 test('empty explicit refs differs from inherit',()=>{const p=initial();p.assets.push(asset('a'));p.global_refs=[registerReference(p,'a')];p.shots[0].refs=[];assert.doesNotThrow(()=>validate(p));});
 test('audio split preserves source relationship',()=>{const p=initial();p.audio=[{id:'c',asset_id:'a',start:1,source_in:10,duration:4}];const b=splitAudio(p,'c',2.5);assert.equal(p.audio[0].duration,1.5);assert.equal(b.source_in,11.5);assert.equal(b.duration,2.5);});
 test('invalid audio split leaves state',()=>{const p=initial();p.audio=[{id:'c',asset_id:'a',start:1,source_in:10,duration:4}];const before=clone(p);assert.throws(()=>splitAudio(p,'c',1));assert.deepEqual(p,before);});

@@ -23,6 +23,7 @@ export function mergeProgress(api,current,event){
   const part=current.parts.find(p=>p.shot_id===event.shot_id&&p.part_index===event.part_index),state=current.states[event.shot_id];
   if(!part||!state||!['preparing','sampling','decoding','part_complete'].includes(event.event))return current;
   const done=[...new Set([...state.done,...(event.event==='part_complete'?[part.part_index]:[])])];
+  next.activePart=event.event==='part_complete'?null:{shotId:part.shot_id,index:part.part_index,phase:event.event};
   next.states[event.shot_id]={...state,done,phase:done.length===state.total?'complete':event.event==='part_complete'?'preparing':event.event};
   if(event.event==='part_complete'){
     const c=event.clip;

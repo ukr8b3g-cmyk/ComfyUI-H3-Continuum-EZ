@@ -11,10 +11,13 @@ import {instructionGraph} from './instruction_graph.js';
 import {syncSeedControls} from './seed_controls.js';
 import {referenceCounts} from './node_summary.js';
 import {read,duration,roundEven} from './state.js';
+import {createDraftStore} from './project.js';
 
 const NODE='H3ContinuumEZTimeline';
 const ENGINE='H3ContinuumEZEngine';
-const mounted=new WeakSet(),editors=new WeakMap();
+const SIZE_SOURCE='H3ContinuumEZ.Output.SizeSource';
+const sizeSource=()=>app.extensionManager?.setting?.get?.(SIZE_SOURCE)??app.ui?.settings?.getSettingValue?.(SIZE_SOURCE);
+const mounted=new WeakSet(),editors=new WeakMap(),opening=new WeakSet();
 const queueEditors=new Map();
 let queueTimer=null,queueRequest=null,queueAgain=false;
 const rootGraph=()=>app.rootGraph||app.graph;
@@ -158,14 +161,22 @@ function install(node){
       summary.append(line,refs);
     }catch(e){summary.textContent=t('timelineInvalid',errorText(e,t));}
   };
-  const open=node.addWidget('button','Open Timeline Studio',null,()=>{
+  const open=node.addWidget('button','Open Timeline Studio',null,async()=>{
     if(editors.has(node)){editors.get(node).focus();return;}
+    if(opening.has(node))return;
+    opening.add(node);
     const locale=getLocale(app),t=translator(locale);
     let baseline=String(widget(node).value);
     const previewLookup=new AbortController();
     try{
       const workflowAtOpen=activeWorkflowId();
-      const editor=openStudio({value:baseline,assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),getInstructionGraph:async binding=>instructionGraph((await app.graphToPrompt()).output,binding),assistIdentity:()=>({instructionBinding:canvasAIInstruction(node,rootGraph()),outputSize:canvasGenerationSize(node,rootGraph()),canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
+      const graphAtOpen=rootGraph();
+      const nodePaths=graphNodes(graphAtOpen).filter(x=>x.node===node).map(x=>x.id);
+      const draftStore=createDraftStore({workflowId:workflowAtOpen,nodePaths,node});
+      let restoredDraft=null,draftReadError=false;
+      try{restoredDraft=await draftStore.load(JSON.stringify(read(baseline)));}catch{draftReadError=true;}
+      if(!node.graph||rootGraph()!==graphAtOpen||activeWorkflowId()!==workflowAtOpen||String(widget(node).value)!==baseline)return;
+      const editor=openStudio({value:baseline,draftStore,restoredDraft,draftReadError,sizePreference:sizeSource(),assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),getInstructionGraph:async binding=>instructionGraph((await app.graphToPrompt()).output,binding),assistIdentity:()=>({instructionBinding:canvasAIInstruction(node,rootGraph()),outputSize:canvasGenerationSize(node,rootGraph()),canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
         onApply:plan=>{
           if(!node.graph)throw new Error(t('nodeRemoved'));
           if(String(widget(node).value)!==baseline)throw new Error(t('nodeChanged'));
@@ -185,7 +196,7 @@ function install(node){
       editors.set(node,editor);
       watchQueue(node,editor);
       restoreVideo(node,editor,previewLookup.signal);
-    }catch(e){console.error('[H3 EZ]',e);alert(`H3 EZ Studio: ${errorText(e,t)}`);}
+    }catch(e){console.error('[H3 EZ]',e);alert(`H3 EZ Studio: ${errorText(e,t)}`);}finally{opening.delete(node);}
   },{serialize:false});open.serialize=false;open.options.serialize=false;
   const originalCallback=w.callback;w.callback=function(...args){const out=originalCallback?.apply(this,args);refresh();return out;};
   for(const method of ['onConfigure','onConnectionsChange']){
@@ -239,6 +250,9 @@ function installEngineSize(node){
 app.registerExtension({
   name:'h3.continuum.ez.studio.v2',
   setup(){
+    const t=translator(getLocale(app));
+    app.ui?.settings?.addSetting?.({id:SIZE_SOURCE,name:t('resolutionSource'),category:['H3 Continuum EZ',t('advancedOutput'),t('resolutionSource')],
+      type:'combo',defaultValue:'workflow',options:[['workflow','workflowSize'],['studio','studioSize'],['engine','engineSize']].map(([value,key])=>({value,text:t(key)})),tooltip:t('sizePreferenceHelp')});
     api.addEventListener('executed',onVideoExecuted);api.addEventListener('h3ez_progress',onProgress);
     // Standard ComfyUI events; no global patch of loaders, queuePrompt or models.
     api.addEventListener('promptQueueing',()=>normalizeModelChoices(rootGraph()));

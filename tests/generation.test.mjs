@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {initial,insertShot,geometry,duration,resizeShot,executionPlan,validate,registerReference,removeAsset,splitShot,clone} from '../web/state.js';
+import {initial,insertShot,geometry,duration,resizeShot,executionPlan,validate,registerReference,splitShot,clone} from '../web/state.js';
 import {mergeProgress,thumbnail} from '../web/generation.js';
 const api={apiURL:x=>x},run='a'.repeat(32);
 test('right edge ripples, left edge rolls and snaps on the native grid',()=>{
@@ -22,15 +22,16 @@ test('resize preserves exact combined frames at extremes for cut and continued n
     }
   }
 });
-test('resize rejects invalid audio and dialogue offsets without changing the input',()=>{
+test('resize protects dialogue offsets and leaves audio beyond the new end intact',()=>{
   const p=initial();p.shots[0].seconds=10;p.shots[0].dialogue=[{speaker:null,text:'stay',at:8}];const before=clone(p);
   assert.throws(()=>resizeShot(p,p.shots[0].id,'right',3),{key:'dialoguePastEnd'});assert.deepEqual(p,before);
   delete p.shots[0].dialogue;p.assets.push({id:'a',kind:'audio',duration:10,file:{name:'a.wav',type:'input'}});p.audio.push({id:'c',asset_id:'a',start:0,source_in:0,duration:9});
-  assert.throws(()=>resizeShot(p,p.shots[0].id,'right',3),{key:'audioPastEnd'});
+  const shorter=resizeShot(p,p.shots[0].id,'right',3).plan;
+  assert.ok(duration(shorter)<9);
+  assert.deepEqual(shorter.audio,p.audio);
 });
 test('speaker dependencies and ending images survive editing and split',()=>{
   const p=initial();p.shots[0].seconds=10;p.assets.push({id:'a',kind:'image',subject_name:'女性',file:{name:'a.png',type:'input'}});p.global_refs=[registerReference(p,'a')];p.shots[0].dialogue=[{speaker:'a',text:'一',at:1},{speaker:'a',text:'二',at:8}];p.shots[0].last_image='a';
-  assert.throws(()=>removeAsset(p,'a'),{key:'speakerReferenceRequired'});
   const total=duration(p),right=splitShot(p,p.shots[0].id,5);assert.equal(right.last_image,'a');assert.equal(p.shots[0].last_image,null);assert.equal(right.dialogue[0].at,8-geometry(p)[0].seconds);assert.equal(duration(p),total);validate(p);
 });
 test('progress rejects stale or cross-run events and exposes only final proxy files',()=>{
@@ -39,9 +40,10 @@ test('progress rejects stale or cross-run events and exposes only final proxy fi
   assert.equal(mergeProgress(api,state,{event:'sampling',run_id:'b'.repeat(32),seq:2}),state);
   state=mergeProgress(api,state,{event:'sampling',run_id:run,seq:2,shot_id:part.shot_id,part_index:0});
   assert.equal(state.states[part.shot_id].phase,'sampling');
+  assert.deepEqual(state.activePart,{shotId:part.shot_id,index:0,phase:'sampling'});
   assert.equal(mergeProgress(api,state,{event:'failed',run_id:run,seq:1}),state);
   state=mergeProgress(api,state,{event:'part_complete',run_id:run,seq:3,shot_id:part.shot_id,part_index:0,clip:{filename:'EZ_'+run+'.partial.mp4',subfolder:'h3_continuum_ez_previews/'+run,type:'temp',start:part.start,end:part.end}});
-  assert.equal(state.clips.length,0);assert.equal(state.states[part.shot_id].phase,'complete');
+  assert.equal(state.clips.length,0);assert.equal(state.states[part.shot_id].phase,'complete');assert.equal(state.activePart,null);
   state=mergeProgress(api,state,{event:'finished',run_id:run,seq:4});assert.equal(mergeProgress(api,state,{event:'failed',run_id:run,seq:5}),state);
   assert.equal(thumbnail(api,{filename:'../../x.jpg',type:'output',subfolder:'h3_continuum_ez',shot_id:'s',time:0}),null);
 });

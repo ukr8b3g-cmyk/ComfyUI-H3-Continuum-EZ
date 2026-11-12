@@ -119,6 +119,15 @@ test('source change blocks a late candidate',async()=>{const f=fixture();f.enabl
 test('another workflow cannot adopt a ready result',async()=>{const f=fixture();f.enable();const result=await f.submit();f.setIdentity({workflow:'other',node:'7'});await assert.rejects(f.client.adopt(result),AssistCancelled);assert.equal(f.calls.filter(x=>x.path.endsWith('/adopt')).length,0);});
 test('adoption validates on the server and retains original',async()=>{const f=fixture();f.enable();const result=await f.submit();const entry=await f.client.adopt(result);assert.equal(entry.text,'ゆっくり歩く');assert.equal(f.plan.shots[0].prompt,'歩く');assert.deepEqual(f.plan.prompt_enhancer.texts,[]);});
 test('edit during adoption rejects the returned entry',async()=>{const f=fixture();f.enable();const r=await f.submit();f.mode.adoptGate=deferred();const a=f.client.adopt(r),rejected=assert.rejects(a,AssistCancelled);f.plan.shots[0].prompt='変化';f.mode.adoptGate.resolve();await rejected;});
+test('changing Studio size while saving an edit retains the saved AI text',async()=>{
+ const f=fixture(true),result=await f.submit(),entry=await f.client.adopt(result);
+ activateEntry(f.plan,entry);f.mode.adoptGate=deferred();
+ const saving=f.client.editAdopted(entry,'振り返って歩く');
+ Object.assign(f.plan.resolution,{aspect:'2:3',megapixels:.5});
+ f.mode.adoptGate.resolve();
+ const updated=await saving;activateEntry(f.plan,updated);
+ assert.match(effective(f.plan,0).text,/振り返って歩く/);
+});
 test('completed candidate cache avoids another model job',async()=>{const f=fixture();f.enable();await f.submit();const r=await f.submit();assert.equal(r.text,'ゆっくり歩く');assert.equal(f.calls.filter(x=>x.path==='/prompt').length,1);});
 test('explicit Core rejection is not mistaken for lost acknowledgement',async()=>{const f=fixture();f.enable();f.mode.http400=true;await assert.rejects(f.submit(),/invalid graph/);assert.equal(f.client.uncertain,null);assert.equal(f.calls.filter(x=>x.path==='/queue').length,0);});
 test('lost ack reconciles the exact request without resubmission',async()=>{const f=fixture();f.enable();f.mode.dropAck=true;const r=await f.submit();assert.equal(r.text,'ゆっくり歩く');assert.equal(f.calls.filter(x=>x.path==='/prompt').length,1);});

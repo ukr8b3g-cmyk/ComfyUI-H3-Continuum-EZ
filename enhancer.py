@@ -114,17 +114,18 @@ def dependency_payload(plan, target, external=None, contract=CONTRACT, include_c
     result = {'contract':contract, 'target':dict(target), 'text':original_text(plan,target,external),
               'common':common, 'images':images, 'scope':scope}
     if visual:
-        from .plan import studio_resolution, validate_dimension
+        from math import gcd
+        from .plan import resolution_aspect, studio_resolution, validate_dimension
         resolution = plan.get('resolution', {})
         if resolution.get('source') == 'studio':
             w, h = studio_resolution(resolution)
-            result['output'] = {'source':'studio', 'aspect':resolution['aspect'], 'width':w, 'height':h}
+            aspect = resolution_aspect(resolution)
+            result['output'] = {'source':'studio', 'aspect':aspect, 'width':w, 'height':h}
         else:
             result['output'] = {'source':'engine', 'aspect':None, 'width':None, 'height':None}
             if output_size is not None:
                 w, h = output_size['width'], output_size['height']
                 validate_dimension(w, 'Width'); validate_dimension(h, 'Height')
-                from math import gcd
                 d = gcd(w, h)
                 result['output'].update(aspect=f'{w//d}:{h//d}', width=w, height=h)
     return result
@@ -209,17 +210,15 @@ def normalize_enhancer(raw, plan):
     return out
 
 
-def compatible_dependencies(saved, current):
-    """Studio MP affects render resolution, not the saved prose's meaning.
-
-    Keep original receipts intact; aspect, source, timing and reference changes
-    still invalidate them. Engine dimensions retain their existing checks.
-    """
+def compatible_dependencies(saved, current, *, ignore_studio_aspect=True):
+    """Reuse saved AI text across Studio framing and resolution changes."""
     saved, current = copy.deepcopy(saved), copy.deepcopy(current)
     if saved.get('output', {}).get('source') == current.get('output', {}).get('source') == 'studio':
         for dep in (saved, current):
             dep['output'].pop('width', None)
             dep['output'].pop('height', None)
+            if ignore_studio_aspect:
+                dep['output'].pop('aspect', None)
     return canonical(saved) == canonical(current)
 
 

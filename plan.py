@@ -45,16 +45,31 @@ ASPECT_RATIOS = ('1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9')
 DEFAULT_RESOLUTION = {'source': 'studio', 'aspect': '16:9', 'megapixels': 0.3}
 
 
+def resolution_aspect(value):
+    aspect = value.get('aspect')
+    if aspect in ASPECT_RATIOS:
+        return aspect
+    if aspect != 'image':
+        raise PlanError('Unsupported aspect ratio')
+    if 'image_aspect' not in value and isinstance(value.get('image_size'), dict):
+        width, height = value['image_size'].get('width'), value['image_size'].get('height')
+        validate_dimension(width, 'Image width')
+        validate_dimension(height, 'Image height')
+        divisor = math.gcd(width, height)
+        return f'{width//divisor}:{height//divisor}'
+    ratio = value.get('image_aspect')
+    if not isinstance(ratio, str) or not re.fullmatch(r'[1-9][0-9]{0,9}:[1-9][0-9]{0,9}', ratio):
+        raise PlanError('Invalid image aspect ratio')
+    return ratio
+
+
 def studio_resolution(value):
     if not isinstance(value, dict) or value.get('source') not in ('studio', 'engine'):
         raise PlanError('Invalid resolution source')
-    aspect = value.get('aspect')
-    if aspect not in ASPECT_RATIOS:
-        raise PlanError('Unsupported aspect ratio')
     mp = value.get('megapixels')
     if isinstance(mp, bool) or not isinstance(mp, (int, float)) or not math.isfinite(mp) or not .01 <= mp <= 16:
         raise PlanError('Megapixels must be between 0.01 and 16')
-    a, b = map(int, aspect.split(':'))
+    a, b = map(int, resolution_aspect(value).split(':'))
     w = max(32, round(math.sqrt(mp * 1e6 * a / b) / 32) * 32)
     h = max(32, round(math.sqrt(mp * 1e6 * b / a) / 32) * 32)
     validate_dimension(w, 'Width'); validate_dimension(h, 'Height')
@@ -115,7 +130,7 @@ def asset_path(asset: dict[str, Any], input_root: str | Path) -> Path:
     return path
 
 
-def normalize_plan(value: str | dict, *, allow_audio_overhang=False) -> dict:
+def normalize_plan(value: str | dict) -> dict:
     if isinstance(value, str):
         if len(value.encode('utf-8')) > MAX_JSON_BYTES:
             raise PlanError("Timeline JSON is too large")
@@ -146,6 +161,8 @@ def normalize_plan(value: str | dict, *, allow_audio_overhang=False) -> dict:
     if 'resolution' in raw:
         studio_resolution(raw['resolution'])
         p['resolution'] = {k: raw['resolution'][k] for k in ('source', 'aspect', 'megapixels')}
+        if p['resolution']['aspect'] == 'image':
+            p['resolution']['image_aspect'] = resolution_aspect(raw['resolution'])
     p['global_prompt'] = _text(raw.get('global_prompt', ''), 'Common prompt')
     assets = raw.get('assets', [])
     if not isinstance(assets, list) or len(assets) > 128:
@@ -242,7 +259,6 @@ def normalize_plan(value: str | dict, *, allow_audio_overhang=False) -> dict:
         start = _number(clip.get('start'), 'Audio start', 0, 86400)
         source_in = _number(clip.get('source_in'), 'Audio source in', 0, 86400)
         duration = _number(clip.get('duration'), 'Audio length', .001, 86400)
-        if not allow_audio_overhang and start + duration > total + .001: raise PlanError("Audio extends beyond the video; use Match video to audio before generating")
         if start + duration > MAX_TIMELINE_SECONDS: raise PlanError('Audio exceeds the 3600-second timeline limit')
         if source_in + duration > by_id[aid]['duration'] + .01: raise PlanError("Audio trim exceeds the source file")
         clean = {'id': cid, 'asset_id': aid, 'start': start, 'source_in': source_in, 'duration': duration}
@@ -393,13 +409,24 @@ def fingerprint(plan: dict, input_root: Path) -> str:
     return h.hexdigest()
 
 
+def audio_clips_for_video(plan, video_end):
+    """Return the portions of the placed audio that fall inside the render."""
+    return [
+        {**clip, 'duration': min(clip['duration'], video_end - clip['start'])}
+        for clip in plan['audio']
+        if clip['start'] < video_end
+    ]
+
+
 def used_asset_ids(plan):
     """One source of truth for inputs needed by actual generation, not the library."""
     used = set()
-    for part in execution_plan(plan):
+    parts = execution_plan(plan)
+    for part in parts:
         used.update(x for x in (part['first_image'], part['last_image']) if x)
     for shot in plan['shots']:
         used.update(plan['reference_slots'][r-1] for r in effective_references(plan, shot))
         used.update(d['speaker'] for d in shot.get('dialogue', []) if d.get('speaker'))
-    used.update(c['asset_id'] for c in plan['audio'])
+    video_end = parts[-1]['end'] if parts else 0
+    used.update(c['asset_id'] for c in audio_clips_for_video(plan, video_end))
     return used
