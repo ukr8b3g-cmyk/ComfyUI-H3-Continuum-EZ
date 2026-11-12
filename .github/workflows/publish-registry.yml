@@ -1,0 +1,121 @@
+name: Publish H3 Continuum EZ v0.13.5 to Comfy Registry
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comfy-registry-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: 10db8b6fad34de6d884192806f44292db660df9a
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install the publishing CLI
+        run: python -m pip install --disable-pip-version-check comfy-cli==1.22.0
+      - name: Prepare and verify the Registry package
+        run: |
+          python tools/verify_package.py
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import re
+          import tomllib
+
+          project = Path("pyproject.toml")
+          data = project.read_bytes()
+          config = tomllib.loads(data.decode())
+          assert config["project"]["name"] == "comfyui-h3-continuum-ez"
+          assert config["project"]["version"] == "0.13.5"
+          assert config["project"]["urls"]["Repository"] == "https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ"
+          assert "comfy" not in config.get("tool", {})
+          data = data.rstrip(b"\r\n") + b'\n\n[tool.comfy]\nPublisherId = "ukr8b3g-cmyk"\nDisplayName = "H3 Continuum EZ Studio"\n'
+          project.write_bytes(data)
+          manifest = Path("MANIFEST.sha256")
+          updated, count = re.subn(r"^[0-9a-f]{64}  pyproject\.toml$", hashlib.sha256(data).hexdigest() + "  pyproject.toml", manifest.read_text(), flags=re.M)
+          assert count == 1
+          manifest.write_text(updated, encoding="utf-8")
+          PY
+          python tools/verify_package.py
+          comfy --skip-prompt --no-enable-telemetry node pack
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import zipfile
+
+          paths = set(subprocess.check_output(["git", "ls-files", "-z"]).decode().strip("\0").split("\0"))
+          with zipfile.ZipFile("node.zip") as archive:
+              names = archive.namelist()
+              assert len(names) == len(paths) and set(names) == paths, sorted(paths ^ set(names))
+              assert archive.testzip() is None
+              for path in paths:
+                  assert archive.read(path) == Path(path).read_bytes(), path
+          Path("node.zip").unlink()
+          print(f"Verified {len(paths)} Registry package files.")
+          PY
+      - name: Publish v0.13.5 if absent and verify the public package
+        env:
+          REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import io
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import time
+          import urllib.error
+          import urllib.request
+          import zipfile
+
+          node = "comfyui-h3-continuum-ez"
+          version = "0.13.5"
+          endpoint = f"https://api.comfy.org/nodes/{node}/versions/{version}"
+          package_url = f"https://cdn.comfy.org/ukr8b3g-cmyk/{node}/{version}/node.zip"
+
+          def record():
+              try:
+                  with urllib.request.urlopen(endpoint, timeout=20) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  if error.code == 404:
+                      return None
+                  raise
+
+          current = record()
+          if current is None:
+              token = os.environ.pop("REGISTRY_ACCESS_TOKEN", "")
+              if not token:
+                  raise SystemExit("Set the REGISTRY_ACCESS_TOKEN repository secret.")
+              subprocess.run(["comfy", "--skip-prompt", "--no-enable-telemetry", "node", "publish", "--token", token], check=True)
+              for _ in range(10):
+                  current = record()
+                  if current is not None:
+                      break
+                  time.sleep(2)
+          assert current and current["node_id"] == node and current["version"] == version
+          assert current["downloadUrl"] == package_url
+          with urllib.request.urlopen(package_url, timeout=25) as response:
+              package = response.read()
+          paths = set(subprocess.check_output(["git", "ls-files", "-z"]).decode().strip("\0").split("\0"))
+          with zipfile.ZipFile(io.BytesIO(package)) as archive:
+              names = archive.namelist()
+              assert len(names) == len(paths) and set(names) == paths
+              assert archive.testzip() is None
+              for path in paths:
+                  assert archive.read(path) == Path(path).read_bytes(), path
+          print(json.dumps({"version": version, "status": current["status"], "files": len(paths), "sha256": hashlib.sha256(package).hexdigest()}))
+          PY
