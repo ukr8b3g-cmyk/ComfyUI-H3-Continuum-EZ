@@ -2,6 +2,7 @@ import gc
 import logging
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 import pytest
@@ -123,6 +124,48 @@ def test_ez_storage_isolates_custom_folder(tmp_path):
     assert not (tmp_path/'chosen'/'h3-continuum-scratch').exists()
     m.save(m.status()['path'], 1)
     assert m.status()['path'] == str(tmp_path/'chosen'/'h3-continuum-ez')
+
+
+@pytest.mark.parametrize('operation', ['validate', 'save'])
+@pytest.mark.parametrize('blocked_by, status', [('read_only', 403), ('busy', 409)])
+def test_ez_storage_checks_permissions_and_queue_before_resolving(tmp_path, monkeypatch, operation, blocked_by, status):
+    from h3ezstudio import storage_api
+    manager = storage_api.EZStorageSettings(
+        tmp_path/'config.json', default_finalize=lambda: tmp_path/'default',
+        default_decode=lambda: tmp_path/'decode', read_only=blocked_by == 'read_only',
+        busy=lambda: blocked_by == 'busy',
+    )
+    monkeypatch.setattr(storage_api, '_local_path', lambda path: pytest.fail('Path resolver ran before the gate'))
+    args = (str(tmp_path/'chosen'), 0) if operation == 'save' else (str(tmp_path/'chosen'),)
+    with pytest.raises(storage_settings.StorageError) as error:
+        getattr(manager, operation)(*args)
+    assert error.value.status == status
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows path validation')
+@pytest.mark.parametrize('path', [r'//server/share', r'/\server\share', r'//./NUL', r'/\./NUL', r'C:\NUL', r'C:scratch', r'\scratch'])
+def test_ez_storage_rejects_non_local_windows_names_before_resolving(monkeypatch, path):
+    from h3ezstudio import storage_api
+    monkeypatch.setattr(storage_api, '_local_path', lambda value: pytest.fail('Invalid path reached the resolver'))
+    with pytest.raises(storage_settings.StorageError):
+        storage_api.EZStorageSettings.isolated_path(path)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows drive validation')
+def test_ez_storage_rejects_mapped_network_drive_before_resolving(monkeypatch):
+    import ctypes
+    from h3ezstudio import storage_api
+    queried_roots = []
+
+    def remote_drive(root):
+        queried_roots.append(root)
+        return 4
+
+    monkeypatch.setattr(ctypes.windll.kernel32, 'GetDriveTypeW', remote_drive)
+    monkeypatch.setattr(storage_api, '_local_path', lambda value: pytest.fail('Mapped drive reached the resolver'))
+    with pytest.raises(storage_settings.StorageError, match='Network drives'):
+        storage_api.EZStorageSettings.isolated_path('Z:/scratch')
+    assert queried_roots == ['Z:\\']
 
 
 def test_unknown_image_consumer_is_detected_conservatively(monkeypatch, tmp_path):

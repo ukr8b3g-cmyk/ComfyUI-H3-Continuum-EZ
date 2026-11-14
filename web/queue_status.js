@@ -123,7 +123,7 @@ function canvasConfiguration(timeline,root=timeline.graph,dimensions=false){
     if(!wired.length)return {connected:false};
     const sources=engines.map(n=>input(n,'ai_instruction'));
     if(sources.some(s=>!s)||new Set(sources.map(s=>s.ctx.path+s.node.id+':'+s.slot)).size!==1)
-      return {connected:true,error:'Conflicting or unavailable AI instruction inputs / AI指示の接続先が不一致、または利用できません'};
+      return {connected:true,error:'Conflicting or unavailable AI instruction inputs'};
     const describe=(src,seen=new Set())=>{
       if(!src)return null;
       const id=src.ctx.path+src.node.id;if(seen.has(id))return {id,cycle:true};

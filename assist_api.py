@@ -41,7 +41,7 @@ class AssistError(ValueError):
 
 def require_enabled(plan):
     if plan.get('schema') != 2 or plan.get('prompt_enhancer', {}).get('enabled') is not True:
-        raise AssistError('Prompt enhancer is OFF / プロンプトエンハンサーはOFFです')
+        raise AssistError('Prompt enhancer is OFF')
 
 
 def _prepare_image(asset, input_root, pixel_budget=AI_PIXELS):
@@ -49,7 +49,7 @@ def _prepare_image(asset, input_root, pixel_budget=AI_PIXELS):
     from PIL import Image, ImageOps
     source = asset_path(asset, input_root)
     if source.stat().st_size > MAX_IMAGE_BYTES:
-        raise AssistError('AI input image exceeds 64 MiB / AI入力画像が64 MiBを超えています')
+        raise AssistError('AI input image exceeds 64 MiB')
     with source.open('rb') as handle:
         data = handle.read(MAX_IMAGE_BYTES + 1)
     if len(data) > MAX_IMAGE_BYTES:
@@ -90,7 +90,7 @@ def _prepare_image(asset, input_root, pixel_budget=AI_PIXELS):
     # as a substitute for the source size/type check.
     with Image.open(io.BytesIO(data)) as image:
         if image.width < 1 or image.height < 1 or image.width * image.height > MAX_IMAGE_PIXELS:
-            raise AssistError('AI image exceeds 64 megapixels / 画像の面積が上限を超えています')
+            raise AssistError('AI image exceeds 64 megapixels')
         image = ImageOps.exif_transpose(image)
         ratio = min(1.0, math.sqrt(pixel_budget / (image.width * image.height)),
                     1536 / max(image.width, image.height))
@@ -116,7 +116,7 @@ def prepare_request(body, input_root, available_models, model_identity=None):
     require_enabled(plan)  # Before model/file work, even for hand-written API calls.
     instruction = body.get('ai_instruction', plan.get('prompt_enhancer', {}).get('instruction', ''))
     if not isinstance(instruction,str) or len(instruction)>MAX_INSTRUCTION or '\0' in instruction:
-        raise AssistError('AI instruction must be text of at most 8000 characters / AI指示は8000文字以内です')
+        raise AssistError('AI instruction must be text of at most 8000 characters')
     instruction = instruction.strip() or SYSTEM_PROMPT
     if 'video_context' in body and type(body['video_context']) is not bool:
         raise AssistError('Invalid video context flag')
@@ -127,20 +127,20 @@ def prepare_request(body, input_root, available_models, model_identity=None):
         raise AssistError('External prompt must be a string or null')
     dep = dependency_payload(plan, target, external, body.get('contract', CONTRACT), output_size=body.get('output_size'))
     if dep['contract'] == VISUAL_CONTRACT and dep['output']['width'] is None:
-        raise AssistError('Output size is unresolved. Select Studio size or use literal Engine dimensions / 出力サイズが未確定です。Studioのサイズ設定またはEngineの幅・高さを指定してください')
+        raise AssistError('Output size is unresolved. Select Studio size or use literal Engine dimensions')
     if not dep['text'].strip():
-        raise AssistError('Enter the original text first / 先に原文を入力してください')
+        raise AssistError('Enter the original text first')
     if len(dep['text']) + len(dep['common']) > MAX_INPUT_CHARS:
-        raise AssistError('AI input exceeds 24,000 characters. Shorten the selected field/context; nothing was truncated. / AI入力が長すぎます。原文は切り捨てていません')
+        raise AssistError('AI input exceeds 24,000 characters. Shorten the selected field/context; nothing was truncated.')
     # A structured H3 prompt should not be double-wrapped by this helper.
     validate_candidate(dep['text'])
     model = body.get('model') or plan.get('prompt_enhancer', {}).get('model') or DEFAULT_MODEL
     if not isinstance(model, str) or model not in available_models:
-        raise AssistError('Select an installed prompt-upscaler model / インストール済みのアップサンプラーモデルを選択してください')
+        raise AssistError('Select an installed prompt-upscaler model')
     loader_settings = body.get('loader', {'type':'minimax', 'device':'default'})
     if (not isinstance(loader_settings, dict) or set(loader_settings) != {'type','device'}
             or loader_settings['type'] != 'minimax' or loader_settings['device'] not in ('default','cpu')):
-        raise AssistError('Connect a minimax Load CLIP / minimaxのLoad CLIPを接続してください')
+        raise AssistError('Connect a minimax Load CLIP')
     request_id = uuid4().hex
     loader, generator, output = (f'h3ez_ai_{request_id}_{suffix}' for suffix in ('model','text','result'))
     images, image_paths = [], []
@@ -154,7 +154,7 @@ def prepare_request(body, input_root, available_models, model_identity=None):
     budget = min(AI_PIXELS, AI_TOTAL_PIXELS // max(1, len(selected_ids)))
     for aid in selected_ids:
         if not isinstance(aid, str) or aid not in {x['id'] for x in dep['images']}:
-            raise AssistError('Select one of this field\'s assigned images / 対象の文章に割り当てられた画像を選択してください')
+            raise AssistError('Select one of this field\'s assigned images')
         asset = next(a for a in plan['assets'] if a['id'] == aid)
         if asset['kind'] != 'image':
             raise AssistError('AI input must be an image')
@@ -229,7 +229,7 @@ def adopt_request(body, input_root):
     if (receipt.get('dependency_hash')!=digest(canonical(previous_dependencies))
             or receipt.get('base_text_hash')!=digest(dep['text'])
             or not compatible_dependencies(previous_dependencies, dep, saved_text=is_saved_entry)):
-        raise AssistError('The source changed. Generate a new candidate / 入力条件が変更されました。候補を作り直してください')
+        raise AssistError('The source changed. Generate a new candidate')
     entry={**receipt, 'text':validate_candidate(body.get('candidate'))}
     checked=normalize_enhancer({'enabled':True,'texts':[entry]},plan)['texts'][0]
     assets={a['id']:a for a in plan['assets']}
@@ -241,7 +241,7 @@ def adopt_request(body, input_root):
             h=hashlib.sha256()
             for block in iter(lambda:handle.read(1024*1024),b''):h.update(block)
         if h.hexdigest()!=image['sha256']:
-            raise AssistError('Reference image changed; candidate is stale / 参照画像が変更されました')
+            raise AssistError('Reference image changed; candidate is stale')
     return {'entry':checked}
 
 

@@ -17,12 +17,12 @@ export function validateStory(p,geometry){
       if(!a||typeof a!=='object'||Object.keys(a).some(k=>!['id','kind','text','at','weight'].includes(k))||typeof a.id!=='string'||!/^[A-Za-z0-9_-]{1,96}$/.test(a.id)||seen.has(a.id))throw new Error('Invalid action step');seen.add(a.id);
       if(!['event','state'].includes(a.kind)||typeof a.text!=='string'||[...a.text].length>5000)throw new Error('Invalid action text');
       const w=a.weight??1;if(typeof w!=='number'||!Number.isFinite(w)||w<.01||w>1000)throw new Error('Invalid action weight');
-      if(a.at!=null&&(typeof a.at!=='number'||!Number.isFinite(a.at)||a.at<0||a.at>=geometry[i].seconds))throw new Error('Action time is outside its shot / 動作の時刻がショット外です');
+      if(a.at!=null&&(typeof a.at!=='number'||!Number.isFinite(a.at)||a.at<0||a.at>=geometry[i].seconds))throw new Error('Action time is outside its shot');
     }
     const roles=s.reference_roles||[],active=(s.refs??p.global_refs).map(r=>p.reference_slots[r-1]),used=new Set();
     if(!Array.isArray(roles)||roles.length>9)throw new Error('At most nine reference roles');
     for(const r of roles){
-      if(!r||typeof r!=='object'||Object.keys(r).some(k=>!['asset_id','role','description'].includes(k))||!active.includes(r.asset_id)||used.has(r.asset_id)||!ROLES.includes(r.role)||typeof(r.description??'')!=='string'||[...(r.description??'')].length>2000)throw new Error('Invalid reference role / 役割を指定した画像を参照に残してください');used.add(r.asset_id);
+      if(!r||typeof r!=='object'||Object.keys(r).some(k=>!['asset_id','role','description'].includes(k))||!active.includes(r.asset_id)||used.has(r.asset_id)||!ROLES.includes(r.role)||typeof(r.description??'')!=='string'||[...(r.description??'')].length>2000)throw new Error('Invalid reference role');used.add(r.asset_id);
     }
   }
 }

@@ -4,32 +4,77 @@ from __future__ import annotations
 import asyncio
 from contextlib import nullcontext
 import logging
-from pathlib import Path
-import sys
-import tempfile
+import ntpath
 import os
+from pathlib import Path, PureWindowsPath
+import sys
 
-from .vendor.continuum.storage_settings import StorageSettings, StorageError, install_manager
+from .vendor.continuum import storage_fs
+from .vendor.continuum.storage_settings import (
+    StorageBusy, StorageError, StorageSettings, _local_path, _prepare, install_manager,
+)
+
+
+def _windows_drive_root(path):
+    # Windows accepts both separators before a UNC or device prefix.
+    path = path.replace('/', '\\')
+    drive, tail = ntpath.splitdrive(path)
+    if path.startswith('\\' * 2):
+        raise StorageError('Network shares and device paths are not supported for scratch storage')
+    if (len(drive) != 2 or drive[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+            or not tail.startswith('\\')):
+        raise StorageError('The scratch folder must be an absolute server path')
+    is_reserved = getattr(ntpath, 'isreserved', None)
+    reserved = is_reserved(tail) if is_reserved else any(PureWindowsPath(part).is_reserved() for part in tail.split('\\'))
+    if reserved:
+        raise StorageError('Network shares and device paths are not supported for scratch storage')
+    return drive + '\\'
+
+
+def _assert_windows_local(path):
+    root = _windows_drive_root(path)
+    import ctypes
+    if ctypes.windll.kernel32.GetDriveTypeW(root) == 4:
+        raise StorageError('Network drives are not supported for scratch storage')
 
 
 class EZStorageSettings(StorageSettings):
     """Keep EZ scratch separate even when both products choose the same drive."""
     @staticmethod
     def isolated_path(value):
-        if not isinstance(value, str):
+        if not isinstance(value, str) or len(value) > 4096 or '\x00' in value:
             raise StorageError('Enter an absolute folder path on the ComfyUI server')
-        if not value.strip():
+        value = value.strip()
+        if not value:
             return ''
-        # Validate the user's base before appending our dedicated child directory.
-        from .vendor.continuum.storage_settings import _local_path
+        if os.name == 'nt':
+            value = ntpath.expanduser(value)
+            _assert_windows_local(value)
         path = _local_path(value)
-        return str(path if path.name.lower() == 'h3-continuum-ez' else path / 'h3-continuum-ez')
+        directory = path if path.name.lower() == 'h3-continuum-ez' else path / 'h3-continuum-ez'
+        if os.name == 'nt':
+            _assert_windows_local(str(directory))
+        return str(directory)
 
     def validate(self, path):
-        return super().validate(self.isolated_path(path))
+        # Keep path resolution inside the vendor's maintenance gate.
+        with self._maintenance():
+            return _prepare(self.isolated_path(path))
 
     def save(self, path, revision):
-        return super().save(self.isolated_path(path), revision)
+        # The vendor saves the path as supplied. Apply EZ's folder isolation
+        # only after the same maintenance and revision checks.
+        with self._maintenance():
+            old = self._read()
+            if type(revision) is not int or revision != old['revision']:
+                raise StorageBusy('Settings changed; refresh before saving')
+            prepared = _prepare(self.isolated_path(path))
+            records = {(r['kind'], r['path']): r for r in self._records(old)}
+            records.update({(r['kind'], r['path']): r for r in prepared['roots']})
+            value = {'schema': 1, 'revision': revision + 1, 'path': prepared['path'],
+                     'roots': list(records.values())}
+            storage_fs.atomic_json(self.config_file, value)
+            return value
 
 
 def register_routes(server=None):

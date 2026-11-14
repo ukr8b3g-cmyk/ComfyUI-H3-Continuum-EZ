@@ -8,7 +8,7 @@ def inspect_audio(file, input_root):
     path=asset_path({'file':file},Path(input_root))
     peaks=[];block=2048;pending=0;level=0.;samples=0;largest_frame=0
     with av.open(str(path)) as c:
-        if not c.streams.audio:raise PlanError('The file has no audio stream / 音声トラックがありません')
+        if not c.streams.audio:raise PlanError('The file has no audio stream')
         stream=c.streams.audio[0];rate=int(stream.codec_context.sample_rate or 0)
         if not 8000<=rate<=192000:raise PlanError('Unsupported audio sample rate')
         channels=stream.codec_context.channels

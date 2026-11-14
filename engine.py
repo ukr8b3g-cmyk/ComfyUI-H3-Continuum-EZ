@@ -82,8 +82,7 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
 
     music_model_type = getattr(model_base, 'MiniMaxMusic3', None)
     if music_model_type is not None and isinstance(getattr(model, 'model', None), music_model_type):
-        raise PlanError('MODEL is MiniMax Music3. Select a MiniMax H3 video model in the upstream loader. '
-                        'MODELに音楽用のMiniMax Music3が接続されています。上流のLoaderで映像用のMiniMax H3を選んでください。')
+        raise PlanError('MODEL is MiniMax Music3. Select a MiniMax H3 video model in the upstream loader.')
     if output_mode not in ('Images', 'Long video'):
         raise PlanError('Unknown output mode')
     streaming = output_mode == 'Long video'

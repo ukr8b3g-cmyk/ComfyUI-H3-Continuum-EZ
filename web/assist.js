@@ -2,8 +2,9 @@
 // another queue item. Core performs inference, allocation, caching and offload.
 import {canonical,compatibleDependencies,dependencyPayload,validateCandidate,DEFAULT_MODEL,setEnhancer} from './enhancer.js';
 import {VISUAL_CONTRACT} from './assist_context.js';
+import {StudioError} from './i18n.js';
 const PREFIX='/h3-continuum-ez/assist';
-export class AssistCancelled extends Error {constructor(message='Candidate request invalidated / 候補を無効化しました'){super(message);this.name='AssistCancelled';}}
+export class AssistCancelled extends Error {constructor(message='Candidate request invalidated'){super(message);this.name='AssistCancelled';}}
 export class AssistClient {
   constructor({api,getState,getInstructionGraph=null,onStatus=()=>{},sleep=ms=>new Promise(r=>setTimeout(r,ms)),pollMs=900,maxPolls=4000,explicitRequests=false}){
     this.api=api;this.getState=getState;this.onStatus=onStatus;this.sleep=sleep;this.pollMs=pollMs;this.maxPolls=maxPolls;
@@ -15,7 +16,7 @@ export class AssistClient {
   _status(phase,detail='',extra={}){if(!this.closed)this.onStatus({phase,detail,...extra});}
   _emit(ticket,phase,detail='',extra={}){if(ticket.epoch===this.epoch&&!ticket.invalid)this._status(phase,detail,{target:ticket.target,...extra});}
   _state(){const s=this.getState();if(this.closed||s.alive===false)throw new AssistCancelled();return s;}
-  _enabled(){const s=this._state();if(!this.explicitRequests&&s.plan.prompt_enhancer?.enabled!==true)throw new Error('Prompt enhancer is OFF / プロンプトエンハンサーはOFFです');return s;}
+  _enabled(){const s=this._state();if(!this.explicitRequests&&s.plan.prompt_enhancer?.enabled!==true)throw new Error('Prompt enhancer is OFF');return s;}
   _requestPlan(s){const p=JSON.parse(JSON.stringify(s.plan));if(this.explicitRequests)setEnhancer(p,true);return p;}
   _identity(state){return canonical({identity:state.identity??{},instruction:state.plan.prompt_enhancer?.instruction||''});}
   _assert(ticket){
@@ -27,13 +28,13 @@ export class AssistClient {
     const matches=ticket.savedTextDependency
       ?compatibleDependencies(ticket.savedTextDependency,current)
       :canonical(current)===ticket.dependency;
-    if(!matches)throw new AssistCancelled('Input changed; candidate is stale / 入力条件が変更されたため候補を無効化しました');
+    if(!matches)throw new AssistCancelled('Input changed; candidate is stale');
     return s;
   }
   async _json(path,options={}){
-    if(!this.api?.fetchApi)throw new Error('ComfyUI API is not connected / ComfyUI APIに接続できません');
+    if(!this.api?.fetchApi)throw new Error('ComfyUI API is not connected');
     const response=await this.api.fetchApi(path,options);
-    let data;try{data=await response.json();}catch{throw new Error(`Invalid server response (${response.status}) / サーバー応答を読み取れません`);}
+    let data;try{data=await response.json();}catch{throw new StudioError('invalidAIResponse',response.status);}
     if(!response.ok){const error=new Error(typeof data.error==='string'?data.error:data.error?.message||`HTTP ${response.status}: ${JSON.stringify(data.node_errors||data).slice(0,600)}`);error.status=response.status;throw error;}
     return data;
   }
@@ -63,15 +64,15 @@ export class AssistClient {
   }
   generate({target,imageId=null,model=null,refresh=false}){
     let s;try{s=this._enabled();}catch(e){return Promise.reject(e);}
-    if(this.uncertain)return Promise.reject(new Error('Submission is unconfirmed. Check the ComfyUI queue/history before requesting again / 受付不明です。ComfyUIのキュー・履歴を確認してください'));
+    if(this.uncertain)return Promise.reject(new Error('Submission is unconfirmed. Check the ComfyUI queue/history before requesting again'));
     const contract=this.explicitRequests?VISUAL_CONTRACT:undefined;
-    if(s.externalUnknown&&(target.field==='global_prompt'||(!contract&&s.plan.shots.find(x=>x.id===target.shot_id)?.prompt_mode!=='replace')))return Promise.reject(new Error('External text has not executed. Select Studio text or first resolve the external input / 外部入力が未確定です。Studio原文へ切り替えるか外部入力を先に確定してください'));
+    if(s.externalUnknown&&(target.field==='global_prompt'||(!contract&&s.plan.shots.find(x=>x.id===target.shot_id)?.prompt_mode!=='replace')))return Promise.reject(new Error('External text has not executed. Select Studio text or first resolve the external input'));
     const dependency=canonical(dependencyPayload(s.plan,target,s.external??null,contract,null,s.outputSize??null)),identity=this._identity(s);
     const canvasModel=s.identity?.canvasModel;
-    if(canvasModel==='')return Promise.reject(new Error('Select the model in the workflow Load CLIP node / ワークフローのLoad CLIPでモデルを選んでください'));
+    if(canvasModel==='')return Promise.reject(new Error('Select the model in the workflow Load CLIP node'));
     model=canvasModel??(model||s.plan.prompt_enhancer?.model||DEFAULT_MODEL);
     const key=canonical({dependency,identity,target,imageId,model});
-    if(this.active){if(this.active.key===key)return this.active.promise;return Promise.reject(new Error('Another text request is in progress / 別の文章候補を生成中です'));}
+    if(this.active){if(this.active.key===key)return this.active.promise;return Promise.reject(new Error('Another text request is in progress'));}
     const ticket={epoch:this.epoch,target:{...target},dependency,identity,key,contract,promptId:null,outputId:null,invalid:false,refresh};
     this.active=ticket;
     const body={plan:this._requestPlan(s),target:{...target},external_prompt:s.external??null,image_id:contract===VISUAL_CONTRACT?null:imageId,model,output_size:s.outputSize??null};
@@ -93,14 +94,14 @@ export class AssistClient {
           if(!external)throw new Error('AI instruction connection changed');
           body.ai_instruction=typeof external.text==='string'?external.text:await this._execute(ticket,external,'ai-instruction');
           this._assert(ticket);
-          if(typeof body.ai_instruction!=='string'||[...body.ai_instruction].length>8000||body.ai_instruction.includes('\0'))throw new Error('AI instruction must be text of at most 8000 characters / AI指示は8000文字以内です');
+          if(typeof body.ai_instruction!=='string'||[...body.ai_instruction].length>8000||body.ai_instruction.includes('\0'))throw new Error('AI instruction must be text of at most 8000 characters');
         }
       }
       let prepared;
       try{prepared=await this._post(PREFIX+'/prepare',body);}
       catch(error){
         if(ticket.contract&&error.status===400&&error.message==='Invalid AI request fields'){
-          throw new Error('Restart ComfyUI to finish the AI update. / AI機能の更新を反映するにはComfyUIを再起動してください。');
+          throw new Error('Restart ComfyUI to finish the AI update.');
         }
         throw error;
       }
@@ -163,15 +164,15 @@ export class AssistClient {
         const output=record.outputs?.[ticket.outputId]?.text;
         if(output!==undefined){const text=Array.isArray(output)?output[0]:output;if(typeof text!=='string')throw new Error('Invalid generated_text output');return text;}
         const error=(record.status?.messages||[]).find(x=>['execution_error','execution_interrupted'].includes(x?.[0]));
-        if(error)throw new Error(error[1]?.exception_message||'AI job stopped / AIジョブが停止しました');
-        if(record.status?.completed||record.status?.status_str==='error')throw new Error('AI completed without candidate text / AI本文を取得できませんでした');
+        if(error)throw new Error(error[1]?.exception_message||'AI job stopped');
+        if(record.status?.completed||record.status?.status_str==='error')throw new Error('AI completed without candidate text');
       }
       if(i===0||i%5===0){
         try{const q=await this._json('/queue');this._assert(ticket);if((q.queue_running||[]).some(x=>x[1]===ticket.promptId))this._emit(ticket,'running');}catch(error){if(error instanceof AssistCancelled)throw error;}
       }
       await this.sleep(this.pollMs);
     }
-    throw new Error('Stopped waiting for AI output. Check the ComfyUI queue/history / AI結果の待機を終了しました。ComfyUIのキュー・履歴を確認してください');
+    throw new Error('Stopped waiting for AI output. Check the ComfyUI queue/history');
   }
   async adopt(result,text=result.text){
     const s=this._assert(result.ticket);validateCandidate(text);

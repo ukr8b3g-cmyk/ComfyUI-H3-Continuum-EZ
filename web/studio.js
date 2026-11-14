@@ -343,7 +343,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     setQueue(queueState);
   }
   function refreshRunNotice(){
-    const text=inputIssue||submissionError||(queueState.phase==='failed'?queueState.detail:'')||'';
+    const text=inputIssue||submissionError||(queueState.phase==='failed'&&queueState.detail?errorText(queueState.detail,t):'')||'';
     if(text!==noticeKey){
       noticeKey=text;
       noticeDismissed=false;
@@ -1250,7 +1250,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     const {phase,pending=0,position=0}=queueState;
     queueStatus.dataset.phase=phase;
     queueStatus.textContent=t(phase==='waiting'?'queueWaiting':phase==='running'?(pending?'queueRunningMore':'queueRunning'):'queue_'+phase,phase==='waiting'?position:pending);
-    queueStatus.title=queueState.detail||(['complete','interrupted','failed'].includes(phase)?t('queueLastRunHelp',t('queue_'+phase)):t('queueStatusHelp'));
+    queueStatus.title=(queueState.detail?errorText(queueState.detail,t):'')||(['complete','interrupted','failed'].includes(phase)?t('queueLastRunHelp',t('queue_'+phase)):t('queueStatusHelp'));
     updateRenderStatus();
     refreshRunNotice();
   }
@@ -1351,7 +1351,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     try{
       if(busy)throw new Error(t('waitUpload'));
       await assistPanel?.flush();
-      if(assistPanel?.isBusy())throw new Error(locale==='ja'?'AI処理が終わってからノード反映してください。':'Wait for AI processing before applying.');
+      if(assistPanel?.isBusy())throw new Error(t('waitForAIBeforeApply'));
       const previousMediaError=mediaError;
       const editAtStart=JSON.stringify(p);
       const draft=clone(p);
@@ -1366,8 +1366,8 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
         });
         if(closed)return;
         if(draft.audio.some(c=>(c.volume??1)!==1)&&checked.audio_clip_volume!==true)throw new Error(t('restartForVolume'));
-        if(editAtStart!==JSON.stringify(p))throw new Error(locale==='ja'?'確認中に編集されました。もう一度実行してください。':'Edits occurred during preflight. Run again.');
-        if(!checked.ok)throw new Error(checked.errors.map(x=>x.message).join(' | ')||t('queueInputError'));
+        if(editAtStart!==JSON.stringify(p))throw new Error(t('editedDuringPreflight'));
+        if(!checked.ok)throw new Error(checked.errors.map(x=>errorText(x.message,t)).join(' | ')||t('queueInputError'));
       }
       await onApply(draft);
       if(closed)return;

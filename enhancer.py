@@ -133,17 +133,17 @@ def dependency_payload(plan, target, external=None, contract=CONTRACT, include_c
 
 def validate_candidate(text):
     if not isinstance(text, str) or not text.strip():
-        raise ValueError('AI returned no candidate text / AIの本文が空です')
+        raise ValueError('AI returned no candidate text')
     if len(text) > MAX_CANDIDATE:
-        raise ValueError('AI candidate is too long / AI候補が長すぎます')
+        raise ValueError('AI candidate is too long')
     if re.search(r'<\s*/?think\b|<\s*Picture\s+\d|@R\d|```', text, re.I):
-        raise ValueError('AI returned reasoning or image-editing markup / 動画本文以外の構造が含まれます')
+        raise ValueError('AI returned reasoning or image-editing markup')
     if re.search(r'^\s*(subject_definitions|integrated_multimodal_description|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music)\s*:', text, re.M):
-        raise ValueError('AI must return plain text, not an H3 workflow / AI候補は平文が必要です')
+        raise ValueError('AI must return plain text, not an H3 workflow')
     if re.search(r'^\s*(?:edit|modify|alter)\s+(?:the|this|input|reference|source)\s+(?:image|picture|photo)\b', text, re.I):
-        raise ValueError('AI returned a still-image edit instruction / 静止画の編集命令は動画本文へ採用できません')
+        raise ValueError('AI returned a still-image edit instruction')
     if text.lstrip().startswith(('{', '[')):
-        raise ValueError('AI returned structured output, not a paragraph / 構造化出力は採用できません')
+        raise ValueError('AI returned structured output, not a paragraph')
     # Do not "repair" a rejected model response into apparently valid text.
     return text.strip()
 

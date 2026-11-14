@@ -59,10 +59,10 @@ export function dependencyPayload(p,target,external=null,contract=CONTRACT,inclu
   return {contract,target:{...target},text:originalText(p,target,external),common,images,scope,...(visual?{output:visualOutput(p,outputSize)}:{})};
 }
 export function validateCandidate(text){
-  if(typeof text==='string' && /^\s*(?:edit|modify|alter)\s+(?:the|this|input|reference|source)\s+(?:image|picture|photo)\b/i.test(text))throw new Error('AI returned a still-image edit instruction / 静止画の編集命令は採用できません');
-  if(typeof text!=='string'||!text.trim())throw new Error('AI returned no text / AI本文が空です');
-  if([...text].length>32000)throw new Error('AI candidate is too long / AI候補が長すぎます');
-  if(/<\s*\/?think\b|<\s*Picture\s+\d|@R\d|```/i.test(text)||/^\s*(subject_definitions|integrated_multimodal_description|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music)\s*:/m.test(text)||/^[\[{]/.test(text.trimStart()))throw new Error('Plain video description required / 画像編集命令・構造化文は採用できません');
+  if(typeof text==='string' && /^\s*(?:edit|modify|alter)\s+(?:the|this|input|reference|source)\s+(?:image|picture|photo)\b/i.test(text))throw new Error('AI returned a still-image edit instruction');
+  if(typeof text!=='string'||!text.trim())throw new Error('AI returned no text');
+  if([...text].length>32000)throw new Error('AI candidate is too long');
+  if(/<\s*\/?think\b|<\s*Picture\s+\d|@R\d|```/i.test(text)||/^\s*(subject_definitions|integrated_multimodal_description|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music)\s*:/m.test(text)||/^[\[{]/.test(text.trimStart()))throw new Error('Plain video description required');
   return text.trim();
 }
 export function validateEnhancer(p){

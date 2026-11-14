@@ -244,8 +244,7 @@ def normalize_plan(value: str | dict) -> dict:
     total = sum(x['frames'] for x in shot_geometry(p)) / FPS
     if total > MAX_TIMELINE_SECONDS: raise PlanError('Timeline exceeds the 3600-second limit')
     if not p.get('chunking', {}).get('enabled', True) and any(s['seconds'] > 15 for s in p['shots']):
-        raise PlanError('Automatic splitting is off: each shot must be 15 seconds or less. '
-                        '自動分割がオフです。各ショットを15秒以下にするか、自動分割をオンにしてください。')
+        raise PlanError('Automatic splitting is off: each shot must be 15 seconds or less.')
     for shot, g in zip(p['shots'], shot_geometry(p)):
         if any(line['at'] is not None and line['at'] >= g['seconds'] for line in shot.get('dialogue', [])):
             raise PlanError('Dialogue time is outside its shot; move the line before shortening')

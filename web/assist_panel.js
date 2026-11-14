@@ -1,6 +1,7 @@
 // One row selects the actual prompt source. Originals are never overwritten by AI.
 import {dependencyPayload,entryIsCurrent,targetKey,originalText,resolveText,validateCandidate} from './enhancer.js';
 import {VISUAL_CONTRACT} from './assist_context.js';
+import {errorText,translator} from './i18n.js';
 const words={
  original:['Original','原文'],ai:['AI Text','AI文'],generate:['Generate AI Text','AI文生成'],stop:['Stop','中止'],image:['AI Image','AI画像'],none:['No assigned images · text only','参照なし · 文章のみ'],
  originalHelp:['Use this field’s original text for video generation. The AI text is kept.','この欄の原文を動画生成に使用します。AI文は保持します。'],aiHelp:['Use this field’s saved AI text for video generation. The original is kept.','この欄のAI文を動画生成に使用します。原文は保持します。'],
@@ -19,7 +20,7 @@ const words={
 const el=(tag,cls='',text)=>{const e=document.createElement(tag);e.className=cls;if(text!==undefined)e.textContent=text;return e;};
 const button=(text,run,cls='')=>{const b=el('button',cls,text);b.type='button';b.onclick=run;return b;};
 export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAll,onMissingReferences,locale='en'}){
- const t=k=>words[k]?.[locale==='ja'?1:0]||k,slots=new Map();let bindings=[],disposed=false,batch=null,globalMessage='';
+ const translate=translator(locale),t=k=>words[k]?.[locale==='ja'?1:0]||k,slots=new Map();let bindings=[],disposed=false,batch=null,globalMessage='';
  const entryFor=(p,target)=>p.prompt_enhancer?.texts?.find(x=>targetKey(x.target)===targetKey(target));
  const slot=target=>{const key=targetKey(target);if(!slots.has(key))slots.set(key,{target:{...target},edit:null,imageId:'',job:null,saving:null,running:false,attempt:0});return slots.get(key);};
  const savedCurrent=(p,target,external)=>{const e=entryFor(p,target);return !!e&&entryIsCurrent(p,e,external,getState().outputSize??null);};
@@ -42,8 +43,8 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
   if(s.saving)return s.saving;
   const entry=entryFor(getState().plan,s.target);if(s.edit==null||s.edit===entry?.text)return;
   if(!entry)throw new Error(t('noAI'));
-  const text=s.edit;try{validateCandidate(text);}catch(e){s.job={phase:'error',detail:e.message};update();throw e;}s.job={phase:'saving'};
-  s.saving=(async()=>{try{const result=await client.editAdopted(entry,text);if(disposed)return;onAdopt(result);if(s.edit===text)s.edit=null;s.job=null;}catch(e){s.job={phase:'error',detail:e.message};throw e;}finally{s.saving=null;update();}})();update();return s.saving;
+  const text=s.edit;try{validateCandidate(text);}catch(e){s.job={phase:'error',detail:errorText(e,translate)};update();throw e;}s.job={phase:'saving'};
+  s.saving=(async()=>{try{const result=await client.editAdopted(entry,text);if(disposed)return;onAdopt(result);if(s.edit===text)s.edit=null;s.job=null;}catch(e){s.job={phase:'error',detail:errorText(e,translate)};throw e;}finally{s.saving=null;update();}})();update();return s.saving;
  }
  async function flush(){for(const s of slots.values())await flushSlot(s);}
  async function generate(target){
@@ -58,7 +59,7 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
    s.job={phase:'saving'};update();const entry=await client.adopt(result);
    if(disposed||attempt!==s.attempt)return false;
    onAdopt(entry);s.edit=null;s.job=null;return true;
-  }catch(e){if(!disposed&&attempt===s.attempt)s.job={phase:e.name==='AssistCancelled'?'cancelled':'error',detail:e.name==='AssistCancelled'?'':e.message};throw e;}
+  }catch(e){if(!disposed&&attempt===s.attempt)s.job={phase:e.name==='AssistCancelled'?'cancelled':'error',detail:e.name==='AssistCancelled'?'':errorText(e,translate)};throw e;}
   finally{if(attempt===s.attempt)s.running=false;update();}
  }
  function stop(){
@@ -75,7 +76,7 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
    if(currentBatch.cancelled||!await prepareReferences(targets,true))return;
    for(const target of targets){if(currentBatch.cancelled||disposed)break;currentBatch.index++;update();await generate(target);}
    globalMessage=currentBatch.cancelled?t('cancelled'):`${currentBatch.index}/${currentBatch.total} ${t('done')}`;
-  }catch(e){globalMessage=currentBatch.cancelled?t('cancelled'):e.message;}
+  }catch(e){globalMessage=currentBatch.cancelled?t('cancelled'):errorText(e,translate);}
   finally{batch=null;update();}
  },'ez-ai-generate');all.title=t('allHelp');
  const allOriginal=button(t('allOriginal'),async()=>{try{await flush();}catch{return;}for(const s of slots.values()){s.edit=null;s.job=null;}onRestoreAll();globalMessage='';update();});allOriginal.title=t('allOriginalHelp');
@@ -83,8 +84,8 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
  function renderGlobal(){const active=generating();all.textContent=batch?`${t('stop')} ${batch.index}/${batch.total||'…'}`:t('all');all.disabled=(!batch&&active)||!!client.uncertain;all.title=t(batch?'stopHelp':'allHelp');allOriginal.disabled=active||!!batch||!getState().plan.prompt_enhancer?.texts?.some(e=>!e.inactive&&getState().plan.prompt_enhancer.enabled);globalStatus.textContent=globalMessage;globalStatus.title=globalMessage;}
  function bind({target,area,wrap,counter=null,onDisplay=()=>{}}){
   const s=slot(target),key=targetKey(target),root=el('div','ez-ai-inline'),bar=el('div','ez-ai-toolbar'),choice=el('div','ez-ai-choice');choice.setAttribute('role','group');choice.setAttribute('aria-label',locale==='ja'?'生成に使う文章':'Text source');
-  const original=button(t('original'),async()=>{if(generating()||batch)return;try{await flushSlot(s);s.edit=null;s.job=null;onRestore(target);}catch(e){s.job={phase:'error',detail:e.message};}update();});original.title=t('originalHelp');
-  const ai=button(t('ai'),async()=>{if(generating()||batch)return;try{await flushSlot(s);const entry=entryFor(getState().plan,target);if(!entry)return;s.job={phase:'saving'};s.saving=client.editAdopted(entry,entry.text);update();const result=await s.saving;if(!disposed)onAdopt(result);s.job=null;}catch(e){s.job={phase:'error',detail:e.message};}finally{s.saving=null;update();}});ai.title=t('aiHelp');choice.append(original,ai);
+  const original=button(t('original'),async()=>{if(generating()||batch)return;try{await flushSlot(s);s.edit=null;s.job=null;onRestore(target);}catch(e){s.job={phase:'error',detail:errorText(e,translate)};}update();});original.title=t('originalHelp');
+  const ai=button(t('ai'),async()=>{if(generating()||batch)return;try{await flushSlot(s);const entry=entryFor(getState().plan,target);if(!entry)return;s.job={phase:'saving'};s.saving=client.editAdopted(entry,entry.text);update();const result=await s.saving;if(!disposed)onAdopt(result);s.job=null;}catch(e){s.job={phase:'error',detail:errorText(e,translate)};}finally{s.saving=null;update();}});ai.title=t('aiHelp');choice.append(original,ai);
   const run=button(t('generate'),async()=>{
    if(s.running){stop();return;}
    if(generating()||batch)return;
@@ -97,7 +98,7 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
   for(const control of [original,ai,run])control.onpointerdown=e=>{if(e.button===0)e.preventDefault();};
   const image=el('span','ez-ai-context');image.title=t('imageHelp');image.tabIndex=0;
   const status=el('span','ez-ai-state');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
-  const retry=button(t('recheck'),async()=>{try{await client.confirmUnknownSubmission();}catch(e){s.job={phase:'error',detail:e.message};}update();});retry.title=t('uncertain');
+  const retry=button(t('recheck'),async()=>{try{await client.confirmUnknownSubmission();}catch(e){s.job={phase:'error',detail:errorText(e,translate)};}update();});retry.title=t('uncertain');
   const job=el('div','ez-ai-error');job.setAttribute('role','alert');bar.append(choice,run,image,retry,status);root.append(bar,job);
   if(counter)bar.append(counter);
   const source={input:area.oninput,focus:area.onfocus,blur:area.onblur,label:area.getAttribute('aria-label'),title:area.title};let editingAI=false;
@@ -122,7 +123,7 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
    const phase=s.job?.phase;
    status.textContent=s.running||s.saving?t(phase||'running'):phase==='error'?t('error'):s.edit!=null?t('edited'):resolved.status==='stale'?t('stale'):t(usingAI?'usedAI':'usedOriginal');
    status.title=resolved.status==='stale'?t('staleHelp'):status.textContent;
-   const error=client.uncertain?t('uncertain'):phase==='error'?s.job.detail:'';job.hidden=!error;job.textContent=error;retry.hidden=!client.uncertain;retry.disabled=busy();
+   const error=client.uncertain?t('uncertain'):phase==='error'&&s.job.detail?errorText(s.job.detail,translate):'';job.hidden=!error;job.textContent=error;retry.hidden=!client.uncertain;retry.disabled=busy();
   }
   bindings.push(render);render();return root;
  }

@@ -1,5 +1,8 @@
 // English is the fallback for every ComfyUI locale other than Japanese.
 const messages = {
+  invalidAIResponse:['Invalid server response ({0})','サーバー応答を読み取れません（HTTP {0}）。'],
+  waitForAIBeforeApply:['Wait for AI processing before applying.','AI処理が終わってからノード反映してください。'],
+  editedDuringPreflight:['The inputs changed during validation. Try again.','確認中に入力が変わりました。もう一度実行してください。'],
   aiInstruction:['AI Instructions','AI指示'],
   aiInstructionDefault:['Using: Video default','使用中：動画向け標準'],
   aiInstructionStudio:['Studio instructions','Studio指示'],
@@ -411,6 +414,68 @@ const messages = {
   startNeedsCut: ["{0}: select Scene cut to use a start image.", "{0}: 開始画像を指定するときは「場面転換」を選んでください"],
 };
 
+// Error messages shared by the server and Studio. Keep the API text in English.
+const japaneseErrors = {
+  "A scratch subdirectory must not be a link": "一時保存先のサブフォルダーにリンクは使用できません。",
+  "AI candidate is too long": "AI候補が長すぎます",
+  "AI completed without candidate text": "AI本文を取得できませんでした",
+  "AI instruction graph is unavailable": "AI指示の接続情報を取得できません。",
+  "AI image exceeds 64 megapixels": "画像の面積が上限を超えています",
+  "AI input exceeds 24,000 characters. Shorten the selected field/context; nothing was truncated.": "AI入力が長すぎます。原文は切り捨てていません",
+  "AI input image exceeds 64 MiB": "AI入力画像が64 MiBを超えています",
+  "AI instruction cannot depend on video generation": "AI指示から動画生成を呼び出す接続は使用できません",
+  "AI instruction connection changed": "AI指示の接続が変更されました",
+  "AI instruction must be STRING": "AI指示にはSTRINGを接続してください",
+  "AI instruction must be text of at most 8000 characters": "AI指示は8000文字以内です",
+  "AI job stopped": "AIジョブが停止しました",
+  "AI must return plain text, not an H3 workflow": "AI候補は平文が必要です",
+  "AI returned a still-image edit instruction": "静止画の編集命令は動画本文へ採用できません",
+  "AI returned no candidate text": "AIの本文が空です",
+  "AI returned no text": "AI本文が空です",
+  "AI returned reasoning or image-editing markup": "動画本文以外の構造が含まれます",
+  "AI returned structured output, not a paragraph": "構造化出力は採用できません",
+  "Action time is outside its shot": "動作の時刻がショット外です",
+  "Another text request is in progress": "別の文章候補を生成中です",
+  "Automatic splitting is off: each shot must be 15 seconds or less.": "自動分割がオフです。各ショットを15秒以下にするか、自動分割をオンにしてください。",
+  "Candidate request invalidated": "候補を無効化しました",
+  "Choose an empty scratch folder; existing unknown files are protected": "空の一時フォルダーを指定してください。既存のファイルは保護されています。",
+  "ComfyUI API is not connected": "ComfyUI APIに接続できません",
+  "Conflicting or unavailable AI instruction inputs": "AI指示の接続先が不一致、または利用できません",
+  "Connect a minimax Load CLIP": "minimaxのLoad CLIPを接続してください",
+  "Enter an absolute folder path on the ComfyUI server": "ComfyUIサーバー上のフォルダーを絶対パスで指定してください。",
+  "Enter the original text first": "先に原文を入力してください",
+  "External text has not executed. Select Studio text or first resolve the external input": "外部入力が未確定です。Studio原文へ切り替えるか外部入力を先に確定してください",
+  "Input changed; candidate is stale": "入力条件が変更されたため候補を無効化しました",
+  "Invalid reference role": "役割を指定した画像を参照に残してください",
+  "Invalid storage data": "一時ストレージの情報を読み取れません。",
+  "MODEL is MiniMax Music3. Select a MiniMax H3 video model in the upstream loader.": "MODELに音楽用のMiniMax Music3が接続されています。上流のLoaderで映像用のMiniMax H3を選んでください。",
+  "Network drives are not supported for scratch storage": "一時保存先にはネットワークドライブを指定できません。",
+  "Network mounts are not supported for scratch storage": "一時保存先にはネットワークマウントを指定できません。",
+  "Network shares and device paths are not supported for scratch storage": "一時保存先にはネットワーク共有やデバイスパスを指定できません。",
+  "Network shares are not supported for scratch storage": "一時保存先にはネットワーク共有を指定できません。",
+  "Output size is unresolved. Select Studio size or use literal Engine dimensions": "出力サイズが未確定です。Studioのサイズ設定またはEngineの幅・高さを指定してください",
+  "Plain video description required": "画像編集命令・構造化文は採用できません",
+  "Prompt enhancer is OFF": "プロンプトエンハンサーはOFFです",
+  "Reference image changed; candidate is stale": "参照画像が変更されました",
+  "Restart ComfyUI to finish the AI update.": "AI機能の更新を反映するにはComfyUIを再起動してください。",
+  "Scratch mmap verification failed": "一時ファイルのメモリマップ検証に失敗しました。",
+  "Select an installed prompt-upscaler model": "インストール済みのアップサンプラーモデルを選択してください",
+  "Select one of this field's assigned images": "対象の文章に割り当てられた画像を選択してください",
+  "Select the model in the workflow Load CLIP node": "ワークフローのLoad CLIPでモデルを選んでください",
+  "Settings changed; refresh before saving": "設定が変更されました。更新してから保存してください。",
+  "Stopped waiting for AI output. Check the ComfyUI queue/history": "AI結果の待機を終了しました。ComfyUIのキュー・履歴を確認してください",
+  "Submission is unconfirmed. Check the ComfyUI queue/history before requesting again": "受付不明です。ComfyUIのキュー・履歴を確認してください",
+  "Temporary storage is read-only in multi-user mode": "マルチユーザー環境では一時保存先を変更できません。",
+  "Temporary storage request failed; see server log": "一時ストレージの操作に失敗しました。サーバーログを確認してください。",
+  "The dedicated scratch directory must not be a link": "専用の一時フォルダーにリンクは使用できません。",
+  "The file has no audio stream": "音声トラックがありません",
+  "The scratch folder must be an absolute server path": "ComfyUIサーバー上の一時保存先を絶対パスで指定してください。",
+  "The source changed. Generate a new candidate": "入力条件が変更されました。候補を作り直してください",
+  "This scratch directory has unrecognized ownership metadata": "一時フォルダーの所有情報を確認できません。",
+  "Unknown user or invalid storage metadata": "ユーザーまたは一時ストレージの情報を確認できません。",
+  "Wait until the running and pending queues are empty": "実行中・待機中のキューが空になるまでお待ちください。",
+};
+
 export function getLocale(app) {
   const locale = app.extensionManager?.setting?.get?.('Comfy.Locale')
     ?? app.ui?.settings?.getSettingValue?.('Comfy.Locale');
@@ -419,7 +484,10 @@ export function getLocale(app) {
 
 export function translator(locale) {
   const index = locale === 'ja' ? 1 : 0;
-  return (key, ...values) => messages[key][index].replace(/\{(\d+)\}/g, (_, n) => String(values[n]));
+  return (key, ...values) => {
+    if (Object.hasOwn(messages, key)) return messages[key][index].replace(/\{(\d+)\}/g, (_, n) => String(values[n]));
+    return index === 1 && Object.hasOwn(japaneseErrors, key) ? japaneseErrors[key] : key;
+  };
 }
 
 const english = translator('en');
@@ -433,5 +501,6 @@ export class StudioError extends Error {
 }
 
 export function errorText(error, t) {
-  return error instanceof StudioError ? t(error.key, ...error.values) : error.message;
+  if (error instanceof StudioError) return t(error.key, ...error.values);
+  return t(typeof error === 'string' ? error : error?.message ?? String(error));
 }
