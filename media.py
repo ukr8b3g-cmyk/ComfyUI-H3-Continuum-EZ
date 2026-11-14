@@ -2,11 +2,29 @@
 from __future__ import annotations
 import math
 import wave
+from contextlib import contextmanager
 from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image, ImageOps
 from .plan import PlanError, asset_path, audio_clips_for_video, FPS
+
+
+def _reject_media_reference(_url, _flags, _options):
+    raise PermissionError('Media assets must contain their own streams')
+
+
+@contextmanager
+def open_media_input(path: Path):
+    """Decode one local file without allowing the container to open other resources."""
+    import av
+
+    # Python opens the primary stream. PyAV's callback blocks auxiliary opens,
+    # and an empty protocol allowlist blocks FFmpeg's native protocol opens.
+    with path.open('rb') as source:
+        with av.open(source, mode='r', container_options={'protocol_whitelist': ''},
+                     io_open=_reject_media_reference) as container:
+            yield container
 
 
 def load_image(path: Path, target_size=None) -> torch.Tensor:
@@ -49,7 +67,7 @@ def load_audio(path: Path) -> dict:
         if path.suffix.lower() == '.wav': return _load_pcm_wave(path)
         raise RuntimeError('Audio import requires the PyAV dependency supplied by ComfyUI; use PCM WAV or repair the ComfyUI environment')
     try:
-        with av.open(str(path)) as c:
+        with open_media_input(path) as c:
             if not c.streams.audio: raise PlanError('File contains no audio stream')
             stream = c.streams.audio[0]
             rate = int(stream.codec_context.sample_rate or stream.rate or 32000)
@@ -111,7 +129,7 @@ def _render_audio_to_disk(plan, clips, root, total_frames, stack, cancel):
     from . import storage
     assets = {a['id']:a for a in plan['assets']}
     paths = {c['asset_id']:asset_path(assets[c['asset_id']], root) for c in clips}
-    with av.open(str(paths[clips[0]['asset_id']])) as container:
+    with open_media_input(paths[clips[0]['asset_id']]) as container:
         if not container.streams.audio: raise PlanError('File contains no audio stream')
         stream = container.streams.audio[0]
         rate = int(stream.codec_context.sample_rate or stream.rate or 32000)
@@ -148,7 +166,7 @@ def _render_audio_to_disk(plan, clips, root, total_frames, stack, cancel):
                     output[...,dst:dst+count].copy_(block[...,lo-cursor:lo-cursor+count])
                     if gain != 1.0: output[...,dst:dst+count].mul_(gain)
             cursor=stop
-        with av.open(str(path)) as container:
+        with open_media_input(path) as container:
             if not container.streams.audio: raise PlanError('File contains no audio stream')
             stream=container.streams.audio[0]
             convert=av.AudioResampler(format='fltp', layout='stereo', rate=rate)

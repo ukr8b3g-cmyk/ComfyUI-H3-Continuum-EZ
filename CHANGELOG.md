@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.6
+
+- Use a single local input stream for audio metadata and decoding. Reject additional file and URL opens requested by media containers.
+- Validate temporary storage paths before resolution and display Storage UI errors in the configured ComfyUI language.
+- Document the 15 Registry scanner results from v0.13.5 in the [validation record](docs/RELEASE_v0.13.6_REGISTRY_REVIEW.md).
+
 ## 0.13.5
 
 - Preview the first generated chunk while later chunks are still rendering. The finished video replaces the chunk preview when it is ready.
