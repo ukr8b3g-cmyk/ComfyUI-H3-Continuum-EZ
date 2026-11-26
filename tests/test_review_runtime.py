@@ -44,8 +44,12 @@ def run_review(runtime, tmp_path, mode='Images', seconds=10):
 
 
 def test_review_retry_resume_and_export(runtime, tmp_path, monkeypatch):
+    from h3ezstudio import version
+
     operation, engine, kwargs, samples, run, _ = run_review(runtime, tmp_path)
-    _, first, first_command = operation('next')
+    with monkeypatch.context() as patch:
+        patch.setattr(version, '__version__', '0.13.6')
+        _, first, first_command = operation('next')
     assert operation('next', command=first_command)[0] is None
     assert len(samples) == 1
     _, second, _ = operation('next')

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.7
+
+- Add the PRISM DMAD PDMD + Sol workflow with selectable 8, 7, and 6 steps and an optional separate video decoder VAE.
+- Add timeline filmstrips, chunk join previews, and candidate review, retry, resume, and export.
+- Align the package version with the GitHub release tag and retain compatibility with reviews saved by the initial release ZIP.
+
 ## 0.13.6
 
 - Use a single local input stream for audio metadata and decoding. Reject additional file and URL opens requested by media containers.

@@ -1,4 +1,4 @@
-[English](README.md) · [v0.13.5 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.5) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
+[English](README.md) · [v0.13.7 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.7) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.7/ComfyUI-H3-Continuum-EZ-v0.13.7.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,7 +6,7 @@
 
 ## はじめに
 
-1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
+1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.7/ComfyUI-H3-Continuum-EZ-v0.13.7.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
 2. [FastH3 OmniRef版のワークフローJSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) を保存して、ComfyUIへドラッグします。リンクを右クリックして **名前を付けてリンク先を保存** を選び、拡張子は `.json` のままにします。
 3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開きます。テンプレートには1:1・0.5 MPで歌う10秒のショットが入っています。参照画像を使う場合は、手持ちの素材やComfyUIの `example.png` を追加します。
 
@@ -72,7 +72,7 @@ Studio上部の **AI指示** から、次回の **AI生成** に使うシステ�
 
 **REF2VA＋Pika Flex版** は [H3_Continuum_EZ_Studio_REF2VA.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)。このワークフローには [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) を `models/diffusion_models/`、[pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) を `models/loras/` に配置します。H3テキストエンコーダー・映像／音声VAE・任意のAI文章モデルは下表と共通です。Pika LoRAはREF2VA用です。
 
-**PRISM DMAD PDMD＋Sol版** · [H3_Continuum_EZ_Studio_PRISM_Sol.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)。動画デコードVAEの個別入力を使うため、このリポジトリの `main` のEZを利用してください。初期値はEuler／simple、8ステップ（7・6に変更可）、Sol-Attn、16:9・0.6 MPです。
+**PRISM DMAD PDMD＋Sol版** · [H3_Continuum_EZ_Studio_PRISM_Sol.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)。動画デコードVAEの個別入力を使うため、EZ v0.13.7以降を利用してください。初期値はEuler／simple、8ステップ（7・6に変更可）、Sol-Attn、16:9・0.6 MPです。
 
 - 拡散モデルは `models/diffusion_models/minimax/` · [PRISM_DMAD_PDMD_int8.safetensors](https://huggingface.co/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM/resolve/main/PRISM_DMAD_PDMD_int8.safetensors) · [Civitai版](https://civitai.red/models/3019421/singularity-v2-x-10eros-max?modelVersionId=3445524)。Civitaiでは `_int8.safetensors` を選択してください。
 - 動画デコード用Sol VAEは `models/vae/` · [minimax_h3_sol_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_sol_vae_int8_convrot.safetensors)。入力画像用の標準動画VAE、音声VAE、H3テキストエンコーダーは下表の共通ファイルを使います。

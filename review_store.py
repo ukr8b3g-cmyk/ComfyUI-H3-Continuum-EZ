@@ -122,7 +122,11 @@ class ReviewStore:
                 'variation': 0, 'commands': {},
             }
         data = self.state
-        if data['identity'] != identity or data['total'] != total:
+        saved_identity = data['identity']
+        # The initial v0.13.7 GitHub ZIP still reported 0.13.6. Its review data is compatible.
+        if saved_identity.get('engine_version') == '0.13.6' and identity.get('engine_version') == '0.13.7':
+            saved_identity = {**saved_identity, 'engine_version': '0.13.7'}
+        if saved_identity != identity or data['total'] != total:
             raise ReviewError('Generation conditions changed. Restore the inputs or start a new review.')
         if data['seed'] != str(seed):
             raise ReviewError('Seed changed. Restore the original seed or start a new review.')
