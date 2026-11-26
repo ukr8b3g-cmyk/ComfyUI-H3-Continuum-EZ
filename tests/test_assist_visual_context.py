@@ -105,9 +105,11 @@ def test_missing_one_of_multiple_images_fails_before_queue_graph(tmp_path):
 
 
 @pytest.mark.parametrize('target',[TARGET, {'field':'global_prompt'}])
-def test_timing_and_size_changes_retain_ai_selection_edit_restore_and_render(tmp_path,target):
+def test_original_timing_and_size_changes_retain_ai_selection_edit_restore_and_render(tmp_path,target):
     p=fixture(tmp_path);p=adopt(p,prepare(p,tmp_path,target),tmp_path)
     saved=copy.deepcopy(p['prompt_enhancer']['texts'][0])
+    p['global_prompt']='REVISED_COMMON'
+    p['shots'][0]['prompt']='REVISED_SHOT'
     for seconds, aspect, mp in ((3,'2:3',.3),(20,'16:9',.4),(7.5,'9:16',.6),(4,'1:1',1)):
         p['shots'][0]['seconds']=seconds
         p['resolution'].update(aspect=aspect, megapixels=mp)
@@ -121,6 +123,7 @@ def test_timing_and_size_changes_retain_ai_selection_edit_restore_and_render(tmp
     assert resolve_prompt_text(p,target)==('EDITED_AI','enhanced')
     edited['inactive']=True
     assert resolve_prompt_text(p,target)[1]=='off'
+    assert resolve_prompt_text(p,target)[0]==('REVISED_COMMON' if target['field']=='global_prompt' else 'REVISED_SHOT')
     edited['inactive']=False
     assert resolve_prompt_text(p,target)==('EDITED_AI','enhanced')
     p['resolution']['source']='engine'

@@ -7,6 +7,7 @@ const words={
  originalHelp:['Use this field’s original text for video generation. The AI text is kept.','この欄の原文を動画生成に使用します。AI文は保持します。'],aiHelp:['Use this field’s saved AI text for video generation. The original is kept.','この欄のAI文を動画生成に使用します。原文は保持します。'],
  generateHelp:['Generate and use AI text for this field. The original is retained. Review and edit the result.','この欄のAI文を生成して使用します。原文は保持します。結果を確認し、必要に応じて編集してください。'],
  imageHelp:['AI uses images assigned to this field. A library image shown only in the preview is not assigned.','AIにはこの欄に割り当てた画像が渡ります。素材プレビューだけに表示される画像は未割り当てです。'],
+ autoImage:['AI will use the only image','素材の1枚をAI文に使用'],autoImageHelp:['Generating AI text adds the only image as a reference for this prompt.','AI文を生成すると、素材の画像1枚がこのプロンプトの参照に追加されます。'],
  stopHelp:['Cancel this text request; keep the previous text. A running job may finish on the server.','この文章生成を中止し、直前の文章を保ちます。実行中の処理はサーバー側で完了する場合があります。'],
  missing:['AI text model unavailable.','AI用の文章モデルが利用できません。'],
  empty:['Enter text first.','先に本文を入力してください。'],noAI:['Generate AI text first.','先にAI生成を実行してください。'],stale:['Input changed · AI text saved','入力変更 · AI文は保存済み'],
@@ -118,8 +119,9 @@ export function createAssistPanel({client,getState,onAdopt,onRestore,onRestoreAl
    run.textContent=t(s.running&&!batch?'stop':'generate');run.disabled=(!s.running&&(generating()||!!batch))||!originalText(p,target,state.external??null).trim()||!!client.uncertain;
    run.title=s.running?t('stopHelp'):!originalText(p,target,state.external??null).trim()?t('empty'):t('generateHelp');
    const refs=referenceImages(state,target);
-   image.textContent=refs.length?(locale==='ja'?`AIに渡す画像 ${refs.length}枚`:`${refs.length} images for AI`):t('none');
-   image.setAttribute('aria-label',image.textContent);image.title=t('imageHelp');
+   const autoImage=!refs.length&&state.plan.assets.filter(asset=>asset.kind==='image').length===1;
+   image.textContent=refs.length?(locale==='ja'?`AIに渡す画像 ${refs.length}枚`:`${refs.length} images for AI`):t(autoImage?'autoImage':'none');
+   image.setAttribute('aria-label',image.textContent);image.title=t(autoImage?'autoImageHelp':'imageHelp');
    const phase=s.job?.phase;
    status.textContent=s.running||s.saving?t(phase||'running'):phase==='error'?t('error'):s.edit!=null?t('edited'):resolved.status==='stale'?t('stale'):t(usingAI?'usedAI':'usedOriginal');
    status.title=resolved.status==='stale'?t('staleHelp'):status.textContent;

@@ -1,6 +1,7 @@
 """Two public nodes; all long-form editing lives in the HTML Studio."""
 from __future__ import annotations
 from collections import defaultdict
+from contextlib import nullcontext
 from pathlib import Path
 import sys
 from .plan import (DEFAULT_JSON, PlanError, normalize_plan, fingerprint, preview_prompts, shot_geometry,
@@ -82,7 +83,7 @@ class H3ContinuumEZEngine:
     FUNCTION = 'generate'
     RETURN_TYPES = ('IMAGE', 'AUDIO', 'FLOAT', 'STRING', 'VIDEO', 'BOOLEAN')
     RETURN_NAMES = ('images', 'audio', 'fps', 'report', 'video', 'output_images')
-    DESCRIPTION = 'Continuum core with managed disk-backed buffers. Long video writes MP4 without IMAGE output. No Resume or Second Pass.'
+    DESCRIPTION = 'Continuum core with managed disk-backed buffers. Studio can review individual parts before final output.'
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -103,7 +104,9 @@ class H3ContinuumEZEngine:
             'height': ('INT', {**dimensions, 'default': DEFAULT_HEIGHT, 'tooltip': 'Output height in pixels. Use a multiple of 32.'}),
             'buffer_backend': (['Disk-backed', 'Auto', 'RAM'], {'default': 'Disk-backed', 'tooltip': 'Images mode: Disk-backed uses disk buffers to reduce RAM use. Auto selects RAM or disk based on available memory. RAM keeps buffers in memory. Long video always uses disk buffers.'}),
             'output_mode': (['Images', 'Long video'], {'default': 'Images', 'tooltip': 'Studio can choose the output format. Both modes provide an audio/video preview and video output. Long video writes in parts to reduce RAM use. If this workflow also needs image data, image output is enabled automatically without changing any connections.'}),
-            'ai_instruction': ('STRING', {'forceInput': True, 'lazy': True, 'tooltip': 'Optional AI system instruction. Used only by Studio AI Generate; takes priority over the Studio instruction. Original video generation does not evaluate this input.'}),},
+            'ai_instruction': ('STRING', {'forceInput': True, 'lazy': True, 'tooltip': 'Optional AI system instruction. Used only by Studio AI Generate; takes priority over the Studio instruction. Original video generation does not evaluate this input.'}),
+            'execution_control': ('STRING', {'default': '', 'hidden': True, 'dynamicPrompts': False}),
+            'video_decode_vae': ('VAE', {'tooltip': 'Optional video decoder. The video_vae input still encodes start, end and reference images. If disconnected, video_vae also decodes the result.'}),},
             'hidden': {'prompt': 'PROMPT', 'unique_id': 'UNIQUE_ID', 'extra_pnginfo': 'EXTRA_PNGINFO'}}
 
     @classmethod
@@ -117,9 +120,29 @@ class H3ContinuumEZEngine:
             return str(error)
         return True
 
+    @classmethod
+    def IS_CHANGED(cls, execution_control='', **_):
+        return float('nan') if execution_control else False
+
     def generate(self, **kwargs):
         import folder_paths
+
+        control = kwargs.pop('execution_control', '')
+        run, review = None, None
+        if control:
+            from .review_contract import graph_identity, parse_control
+            from .review_store import ReviewStore
+
+            command = parse_control(control)
+            run = ReviewStore(folder_paths.get_output_directory(), command['run'], command['binding'])
+            review = run, command, graph_identity(kwargs.get('prompt'), kwargs.get('unique_id'))
+        with (run.writer(create=command['action'] == 'next') if run else nullcontext()):
+            return self._generate(review, **kwargs)
+
+    def _generate(self, review, **kwargs):
+        import folder_paths
         from .engine import run_engine
+
         prompt, unique_id = kwargs.pop('prompt', None), kwargs.pop('unique_id', None)
         extra_pnginfo = kwargs.pop('extra_pnginfo', None)
         workflow = extra_pnginfo.get('workflow') if isinstance(extra_pnginfo, dict) else None
@@ -145,15 +168,24 @@ class H3ContinuumEZEngine:
             try:
                 result = run_engine(**kwargs, input_root=Path(folder_paths.get_input_directory()),
                                     output_root=folder_paths.get_output_directory(), video_result=exported,
-                                    progress=progress, preview_session=session)
+                                    progress=progress if review is None else None, preview_session=session,
+                                    **({'review': review} if review else {}))
             except BaseException as error:
                 interrupted=isinstance(error,(KeyboardInterrupt,InterruptedError)) or type(error).__name__=='InterruptProcessingException'
                 progress('interrupted' if interrupted else 'failed')
                 raise
+        if review and result is None:
+            from comfy_execution.graph_utils import ExecutionBlocker
+
+            blocked = ExecutionBlocker(None)
+            return {'ui': {'h3ez_review': [review[0].status()]},
+                    'result': (blocked, blocked, 24., 'Review waiting for adoption', blocked, blocked)}
         from .preview import save_preview
         try:
             preview = exported if streaming else save_preview(*result[:3], folder_paths.get_output_directory())
         except Exception as error:
+            if review:
+                raise
             import logging
             logging.getLogger(__name__).exception('EZ preview export failed')
             progress('finished', preview_warning=str(error))
@@ -164,6 +196,8 @@ class H3ContinuumEZEngine:
         progress('finished')
         from comfy_api.latest import InputImpl
         video = InputImpl.VideoFromFile(str(Path(folder_paths.get_output_directory()) / preview['subfolder'] / preview['filename']))
+        if review:
+            review[0].finish()
         return {'ui': {'h3ez_video': [preview]}, 'result': (*result, video, not streaming)}
 
 NODE_CLASS_MAPPINGS = {'H3ContinuumEZTimeline': H3ContinuumEZTimeline, 'H3ContinuumEZEngine': H3ContinuumEZEngine}

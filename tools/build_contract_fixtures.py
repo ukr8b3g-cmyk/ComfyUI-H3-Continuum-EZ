@@ -7,7 +7,7 @@ m=importlib.util.module_from_spec(spec);sys.modules['h3ezstudio']=m;spec.loader.
 from h3ezstudio.plan import default_plan,normalize_plan,execution_plan,compile_part_prompt,shot_geometry
 from h3ezstudio.enhancer import dependency_payload,canonical,digest,resolve_prompt_text,VISUAL_CONTRACT
 out=[]
-for scenario in ['legacy','off','on','stale','external','story','emoji','visual-shot','visual-common','visual-engine']:
+for scenario in ['legacy','off','on','original-edited','external','story','emoji','visual-shot','visual-common','visual-engine']:
  p=default_plan();p['global_prompt']='共通の人物。日本語を保持。';p['shots'][0]['prompt']='女性が静かに歩く。'
  if scenario=='emoji':p['shots'][0]['prompt']='雪と😀、 "quoted" \\ text\n行2'
  if scenario!='legacy':p['schema']=2;p['prompt_enhancer']={'enabled':False,'texts':[]}
@@ -24,11 +24,11 @@ for scenario in ['legacy','off','on','stale','external','story','emoji','visual-
   p['assets']=[dict(id=f'image-{i}',kind='image',label=f'Image {i}',file=dict(name=f'{i}.png',subfolder='',type='input'))for i in (1,2)]
   p['reference_slots'][:2]=['image-1','image-2'];p['global_refs']=[1,2]
  p=normalize_plan(p);target={'field':'global_prompt'} if scenario=='visual-common' else {'field':'prompt','shot_id':p['shots'][0]['id']}
- if scenario in ('on','stale','external','emoji') or scenario.startswith('visual-'):
+ if scenario in ('on','original-edited','external','emoji') or scenario.startswith('visual-'):
   dep=dependency_payload(p,target,external,contract,output_size=size)
   p['prompt_enhancer']['texts']=[dict(target=target,text='より具体的な動作。',dependencies=dep,base_text_hash=digest(dep['text']),dependency_hash=digest(canonical(dep)),images=[])]
   p['prompt_enhancer']['enabled']=True
- if scenario=='stale':p['shots'][0]['prompt']='今は座る。'
+ if scenario=='original-edited':p['shots'][0]['prompt']='今は座る。'
  parts=execution_plan(p)
  out.append(dict(scenario=scenario,plan=p,target=target,external=external,contract=contract,output_size=size,dependency=dependency_payload(p,target,external,contract,output_size=size),resolved=resolve_prompt_text(p,target,external),parts=parts,prompts=[compile_part_prompt(p,x,external)[0]for x in parts]))
 path=ROOT/'tests/contracts/assist_parity.json';path.write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n',encoding='utf-8');print(path)

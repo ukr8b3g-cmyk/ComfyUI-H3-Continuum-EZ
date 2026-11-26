@@ -7,7 +7,11 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def test_workflow_links_and_node_contracts():
     paths = list((ROOT/'examples').glob('*.json'))
-    assert sorted(path.name for path in paths) == ['H3_Continuum_EZ_Studio_FastH3_OmniRef.json', 'H3_Continuum_EZ_Studio_REF2VA.json']
+    assert sorted(path.name for path in paths) == [
+        'H3_Continuum_EZ_Studio_FastH3_OmniRef.json',
+        'H3_Continuum_EZ_Studio_PRISM_Sol.json',
+        'H3_Continuum_EZ_Studio_REF2VA.json',
+    ]
     for path in paths:
         if '.api.' in path.name:continue
         d=json.loads(path.read_text(encoding='utf-8'))

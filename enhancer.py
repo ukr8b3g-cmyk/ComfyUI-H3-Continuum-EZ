@@ -1,8 +1,4 @@
-"""Optional prompt enhancement: non-destructive selection, never model inference.
-
-The original prompt fields remain authoritative when disabled or when a binding
-is stale. This module deliberately does not import ComfyUI, torch or a model.
-"""
+"""Optional prompt enhancement and selection between separately stored text variants."""
 from __future__ import annotations
 import copy
 import hashlib
@@ -211,8 +207,12 @@ def normalize_enhancer(raw, plan):
 
 
 def compatible_dependencies(saved, current, *, saved_text=True):
-    """Keep the selected saved text across timing and output geometry edits."""
-    if saved_text and saved.get('contract') == current.get('contract') == VISUAL_CONTRACT:
+    """Keep saved text selectable when original prose, timing or output geometry changes."""
+    if not saved_text:
+        return canonical(saved) == canonical(current)
+    saved = {k: v for k, v in saved.items() if k not in ('text', 'common')}
+    current = {k: v for k, v in current.items() if k not in ('text', 'common')}
+    if saved.get('contract') == current.get('contract') == VISUAL_CONTRACT:
         saved, current = copy.deepcopy(saved), copy.deepcopy(current)
         for dep in (saved, current):
             dep.pop('output', None)
@@ -235,10 +235,8 @@ def resolve_prompt_text(plan, target, external=None):
     contract = entry['dependencies'].get('contract', CONTRACT)
     if contract not in (CONTRACT, SHOT_ONLY_CONTRACT, VISUAL_CONTRACT) or (key == 'global' and contract == SHOT_ONLY_CONTRACT):
         return original,'stale'
-    # Legacy AI text depends on the context it actually saw, even when the
-    # user later changes whether that context is included in the video.
     deps = dependency_payload(plan,target,external,contract,bool(entry['dependencies'].get('common')))
-    if (digest(original)!=entry['base_text_hash']
+    if (digest(entry['dependencies'].get('text',''))!=entry['base_text_hash']
             or digest(canonical(entry['dependencies']))!=entry['dependency_hash']
             or not compatible_dependencies(entry['dependencies'], deps)):
         return original,'stale'

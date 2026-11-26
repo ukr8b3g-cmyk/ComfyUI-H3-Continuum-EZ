@@ -12,6 +12,7 @@ import {syncSeedControls} from './seed_controls.js';
 import {referenceCounts} from './node_summary.js';
 import {read,duration,roundEven} from './state.js';
 import {createDraftStore} from './project.js';
+import {createReview} from './review.js';
 
 const NODE='H3ContinuumEZTimeline';
 const ENGINE='H3ContinuumEZEngine';
@@ -194,7 +195,11 @@ function install(node){
       let restoredDraft=null,draftReadError=false;
       try{restoredDraft=await draftStore.load(JSON.stringify(read(baseline)));}catch{draftReadError=true;}
       if(!node.graph||rootGraph()!==graphAtOpen||activeWorkflowId()!==workflowAtOpen||String(widget(node).value)!==baseline)return;
-      const editor=openStudio({value:baseline,draftStore,restoredDraft,draftReadError,sizePreference:sizeSource(),assistApi:api,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),getInstructionGraph:async binding=>instructionGraph((await app.graphToPrompt()).output,binding),assistIdentity:()=>({instructionBinding:canvasAIInstruction(node,rootGraph()),outputSize:canvasGenerationSize(node,rootGraph()),canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
+      const review=createReview({api,node,workflow:workflowAtOpen??null,nodeIds:()=>nodePaths,
+        compile:()=>app.graphToPrompt(),signal:previewLookup.signal,
+        attached:()=>rootGraph()===graphAtOpen&&activeWorkflowId()===workflowAtOpen&&graphNodes(graphAtOpen).some(x=>x.node===node),
+        onState:status=>editors.get(node)?.setReview(status)});
+      const editor=openStudio({value:baseline,draftStore,restoredDraft,draftReadError,sizePreference:sizeSource(),assistApi:api,review,getCanvasModel:()=>canvasEnhancerModel(node,rootGraph()),getInstructionGraph:async binding=>instructionGraph((await app.graphToPrompt()).output,binding),assistIdentity:()=>({instructionBinding:canvasAIInstruction(node,rootGraph()),outputSize:canvasGenerationSize(node,rootGraph()),canvasLoader:canvasEnhancerBinding(node,rootGraph()),workflow:activeWorkflowId()??null,openedWorkflow:workflowAtOpen??null,node:String(node.id),present:graphNodes(rootGraph()).some(x=>x.node===node)}),mediaUrl,upload:(file,kind)=>upload(file,kind,t),locale,onStorage:openStorageDialog,resultVideo:node._h3ez_resultVideo??null,generation:node._h3ez_progress??null,externalConnected:connected(node),lastExternal:node._h3ez_lastCommon??null,
         onApply:plan=>{
           if(!node.graph)throw new Error(t('nodeRemoved'));
           if(String(widget(node).value)!==baseline)throw new Error(t('nodeChanged'));
@@ -212,6 +217,7 @@ function install(node){
         },
         onClose:()=>{previewLookup.abort();unwatchQueue(node);editors.delete(node);}});
       editors.set(node,editor);
+      void review.start();
       watchQueue(node,editor);
       restoreVideo(node,editor,previewLookup.signal);
     }catch(e){console.error('[H3 EZ]',e);alert(`H3 EZ Studio: ${errorText(e,t)}`);}finally{opening.delete(node);}
@@ -233,6 +239,10 @@ function installEngineSize(node){
   const {megapixels,aspect,width,height}=byName;
   if(!megapixels||!aspect||!width||!height)return;
   mounted.add(node);
+  if(byName.execution_control){
+    byName.execution_control.hidden=true;
+    byName.execution_control.serializeValue=()=>undefined;
+  }
   const isLinked=name=>node.inputs?.some(input=>input.name===name&&input.link!=null);
   const useLegacyLinks=()=>
     (isLinked('megapixels')||isLinked('aspect'))&&!isLinked('width')&&!isLinked('height');

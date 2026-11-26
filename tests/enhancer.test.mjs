@@ -35,7 +35,12 @@ test('timeline and output edits preserve both AI fields through project reload a
  }
  restoreOriginal(p,targets[1]);p.shots[0].seconds=8;assert.equal(resolveText(p,targets[1]).status,'off');
  activateEntry(p,p.prompt_enhancer.texts[1]);assert.equal(resolveText(p,targets[1]).status,'enhanced');
- p.shots[0].prompt='Rewritten original';assert.equal(resolveText(p,targets[1]).status,'stale');
+ p.shots[0].prompt='Rewritten original';p.global_prompt='Rewritten common';
+ assert.equal(resolveText(p,targets[1]).status,'enhanced');assert.equal(resolveText(p,targets[0]).status,'enhanced');
+ restoreOriginal(p,targets[1]);p=loadProject(saveProject(p));
+ assert.equal(resolveText(p,targets[1]).text,'Rewritten original');
+ activateEntry(p,p.prompt_enhancer.texts.find(e=>e.target.field==='prompt'));
+ assert.equal(resolveText(p,targets[1]).text,'AI_prompt');
  assert.equal(p.prompt_enhancer.texts[1].text,'AI_prompt');
  p.shots[0].prompt='SHOT';p.shots[0].refs=[2];
  assert.equal(resolveText(p,targets[1]).status,'stale');

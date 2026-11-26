@@ -4,6 +4,30 @@ from __future__ import annotations
 import sys
 
 
+def _review_targets(prompt, engine_id):
+    """Select the Engine and output nodes downstream of that Engine only."""
+    from collections import defaultdict
+
+    consumers = defaultdict(list)
+    for node_id, node in prompt.items():
+        for value in node.get('inputs', {}).values():
+            if isinstance(value, list) and len(value) == 2 and isinstance(value[1], int):
+                consumers[str(value[0])].append(node_id)
+    classes = getattr(sys.modules.get('nodes'), 'NODE_CLASS_MAPPINGS', {})
+    pending = list(consumers[engine_id])
+    visited = {engine_id}
+    targets = [engine_id]
+    while pending:
+        node_id = pending.pop()
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        if getattr(classes.get(prompt[node_id].get('class_type')), 'OUTPUT_NODE', False):
+            targets.append(node_id)
+        pending.extend(consumers[node_id])
+    return targets
+
+
 def prepare_video_prompt(request):
     """Copy only EZ inputs that need filtering; leave the saved workflow intact.
 
@@ -24,9 +48,14 @@ def prepare_video_prompt(request):
         if isinstance(inputs, dict) and any(key in inputs for key in ('prompt_clip','ai_instruction')):
             updates[node_id] = {**node, 'inputs': {key: value for key, value in inputs.items()
                                                  if key not in ('prompt_clip','ai_instruction')}}
-    if not updates:
-        return request
-    return {**request, 'prompt': {**prompt, **updates}}
+    if updates:
+        request = {**request, 'prompt': {**prompt, **updates}}
+    export_engine = request.get('h3ez_review_export')
+    if isinstance(export_engine, str):
+        node = prompt.get(export_engine, {})
+        if node.get('class_type') == 'H3ContinuumEZEngine' and node.get('inputs', {}).get('execution_control'):
+            request = {**request, 'partial_execution_targets': _review_targets(prompt, export_engine)}
+    return request
 
 
 def register_prompt_handler(server=None):

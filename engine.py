@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import ExitStack, nullcontext
-from functools import wraps
+from functools import partial, wraps
 from . import storage
 from .version import __version__
 from .vendor.continuum import storage_settings
@@ -71,15 +71,238 @@ def _managed_run(function):
     return call
 
 
+def _sample_part(plan, g, shot_layout, *, model, clip, video_vae, audio_vae,
+                 sampler, sigmas, seed, width, height, paths, external, audio_master,
+                 previous, audit_mode, audit_records, emit, event, variation=0):
+    """Prepare and sample one part, then hand only CPU latents to the decoder."""
+    part_number = g['index'] + 1
+    context_frames, score, reason = 0, 0., 'scene start'
+    if previous is not None:
+        context_frames, score, reason = choose_context_frames(V2_CONTINUITY_AUTO, previous)
+        shape = make_extension_shape(context_frames, g['seconds'])
+        physical = shape.total_frames
+        if shape.net_new_frames != g['frames']: raise RuntimeError('Planner/core frame disagreement')
+    else:
+        physical = g['frames']
+    shot = plan['shots'][g['shot_index']]
+    # At most the current part's sources/conditioning exist. Pillow shrinks
+    # before float32 conversion; no all-shot image or conditioning cache.
+    refs = effective_references(plan, shot)
+    image_ids = {plan['reference_slots'][r-1] for r in refs}
+    image_ids.update(x for x in (g['first_image'],g['last_image']) if x)
+    images = {aid:load_image(paths[aid], (width,height)) for aid in image_ids}
+    identity = prepare_identity_assets(video_vae,width=width,height=height,
+        first_frame=images.get(g['first_image']),last_frame=images.get(g['last_image']))
+    padded = [images[plan['reference_slots'][r-1]] for r in refs]+[None]*(9-len(refs))
+    ra = prepare_reference_assets(reference_image_1=padded[0],reference_image_2=padded[1],
+        reference_image_3=padded[2],image_references=ReferenceImageBundle(tuple(padded[3:])),
+        output_width=width,output_height=height,size_mode='Match Output')
+    ra = encode_reference_latents(video_vae, ra) if ra else None
+    text, picture_map = compile_part_prompt(plan, g, external, geometry=shot_layout)
+    if ra:
+        base = encode_reference_prompt(clip,text,ra,first_image=identity.first_image,last_image=identity.last_image)
+    else:
+        base = encode_prompt_conditioning(clip,text,first_image=identity.first_image,last_image=identity.last_image)
+    latent = empty_h3_latent(width, height, physical)
+    conditioning = attach_keyframes(base, frame_count=physical, first_latent=identity.first_latent, last_latent=identity.last_latent)
+    protected = None
+    audit_context = None
+    if previous is not None:
+        vc, ac, phase = select_context(previous, context_frames, include_audio=True)
+        protected = (vc, ac, context_fingerprint(vc, ac))
+        conditioning = prepare_conditioning(conditioning, video_context=vc, audio_context=ac,
+                     audio_grid_offset=phase, context_frames=context_frames, new_frame_count=physical,
+                     first_frame_policy=POLICY_REPLACE, preserve_last_frame=g['last_image'] is not None)
+    guide = None
+    if audio_master is not None:
+        rate = int(audio_master['sample_rate'])
+        start = round((g['start_frame']-context_frames)*rate/FPS)
+        count = round(physical*rate/FPS)
+        window = audio_master['waveform'][...,start:start+count]
+        if window.shape[-1]<count: window=torch.nn.functional.pad(window,(0,count-window.shape[-1]))
+        source=prepare_driving_audio_source({'waveform':window,'sample_rate':rate},audio_vae,target_frames=physical,fps=FPS)
+        audio_assets=encode_driving_audio(source,audio_vae)
+        guide=slice_driving_audio_latent(audio_assets,cumulative_retained_before=0,total_frames=physical,trim_frames=0,fps=FPS)
+        del window,source,audio_assets
+    conditioning = attach_driving_audio(conditioning, guide)
+    if audit_mode != 'off' and protected is not None:
+        try:
+            audit_context = inspect_context(
+                conditioning, video_context=vc, audio_context=ac,
+                context_frames=context_frames, audio_grid_offset=phase,
+            )
+        except Exception as exc:
+            # Diagnostics must not stop report mode or expose input contents.
+            audit_context = {'metadata_ok': False, 'metadata_errors': [
+                'context inspection failed: ' + type(exc).__name__]}
+    audit_profiler = (
+        LayoutValidationProfiler(route_markers='h3ez-reference_context_v1')
+        if audit_mode != 'off' and protected is not None else None
+    )
+    chunk_model = clone_model_for_chunk(model, strict=False, debug=False, chunk_index=part_number,
+                                        context_frames=context_frames or None,
+                                        validation_profiler=audit_profiler)
+    shot_seed = derive_chunk_seed(seed, g['shot_index'], 0)
+    actual_seed = shot_seed if g['part_index']==0 else derive_chunk_seed(shot_seed,g['part_index'],0)
+    if variation:
+        actual_seed = derive_chunk_seed(actual_seed, g['index'], variation)
+    LOG.info('EZ Shot %d/%d part %d/%d: %.3fs seed=%s context=%df (%s)',
+             g['shot_index']+1,len(plan['shots']),g['part_index']+1,g['part_count'],
+             g['seconds'],actual_seed,context_frames,reason)
+    emit('sampling', **event)
+    sampled = sample_chunk(model=chunk_model, conditioning=conditioning, latent=latent,
+                           sampler=sampler, sigmas=sigmas, seed=actual_seed, enable_preview=True)
+    if protected: assert_context_unchanged(*protected)
+    if audit_mode != 'off':
+        proof = build_audit_record(
+            part=part_number, shot=g['shot_index']+1, transition=g['transition'],
+            context_frames=context_frames, motion_score=score,
+            selection_reason=reason, context=audit_context, profiler=audit_profiler,
+        )
+        audit_records.append(proof)
+        if not proof['ok']:
+            LOG.warning('H3EZ_CONTINUITY_AUDIT %s', json.dumps(proof, sort_keys=True, allow_nan=False))
+            if audit_mode == 'assert':
+                raise RuntimeError('H3EZ continuity audit failed; inspect continuation evidence in server log')
+    video, audio = latent_to_cpu(sampled)
+    stored = latent_from_cpu(video, audio)
+    next_state = capture_state(stored, source_frame_count=physical, clip_index=part_number,
+                               capacity_frames=largest_context_capacity(g['frames']))
+    record = {'shot': g['shot_index']+1, 'seed': actual_seed, 'context_frames': context_frames,
+              'physical_frames': physical, **g, 'picture_map': picture_map}
+    return stored, next_state, record
+
+
+def _decode_part(video_vae, latent, *, width, height, record, previous_tail):
+    """Trim the reproduced context and apply the existing seam correction."""
+    physical = record['physical_frames']
+    trim = record['context_frames']
+    raw = decode_video(video_vae, latent)
+    if raw.shape[0] < physical: raise RuntimeError('Video VAE returned fewer frames than requested')
+    if raw.shape[1:3] != (height, width): raise RuntimeError('Video VAE changed output geometry')
+    if not bool(torch.isfinite(raw).all()): raise RuntimeError('Decoded video contains NaN/Inf')
+    part = raw[trim:physical]
+    if part.shape[0] != record['frames']: raise RuntimeError('Decoded video count mismatch')
+    if previous_tail is not None:
+        _cancel()
+        prefix, seam = correct_boundary(previous_tail, part)
+        if prefix is not None:
+            part[:prefix.shape[0]].copy_(prefix)
+        record['seam'] = seam
+        LOG.info('EZ boundary part %d: %s', record['index']+1, seam)
+        del prefix
+    # A clone is essential: a view would pin the entire decoded chunk in RAM.
+    return part, part[-TAIL_FRAMES:].clone().contiguous()
+
+
+def _audio_window(audio_vae, latent, record, master):
+    start_frame, frames = record['start_frame'], record['frames']
+    if master is not None:
+        rate = master['sample_rate']
+        start = round(start_frame * rate / FPS)
+        stop = round((start_frame + frames) * rate / FPS)
+        return rate, master['waveform'][..., start:stop]
+    decoded = decode_audio(audio_vae, latent)
+    rate, wav = decoded['sample_rate'], decoded['waveform']
+    if not bool(torch.isfinite(wav).all()):
+        raise RuntimeError('Decoded audio contains NaN/Inf')
+    wanted = round((start_frame + frames) * rate / FPS) - round(start_frame * rate / FPS)
+    source_start = round(record['context_frames'] * rate / FPS)
+    wave_part = wav[..., source_start:source_start + wanted]
+    missing = wanted - wave_part.shape[-1]
+    if missing > math_ceil_sample_tick(rate):
+        raise RuntimeError('Decoded audio is shorter than its H3 frame grid allows')
+    return rate, torch.nn.functional.pad(wave_part, (0, missing)) if missing else wave_part
+
+
+def _review_proxy(run, images, rate, wave, *, before=(), start=0, end=None, boundary=None):
+    from itertools import chain
+    from .preview_session import PreviewSession
+    from .stream_video import StreamVideo
+
+    small = PreviewSession._small
+    height, width = small(images[0]).shape[:2]
+    subfolder = f'h3_continuum_ez/runs/{run.run}/previews'
+    output_root = run.folder.parents[2]
+    with StreamVideo(output_root, width, height, FPS, _cancel, subfolder=subfolder,
+                     preset='ultrafast', crf='28') as writer:
+        writer.configure_audio(rate, wave.shape[1])
+        writer.append(chain(before, (small(frame) for frame in images)))
+        info = writer.finish({'waveform': wave, 'sample_rate': rate}, len(before) + len(images))
+    return {**info, 'start': start, 'end': end, 'boundary': boundary}
+
+
+def _review_candidate(run, parts, geometry, sample, master, video_decoder, audio_vae, width, height, emit):
+    """Generate or recover the current candidate while rereading only its accepted parent."""
+    from .preview_session import PreviewSession
+
+    index = len(run.state['accepted'])
+    g = parts[index]
+    accepted = run.state['accepted']
+    pending = run.state['pending']
+    raw = pending['raw']
+    previous_raw = accepted[-1] if accepted else None
+    previous = None
+    previous_latent = None
+    event = dict(shot_id=g['shot_id'], part_index=g['part_index'], part_count=g['part_count'])
+    if previous_raw:
+        previous_latent = run.load_raw(previous_raw)
+    if raw is None:
+        if previous_latent is not None and g['transition'] != 'cut':
+            parent = previous_raw['record']
+            previous = capture_state(previous_latent, source_frame_count=parent['physical_frames'],
+                                     clip_index=index, capacity_frames=largest_context_capacity(parent['frames']))
+        emit('preparing', **event)
+        latent, _, record = sample(g, geometry[g['shot_index']], previous=previous, event=event,
+                                    variation=run.state['variation'])
+        raw = run.save_raw(latent, record)
+    else:
+        latent = run.load_raw(raw)
+    _cancel()
+    emit('decoding', **event)
+    tail, left, left_wave, left_rate = None, None, None, None
+    if previous_latent is not None:
+        parent = dict(previous_raw['record'])
+        prior_tail = None
+        if parent['transition'] != 'cut' and len(accepted) > 1:
+            earlier = accepted[-2]
+            prior_frames, prior_tail = _decode_part(video_decoder, run.load_raw(earlier), width=width, height=height,
+                                                    record=dict(earlier['record']), previous_tail=None)
+            del prior_frames
+        previous_frames, tail = _decode_part(video_decoder, previous_latent, width=width, height=height,
+                                             record=parent, previous_tail=prior_tail)
+        left = [PreviewSession._small(frame).clone() for frame in previous_frames[-48:]]
+        del previous_frames
+        left_rate, wave = _audio_window(audio_vae, previous_latent, parent, master)
+        stop = parent['start_frame'] + parent['frames']
+        count = round(stop * left_rate / FPS) - round((stop - len(left)) * left_rate / FPS)
+        left_wave = wave[..., -count:].clone()
+        del wave, previous_latent
+    record = dict(raw['record'])
+    images, _ = _decode_part(video_decoder, latent, width=width, height=height, record=record,
+                             previous_tail=tail if g['transition'] != 'cut' else None)
+    rate, wave = _audio_window(audio_vae, latent, record, master)
+    preview = _review_proxy(run, images, rate, wave, start=g['start'], end=g['end'])
+    join = None
+    if left is not None and left_rate == rate:
+        right_frames = min(len(images), 72)
+        count = round((g['start_frame'] + right_frames) * rate / FPS) - round(g['start_frame'] * rate / FPS)
+        join = _review_proxy(run, images[:right_frames], rate, torch.cat((left_wave, wave[..., :count]), dim=-1), before=left,
+                             boundary=len(left) / FPS)
+    run.ready({**raw, 'record': record}, preview, join)
+    emit('part_complete', **event, clip=preview)
+
+
 @_managed_run
 @torch.inference_mode()
 def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
                timeline: dict, seed: int, input_root: Path, width: int | None = None,
                height: int | None = None, megapixels: float | None = None, aspect: str | None = None,
                buffer_backend='RAM', output_mode='Images', output_root=None, video_result=None,
-               progress=None, preview_session=None, _stack=None):
+               progress=None, preview_session=None, review=None, video_decode_vae=None, _stack=None):
     from comfy import model_base
 
+    video_decoder = video_vae if video_decode_vae is None else video_decode_vae
     music_model_type = getattr(model_base, 'MiniMaxMusic3', None)
     if music_model_type is not None and isinstance(getattr(model, 'model', None), music_model_type):
         raise PlanError('MODEL is MiniMax Music3. Select a MiniMax H3 video model in the upstream loader.')
@@ -107,14 +330,14 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         raise PlanError('EZ requires a descending full-denoise SIGMAS schedule ending at zero')
     if audio_vae is None: raise PlanError('Connect the H3 Audio VAE')
     geometry = shot_geometry(plan)
-    parts = execution_plan(plan)
+    parts = execution_plan(plan, geometry=geometry)
     audit_mode = get_audit_mode()
     audit_records = []
     emit = progress or (lambda *a, **kw: None)
     total_frames = sum(g['frames'] for g in geometry)
     by_id = {a['id']: a for a in plan['assets']}
     # Validate every referenced input before expensive model work.
-    used = used_asset_ids(plan)
+    used = used_asset_ids(plan, parts=parts)
     paths = {aid: asset_path(asset, input_root) for aid, asset in by_id.items() if aid in used}
     if legacy_size:
         first = parts[0]['first_image']
@@ -125,6 +348,24 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         )
     plan, assist_warnings = verified_plan(plan, input_root)
     for warning in assist_warnings: LOG.warning('Prompt enhancer: %s', warning)
+    review_store = None
+    if review:
+        from .review_contract import run_identity
+
+        review_store, command, source_graph = review
+        identity = run_identity(timeline, input_root, width, height, sigmas, output_mode, source_graph)
+        operation = review_store.begin(command, identity, len(parts), seed)
+        if operation is None:
+            return None
+        if operation != 'export':
+            emit('start', parts=parts)
+            master = render_original_audio(plan, input_root, total_frames, stack=_stack, cancel=_cancel)
+            sample = partial(_sample_part, plan, model=model, clip=clip, video_vae=video_vae, audio_vae=audio_vae,
+                             sampler=sampler, sigmas=sigmas, seed=seed, width=width, height=height, paths=paths,
+                             external=external, audio_master=master, audit_mode=audit_mode,
+                             audit_records=audit_records, emit=emit)
+            _review_candidate(review_store, parts, geometry, sample, master, video_decoder, audio_vae, width, height, emit)
+            return None
     estimate = total_frames * width * height * 3 * 4
     if streaming:
         # Only the largest working chunk needs decoding; no full-length IMAGE buffer.
@@ -143,124 +384,31 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
     previous, records, previous_tail = None, [], None
     frames_out, generated_audio, audio_rate = None, None, None
     image_allocation = audio_allocation = None
-    for i, g in enumerate(parts):
+    for g in parts:
         _cancel()
-        shot = plan['shots'][g['shot_index']]
         event = dict(shot_id=g['shot_id'],part_index=g['part_index'],part_count=g['part_count'])
         emit('preparing', **event)
         if g['transition'] == 'cut':
             previous = previous_tail = None
-        context_frames, score, reason = 0, 0., 'scene start'
-        if previous is not None:
-            context_frames, score, reason = choose_context_frames(V2_CONTINUITY_AUTO, previous)
-            shape = make_extension_shape(context_frames, g['seconds'])
-            physical = shape.total_frames
-            if shape.net_new_frames != g['frames']: raise RuntimeError('Planner/core frame disagreement')
+        shot_layout = geometry[g['shot_index']]
+        if review_store:
+            raw = review_store.state['accepted'][g['index']]
+            latent = review_store.load_raw(raw)
+            record = dict(raw['record'])
         else:
-            physical = g['frames']
-        # At most the current part's sources/conditioning exist. Pillow shrinks
-        # before float32 conversion; no all-shot image or conditioning cache.
-        refs = effective_references(plan, shot)
-        image_ids = {plan['reference_slots'][r-1] for r in refs}
-        image_ids.update(x for x in (g['first_image'],g['last_image']) if x)
-        images = {aid:load_image(paths[aid], (width,height)) for aid in image_ids}
-        identity = prepare_identity_assets(video_vae,width=width,height=height,
-            first_frame=images.get(g['first_image']),last_frame=images.get(g['last_image']))
-        padded = [images[plan['reference_slots'][r-1]] for r in refs]+[None]*(9-len(refs))
-        ra = prepare_reference_assets(reference_image_1=padded[0],reference_image_2=padded[1],
-            reference_image_3=padded[2],image_references=ReferenceImageBundle(tuple(padded[3:])),
-            output_width=width,output_height=height,size_mode='Match Output')
-        ra = encode_reference_latents(video_vae, ra) if ra else None
-        text, picture_map = compile_part_prompt(plan,g,external)
-        if ra:
-            base = encode_reference_prompt(clip,text,ra,first_image=identity.first_image,last_image=identity.last_image)
-        else:
-            base = encode_prompt_conditioning(clip,text,first_image=identity.first_image,last_image=identity.last_image)
-        latent = empty_h3_latent(width, height, physical)
-        conditioning = attach_keyframes(base, frame_count=physical, first_latent=identity.first_latent, last_latent=identity.last_latent)
-        protected = None
-        audit_context = None
-        if previous is not None:
-            vc, ac, phase = select_context(previous, context_frames, include_audio=True)
-            protected = (vc, ac, context_fingerprint(vc, ac))
-            conditioning = prepare_conditioning(conditioning, video_context=vc, audio_context=ac,
-                         audio_grid_offset=phase, context_frames=context_frames, new_frame_count=physical,
-                         first_frame_policy=POLICY_REPLACE, preserve_last_frame=g['last_image'] is not None)
-        guide = None
-        if audio_master is not None:
-            rate = int(audio_master['sample_rate'])
-            start = round((g['start_frame']-context_frames)*rate/FPS)
-            count = round(physical*rate/FPS)
-            window = audio_master['waveform'][...,start:start+count]
-            if window.shape[-1]<count: window=torch.nn.functional.pad(window,(0,count-window.shape[-1]))
-            source=prepare_driving_audio_source({'waveform':window,'sample_rate':rate},audio_vae,target_frames=physical,fps=FPS)
-            audio_assets=encode_driving_audio(source,audio_vae)
-            guide=slice_driving_audio_latent(audio_assets,cumulative_retained_before=0,total_frames=physical,trim_frames=0,fps=FPS)
-            del window,source,audio_assets
-        conditioning = attach_driving_audio(conditioning, guide)
-        if audit_mode != 'off' and protected is not None:
-            try:
-                audit_context = inspect_context(
-                    conditioning, video_context=vc, audio_context=ac,
-                    context_frames=context_frames, audio_grid_offset=phase,
-                )
-            except Exception as exc:
-                # Diagnostics must not stop report mode or expose input contents.
-                audit_context = {'metadata_ok': False, 'metadata_errors': [
-                    'context inspection failed: ' + type(exc).__name__]}
-        audit_profiler = (
-            LayoutValidationProfiler(route_markers='h3ez-reference_context_v1')
-            if audit_mode != 'off' and protected is not None else None
-        )
-        chunk_model = clone_model_for_chunk(model, strict=False, debug=False, chunk_index=i+1,
-                                            context_frames=context_frames or None,
-                                            validation_profiler=audit_profiler)
-        shot_seed = derive_chunk_seed(seed, g['shot_index'], 0)
-        actual_seed = shot_seed if g['part_index']==0 else derive_chunk_seed(shot_seed,g['part_index'],0)
-        LOG.info('EZ Shot %d/%d part %d/%d: %.3fs seed=%s context=%df (%s)',
-                 g['shot_index']+1,len(geometry),g['part_index']+1,g['part_count'],g['seconds'],actual_seed,context_frames,reason)
-        emit('sampling', **event)
-        sampled = sample_chunk(model=chunk_model, conditioning=conditioning, latent=latent,
-                               sampler=sampler, sigmas=sigmas, seed=actual_seed, enable_preview=True)
-        if protected: assert_context_unchanged(*protected)
-        if audit_mode != 'off':
-            proof = build_audit_record(
-                part=i+1, shot=g['shot_index']+1, transition=g['transition'],
-                context_frames=context_frames, motion_score=score,
-                selection_reason=reason, context=audit_context, profiler=audit_profiler,
+            latent, previous, record = _sample_part(
+                plan, g, shot_layout, model=model, clip=clip,
+                video_vae=video_vae, audio_vae=audio_vae, sampler=sampler, sigmas=sigmas,
+                seed=seed, width=width, height=height, paths=paths, external=external,
+                audio_master=audio_master, previous=previous, audit_mode=audit_mode,
+                audit_records=audit_records, emit=emit, event=event,
             )
-            audit_records.append(proof)
-            if not proof['ok']:
-                LOG.warning('H3EZ_CONTINUITY_AUDIT %s', json.dumps(proof, sort_keys=True, allow_nan=False))
-                if audit_mode == 'assert':
-                    raise RuntimeError('H3EZ continuity audit failed; inspect continuation evidence in server log')
-        video, audio = latent_to_cpu(sampled)
-        stored = latent_from_cpu(video, audio)
-        previous = capture_state(stored, source_frame_count=physical, clip_index=i+1,
-                                 capacity_frames=largest_context_capacity(g['frames']))
-        records.append({'shot':g['shot_index']+1,'seed':actual_seed,'context_frames':context_frames,
-                        'physical_frames':physical,**g,'picture_map':picture_map})
-        del sampled,chunk_model,conditioning,latent,guide,video,audio,images,padded,ra,identity,base,protected
-        latent, trim = stored, context_frames
-        del stored
+        records.append(record)
         _cancel()
         emit('decoding', **event)
-        raw = decode_video(video_vae, latent)
-        if raw.shape[0] < physical: raise RuntimeError('Video VAE returned fewer frames than requested')
-        if raw.shape[1:3] != (height, width): raise RuntimeError('Video VAE changed output geometry')
-        if not bool(torch.isfinite(raw).all()): raise RuntimeError('Decoded video contains NaN/Inf')
-        part = raw[trim:physical]
-        if part.shape[0] != g['frames']: raise RuntimeError('Decoded video count mismatch')
-        if previous_tail is not None:
-            _cancel()
-            prefix, seam = correct_boundary(previous_tail, part)
-            if prefix is not None:
-                part[:prefix.shape[0]].copy_(prefix)
-            records[-1]['seam'] = seam
-            LOG.info('EZ boundary part %d: %s', i+1, seam)
-            del prefix
-        # A clone is essential: a view would pin the entire decoded chunk in RAM.
-        previous_tail = part[-TAIL_FRAMES:].clone().contiguous()
+        part, previous_tail = _decode_part(
+            video_decoder, latent, width=width, height=height, record=record, previous_tail=previous_tail,
+        )
         if not streaming:
             if frames_out is None:
                 shape = (total_frames, *part.shape[1:])
@@ -272,28 +420,18 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
             frames_out[g['start_frame']:g['start_frame']+g['frames']].copy_(part)
         # Imported audio is authoritative: do not decode/normalize discarded model audio.
         if audio_master is None:
-            decoded = decode_audio(audio_vae, latent)
-            rate, wav = decoded['sample_rate'], decoded['waveform']
-            if not bool(torch.isfinite(wav).all()): raise RuntimeError('Decoded audio contains NaN/Inf')
+            rate, wave_part = _audio_window(audio_vae, latent, record, None)
             if audio_rate is None:
                 audio_rate = rate
-                shape = (1, wav.shape[1], round(total_frames*rate/FPS))
+                shape = (1, wave_part.shape[1], round(total_frames*rate/FPS))
                 if backend == 'Disk-backed':
-                    audio_allocation = storage.allocate(_stack, shape, wav.dtype)
+                    audio_allocation = storage.allocate(_stack, shape, wave_part.dtype)
                     generated_audio = audio_allocation.tensor
                 else:
-                    generated_audio = torch.empty(shape, dtype=wav.dtype)
+                    generated_audio = torch.empty(shape, dtype=wave_part.dtype)
             elif audio_rate != rate: raise RuntimeError('Audio sample rate changed between shots')
             start = round(g['start_frame']*rate/FPS)
             stop = round((g['start_frame']+g['frames'])*rate/FPS)
-            source_start = round(trim*rate/FPS)
-            wanted = stop-start
-            wave_part = wav[..., source_start:source_start+wanted]
-            missing = wanted-wave_part.shape[-1]
-            if missing > math_ceil_sample_tick(rate):
-                raise RuntimeError('Decoded audio is shorter than its H3 frame grid allows')
-            if missing:
-                wave_part = torch.nn.functional.pad(wave_part, (0, missing))
             generated_audio[..., start:stop].copy_(wave_part)
         track = audio_master if audio_master is not None else {'sample_rate':audio_rate, 'waveform':generated_audio}
         if writer:
@@ -303,12 +441,12 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         if preview_session is not None:
             rate = track['sample_rate']
             segment_audio={'sample_rate':rate,'waveform':track['waveform'][...,round(g['start_frame']*rate/FPS):round((g['start_frame']+g['frames'])*rate/FPS)]}
-            preview=preview_session.append(part,segment_audio,g,geometry[g['shot_index']],_cancel)
+            preview=preview_session.append(part,segment_audio,g,shot_layout,_cancel)
             del segment_audio
         emit('part_complete', **event, **preview)
-        del raw, part, latent
+        del part, latent
         if audio_master is None:
-            del decoded, wav, wave_part
+            del wave_part
         if backend == 'Disk-backed':
             storage.collect()
     previous = previous_tail = None

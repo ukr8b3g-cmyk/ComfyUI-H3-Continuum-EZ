@@ -300,13 +300,15 @@ def effective_references(plan: dict, shot: dict) -> list[int]:
     return sorted(plan['global_refs'] if shot['refs'] is None else shot['refs'])
 
 
-def execution_plan(plan: dict) -> list[dict]:
+def execution_plan(plan: dict, *, geometry=None) -> list[dict]:
     """Partition aligned logical shots without accumulating rounding errors."""
     out = []
     first = plan['shots'][0]['first_image'] or plan['first_image']
     settings = plan.get('chunking', {'enabled':True, 'seconds':DEFAULT_CHUNK_SECONDS})
     unit_limit = max(3, round(float(settings['seconds']) * FPS / 17))
-    for shot, g in zip(plan['shots'], shot_geometry(plan)):
+    if geometry is None:
+        geometry = shot_geometry(plan)
+    for shot, g in zip(plan['shots'], geometry):
         cut = g['index'] == 0 or shot['transition'] == 'cut'
         if g['index'] and cut: first = shot['first_image']
         phase = 5 if cut else 0
@@ -326,9 +328,10 @@ def execution_plan(plan: dict) -> list[dict]:
     return out
 
 
-def dialogue_for_part(plan, shot, part):
+def dialogue_for_part(plan, shot, part, *, geometry=None):
     lines = shot.get('dialogue', [])
-    geometry = shot_geometry(plan)[part['shot_index']]
+    if geometry is None:
+        geometry = shot_geometry(plan)[part['shot_index']]
     selected = []
     for i, line in enumerate(lines):
         at = line.get('at')
@@ -377,13 +380,14 @@ def compile_prompt(plan: dict, shot: dict, *, has_first: bool,
     return assemble_prompt(text, list(mapping.values()), has_first=has_first, continuing=continuing, last_picture=last_picture), mapping
 
 
-def compile_part_prompt(plan, part, external_prompt=None):
+def compile_part_prompt(plan, part, external_prompt=None, *, geometry=None):
     shot = plan['shots'][part['shot_index']]
     from .story_tools import story_text
     extra = story_text(plan, part)
     return compile_prompt(plan, shot, has_first=part['first_image'] is not None,
                           has_last=part['last_image'] is not None, continuing=part['transition']=='continue',
-                          external_prompt=external_prompt, dialogue=dialogue_for_part(plan, shot, part), extra_text=extra)
+                          external_prompt=external_prompt,
+                          dialogue=dialogue_for_part(plan, shot, part, geometry=geometry), extra_text=extra)
 
 
 def preview_prompts(plan: dict, external_prompt: str | None = None) -> list[dict]:
@@ -417,10 +421,11 @@ def audio_clips_for_video(plan, video_end):
     ]
 
 
-def used_asset_ids(plan):
+def used_asset_ids(plan, *, parts=None):
     """One source of truth for inputs needed by actual generation, not the library."""
     used = set()
-    parts = execution_plan(plan)
+    if parts is None:
+        parts = execution_plan(plan)
     for part in parts:
         used.update(x for x in (part['first_image'], part['last_image']) if x)
     for shot in plan['shots']:

@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.13.5 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.5) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)
+[日本語](README_JA.md) · [v0.13.5 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.5) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
 
 # H3 Continuum EZ Studio
 
@@ -31,13 +31,34 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 The P-H3 prompt upsampler is optional. Without it, keep **Original** selected and generate video with the existing wiring. **Generate AI** creates and selects AI text; it does not start a video job. You can edit the AI text or switch back to **Original** before generating video.
 
-Shot AI automatically receives the shot’s active reference images, start/end images, duration and output aspect ratio. Common text stays separate; its AI action receives only common text and shared references. The reference count beside **Generate AI** shows the images sent, with details on hover. No image selector or additional setup is needed. Images are reduced to a bounded total size for AI analysis; original assets are unchanged. Changing shot duration or output size keeps saved AI text and its Original / AI Text selection. If the original text or relevant image or direction changes, Studio uses the original and retains the previous AI text.
+Shot AI automatically receives the shot’s active reference images, start/end images, duration and output aspect ratio. Common text stays separate; its AI action receives only common text and shared references. The reference count beside **Generate AI** shows the images sent, with details on hover. No image selector or additional setup is needed. Images are reduced to a bounded total size for AI analysis; original assets are unchanged.
+
+### When Studio switches to Original
+
+Editing the original keeps the saved **AI Text** available for selection. When reference images or motion settings used to create the selected AI text change, Studio displays **Input changed · AI text saved** and uses **Original** for that field.
+
+| Field | Changes that switch it to Original |
+| --- | --- |
+| **Shot Prompt** | Adding, replacing, or removing the start image, end image, or active reference images. Changing the camera, action steps, reference roles, or the subject name of an assigned image. A change to an earlier start image also applies if the current shot inherits it. |
+| **Common Prompt** | Changing the shared reference images or their subject names. |
+
+If an image used to create the AI text is overwritten at the same path, the server detects the change when preparing video generation and uses **Original** for the affected field.
+
+Restore the previous inputs to reuse the saved AI text, or select **Generate AI Text** to write new text for the current inputs. Changes to shot duration, aspect ratio, MP, or output size keep the saved text and its selection. **AI Instructions** applies to the next request. A result still being generated can be discarded if its inputs change before it is applied.
+
+## Review each part
+
+Select **Review Each Part** in **Candidates** on the right. Use **View Part** or **View Join**, then choose **Accept and Continue** or **Regenerate This Part**. Select **Accept and Export** on the last part to produce the finished video.
+
+Save the workflow in ComfyUI before closing. Reopen Studio from that workflow to see the current candidate and progress. **Resume Review** resumes interrupted sampling, preview creation, or export. The `.h3ez.json` file stores the edit. Review state is saved in ComfyUI’s `h3_continuum_ez/runs` output directory.
+
+The supplied FastH3, REF2VA and PRISM template loader graphs support review. Keep the same models, assets, generation settings, and seed when resuming a review. For other loader graphs, use the usual **Apply and Queue** action. [Review and verification notes](docs/REVIEW_RUNTIME_JA.md)
 
 ## AI instructions
 
 Use **AI Instructions** in the Studio toolbar to edit the system instructions for future **Generate AI** requests. The video default is ready to use; **Reset to Default** restores it. **Save** stores the Studio instruction in the project without rewriting existing AI text or originals. Project save/open also retains it.
 
-If the library has images and the prompt has none assigned, **Generate AI Text** asks whether to add a reference or continue with text only. Saved AI text remains selected when you change the Studio aspect ratio or MP.
+If the library has images and the prompt has none assigned, **Generate AI Text** asks whether to add a reference or continue with text only.
 
 An optional **Engine → ai_instruction** STRING connection takes priority over the Studio instruction. Its upstream text nodes run only when you explicitly generate AI text; the dialog identifies the active external source and retains the local instruction. An empty external value uses the video default. The ordinary video queue does not evaluate this connection, so Original generation remains independent of the AI model and instruction nodes. No template model connections or seed settings need changing.
 
@@ -48,6 +69,11 @@ Shot AI uses the common prompt as read-only context when **Common text on** is s
 **Start with FastH3 OmniRef, eight steps.** [Download H3_Continuum_EZ_Studio_FastH3_OmniRef.json](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json). Model weights and reference media are not bundled.
 
 For **REF2VA + Pika Flex**, [download H3_Continuum_EZ_Studio_REF2VA.json](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json). This workflow needs [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) in `models/diffusion_models/` and [pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) in `models/loras/`. It shares the H3 text encoder, video/audio VAEs and optional AI text model listed below. The Pika LoRA is for REF2VA.
+
+**PRISM DMAD PDMD + Sol** · [Download H3_Continuum_EZ_Studio_PRISM_Sol.json](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json). Use EZ from this repository’s `main` branch for the separate video decoder input. The preset uses Euler / simple, 8 steps by default (7 or 6 selectable), Sol-Attn, and starts at 16:9 and 0.6 MP.
+
+- Diffusion model in `models/diffusion_models/minimax/` · [PRISM_DMAD_PDMD_int8.safetensors](https://huggingface.co/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM/resolve/main/PRISM_DMAD_PDMD_int8.safetensors) · [Civitai version page](https://civitai.red/models/3019421/singularity-v2-x-10eros-max?modelVersionId=3445524). Select the `_int8.safetensors` file on Civitai.
+- Sol video decoder in `models/vae/` · [minimax_h3_sol_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_sol_vae_int8_convrot.safetensors). Keep the shared standard video VAE for encoding input images, the shared audio VAE, and the H3 text encoder listed below.
 
 ### Requirements
 
@@ -72,7 +98,7 @@ The loader boundary comes from [PDD support in ComfyUI v0.42.0](https://github.c
 | Video VAE | `vae_name` | [minimax_h3_video_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors) | `vae/` |
 | Audio VAE | `vae_name_1` | [minimax_h3_audio_vae_fp32.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors) | `vae/` |
 
-If you use a shared model library or a subfolder such as `minimax/`, select the installed filenames on the subgraph. The FastH3 template uses **Euler / simple / 8 steps**, **video shift 12 / audio shift 3**, **Comfy Kitchen attention**, and **VSA 10% over the full interval**. Both templates start at **1:1 and 0.5 MP (704 × 704)**. The `clip_name_1` model powers the optional AI text controls.
+If you use a shared model library or a subfolder such as `minimax/`, select the installed filenames on the subgraph. The FastH3 template uses **Euler / simple / 8 steps**, **video shift 12 / audio shift 3**, **Comfy Kitchen attention**, and **VSA 10% over the full interval**. The FastH3 and REF2VA templates start at **1:1 and 0.5 MP (704 × 704)**. The `clip_name_1` model powers the optional AI text controls.
 
 Use **Output Settings** to tune long-shot splitting or switch to progressive video export for lower memory use. Imported audio is used as the soundtrack when present. For chunk regeneration, resume or Second Pass, use [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum).
 

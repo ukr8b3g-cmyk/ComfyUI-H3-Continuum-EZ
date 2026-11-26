@@ -90,7 +90,11 @@ export function resolveText(p,target,external=null,outputSize=undefined){
   if(!entryIsCurrent(p,x,external,outputSize))return {text:original,status:'stale'};
   return {text:x.text,status:'enhanced'};
 }
-export function compatibleDependencies(saved,current){
+export function compatibleDependencies(saved,current,{ignoreOriginal=false}={}){
+  if(ignoreOriginal){
+    saved={...saved};current={...current};
+    for(const dep of [saved,current]){delete dep.text;delete dep.common;}
+  }
   if(saved.contract===VISUAL_CONTRACT&&current.contract===VISUAL_CONTRACT){
     // Timing and output geometry guide new AI requests. An existing text
     // choice survives these edits, and its receipt still records both values.
@@ -111,7 +115,7 @@ export function entryIsCurrent(p,entry,external=null,outputSize=undefined){
     const saved=entry.dependencies.output;
     const size=outputSize===undefined?(saved?.source==='engine'&&saved.width?saved:null):outputSize;
     const dep=dependencyPayload(p,entry.target,external,entry.dependencies.contract,Boolean(entry.dependencies.common),size);
-    return sha256(dep.text)===entry.base_text_hash&&sha256(canonical(entry.dependencies))===entry.dependency_hash&&compatibleDependencies(entry.dependencies,dep);
+    return sha256(entry.dependencies.text)===entry.base_text_hash&&sha256(canonical(entry.dependencies))===entry.dependency_hash&&compatibleDependencies(entry.dependencies,dep,{ignoreOriginal:true});
   }catch{return false;}
 }
 export function setEnhancer(p,enabled){

@@ -1,4 +1,4 @@
-[English](README.md) · [v0.13.5 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.5) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)
+[English](README.md) · [v0.13.5 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.5) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.5/ComfyUI-H3-Continuum-EZ-v0.13.5.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
 
 # H3 Continuum EZ Studio
 
@@ -33,13 +33,34 @@
 
 P-H3アップサンプラーはAI文章生成用の任意モデルです。未導入でも、配線を変えずに **原文** で動画を生成できます。**AI生成** は文章を作成してAI文へ切り替える操作です。動画の実行前に内容を編集したり、**原文** に戻したりできます。
 
-ショットのAI生成には、そのショットで有効な参照画像・開始画像・最終画像と、秒数・アスペクト比を自動で渡します。共通文は混ぜません。共通プロンプトのAI生成には共通文と共通参照だけを使います。**AI生成** の横に送信する画像の枚数を表示し、詳細はマウスオーバーで確認できます。画像の選択操作や追加設定は不要です。AI解析用の画像は総画素数に上限を設けて縮小し、元画像は変更しません。目標秒数や出力サイズを変えても、保存済みAI文と原文／AI文の選択を維持します。原文や対象の参照画像・演出が変わった場合は原文を使用し、前のAI文は保持します。
+ショットのAI生成には、そのショットで有効な参照画像・開始画像・最終画像と、秒数・アスペクト比を自動で渡します。共通文は混ぜません。共通プロンプトのAI生成には共通文と共通参照だけを使います。**AI生成** の横に送信する画像の枚数を表示し、詳細はマウスオーバーで確認できます。画像の選択操作や追加設定は不要です。AI解析用の画像は総画素数に上限を設けて縮小し、元画像は変更しません。
+
+### AI文が原文に切り替わる条件
+
+原文を編集しても、生成済みの **AI文** はそのまま残り、引き続き切り替えられます。AI文を作るときに使った参照画像や動作設定が変わると、Studioに **入力変更 · AI文は保存済み** と表示され、その欄は **原文** で生成します。
+
+| 欄 | 原文に切り替わる変更 |
+| --- | --- |
+| **ショット本文** | 開始画像・最終画像・有効な参照画像を追加、差し替え、解除する。カメラ・動作ステップ・参照の役割・割り当てた画像の人物名を変える。前のショットから開始画像を引き継いでいる場合は、その開始画像の変更も含みます。 |
+| **共通プロンプト** | 共通参照の画像や人物名を変える。 |
+
+AI文を作るときに使った画像ファイルを同じパスで上書きした場合は、動画生成時にサーバーが変更を検出し、該当する欄の **原文** を使います。
+
+以前の入力に戻せば保存済みのAI文を再利用できます。変更後の入力に合わせて作り直すには **AI文生成** を押してください。目標秒数・縦横比・MP・出力サイズの変更では、保存済みAI文と原文／AI文の選択を維持します。**AI指示** の変更は次回のAI文生成に反映されます。AI文を生成している途中に入力を変えると、生成中の結果が反映されない場合があります。
+
+## 区間ごとに確認
+
+Studio右側の **候補** にある **区間ごとに確認** から始めます。候補ができたら **この区間を見る** または **つなぎを見る** で確認し、**採用して次へ** か **この区間をやり直す** を選びます。最後の候補は **採用して書き出す** で完成動画になります。
+
+途中で閉じる場合はComfyUI側でワークフローを保存します。同じワークフローでStudioを開くと候補と進捗を読み込みます。**処理を再開** は、途切れた生成、表示、書き出しを続けます。`.h3ez.json` は編集内容の保存用です。生成中間データはComfyUI出力の `h3_continuum_ez/runs` に保存されます。
+
+区間確認は付属のFastH3／REF2VA／PRISMテンプレートのモデル読み込み構成に対応します。同じ確認を再開する場合は、生成条件・モデル・素材・シードを揃えてください。他のモデル読み込み構成では従来の **反映・キュー追加** を使用できます。 [確認と検証の詳細](docs/REVIEW_RUNTIME_JA.md)
 
 ## AI指示
 
 Studio上部の **AI指示** から、次回の **AI生成** に使うシステム指示を編集できます。通常は動画向けの標準指示のまま使えます。**標準に戻す** で初期状態へ戻し、**保存** でStudio指示を保存します。既存のAI文・原文は書き換えません。プロジェクト保存・読込にも含まれます。
 
-素材欄に画像があり、参照が未設定なら、**AI文生成** の前に画像を参照へ追加するか、文章だけで生成するかを選べます。Studioで縦横比・MPを変えても、選択中のAI文はそのまま使えます。
+素材欄に画像があり、参照が未設定なら、**AI文生成** の前に画像を参照へ追加するか、文章だけで生成するかを選べます。
 
 任意の **Engine → ai_instruction** STRING入力を接続すると、Studio指示より外部入力を優先します。接続元の文章処理は **AI生成** を押した時だけ実行します。指示画面には外部入力を使用中であることを表示し、Studio内の指示は保持します。外部入力が空欄の場合は動画向け標準を使います。通常の動画生成はこの入力を実行しないため、AIモデルや指示ノードに依存せず **原文** で生成できます。テンプレートのモデル配線やシードを変える必要はありません。
 
@@ -50,6 +71,11 @@ Studio上部の **AI指示** から、次回の **AI生成** に使うシステ�
 **最初はFastH3 OmniRefの8ステップ版を使ってください。** [H3_Continuum_EZ_Studio_FastH3_OmniRef.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json)。モデルと素材画像は含みません。
 
 **REF2VA＋Pika Flex版** は [H3_Continuum_EZ_Studio_REF2VA.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json)。このワークフローには [minimax_h3_ref2va_pruned_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors) を `models/diffusion_models/`、[pika_h3_flex_ref2va_v1_bf16.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors) を `models/loras/` に配置します。H3テキストエンコーダー・映像／音声VAE・任意のAI文章モデルは下表と共通です。Pika LoRAはREF2VA用です。
+
+**PRISM DMAD PDMD＋Sol版** · [H3_Continuum_EZ_Studio_PRISM_Sol.json をダウンロード](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)。動画デコードVAEの個別入力を使うため、このリポジトリの `main` のEZを利用してください。初期値はEuler／simple、8ステップ（7・6に変更可）、Sol-Attn、16:9・0.6 MPです。
+
+- 拡散モデルは `models/diffusion_models/minimax/` · [PRISM_DMAD_PDMD_int8.safetensors](https://huggingface.co/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM/resolve/main/PRISM_DMAD_PDMD_int8.safetensors) · [Civitai版](https://civitai.red/models/3019421/singularity-v2-x-10eros-max?modelVersionId=3445524)。Civitaiでは `_int8.safetensors` を選択してください。
+- 動画デコード用Sol VAEは `models/vae/` · [minimax_h3_sol_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_sol_vae_int8_convrot.safetensors)。入力画像用の標準動画VAE、音声VAE、H3テキストエンコーダーは下表の共通ファイルを使います。
 
 ### 必要環境
 
@@ -74,7 +100,7 @@ Studio上部の **AI指示** から、次回の **AI生成** に使うシステ�
 | 映像VAE | `vae_name` | [minimax_h3_video_vae_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors) | `vae/` |
 | 音声VAE | `vae_name_1` | [minimax_h3_audio_vae_fp32.safetensors](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors) | `vae/` |
 
-Stability Matrixの共有フォルダーや `minimax/` などを使う場合は、サブグラフ上で実際のファイルを選び直します。FastH3テンプレートの設定は **Euler／simple／8ステップ、映像Shift 12／音声Shift 3、Comfy Kitchen attention、VSA 10%・全区間** です。両テンプレートの初期サイズは **1:1・0.5 MP（704 × 704）** です。AI文章生成には `clip_name_1` のモデルを使います。
+Stability Matrixの共有フォルダーや `minimax/` などを使う場合は、サブグラフ上で実際のファイルを選び直します。FastH3テンプレートの設定は **Euler／simple／8ステップ、映像Shift 12／音声Shift 3、Comfy Kitchen attention、VSA 10%・全区間** です。FastH3版とREF2VA版の初期サイズは **1:1・0.5 MP（704 × 704）** です。AI文章生成には `clip_name_1` のモデルを使います。
 
 長いショットの分割やメモリーを抑える動画出力は **出力設定** で選べます。配置した音声がある場合はその音声を使い、ない場合はH3の生成音声を使います。チャンクの再生成・途中再開・Second Passを使う制作には通常版 [H3 Continuum](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum) を利用してください。
 

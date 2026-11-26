@@ -227,7 +227,7 @@ def adopt_request(body, input_root):
     dep=dependency_payload(plan,target,external,previous_dependencies.get('contract', CONTRACT),bool(previous_dependencies.get('common')),output_size)
     is_saved_entry = receipt in plan.get('prompt_enhancer', {}).get('texts', [])
     if (receipt.get('dependency_hash')!=digest(canonical(previous_dependencies))
-            or receipt.get('base_text_hash')!=digest(dep['text'])
+            or receipt.get('base_text_hash')!=digest(previous_dependencies.get('text',''))
             or not compatible_dependencies(previous_dependencies, dep, saved_text=is_saved_entry)):
         raise AssistError('The source changed. Generate a new candidate')
     entry={**receipt, 'text':validate_candidate(body.get('candidate'))}

@@ -316,7 +316,7 @@
     ]
   },
   {
-    "scenario": "stale",
+    "scenario": "original-edited",
     "plan": {
       "schema": 2,
       "assets": [],
@@ -417,8 +417,8 @@
       ]
     },
     "resolved": [
-      "今は座る。",
-      "stale"
+      "より具体的な動作。",
+      "enhanced"
     ],
     "parts": [
       {
@@ -440,7 +440,7 @@
       }
     ],
     "prompts": [
-      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\n今は座る。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
+      "integrated_multimodal_description:\n[Shot 1]\n共通の人物。日本語を保持。\n\nより具体的な動作。\n\noverall_soundscape: Follow the ambience and sound instructions in the description.\n\nnon_diegetic_music: Follow the background music instructions in the description."
     ]
   },
   {

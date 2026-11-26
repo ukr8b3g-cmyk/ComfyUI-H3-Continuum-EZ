@@ -27,16 +27,18 @@ def test_off_on_off_no_destruction():
     p['prompt_enhancer']['enabled']=False
     assert p==original
 
-def test_source_edit_marks_stale():
+def test_source_edit_preserves_selected_ai_text():
     p=plan();add(p,TARGET);p['prompt_enhancer']['enabled']=True;p['shots'][0]['prompt']='座る。'
-    assert resolve_prompt_text(p,TARGET)==('座る。','stale')
+    assert resolve_prompt_text(p,TARGET)==('静かにゆっくりと歩く。','enhanced')
+    p['prompt_enhancer']['texts'][0]['inactive']=True
+    assert resolve_prompt_text(p,TARGET)==('座る。','off')
 
-def test_common_edit_marks_shot_stale():
+def test_common_edit_preserves_selected_ai_shot_text():
     p=plan();add(p,TARGET);p['prompt_enhancer']['enabled']=True
     p['shots'][0]['prompt_mode']='replace'
     assert resolve_prompt_text(p,TARGET)[1]=='enhanced'
     p['global_prompt']='別の場所。'
-    assert resolve_prompt_text(p,TARGET)[1]=='stale'
+    assert resolve_prompt_text(p,TARGET)[1]=='enhanced'
 
 def test_label_change_does_not_invalidate():
     p=plan();add(p,TARGET);p['prompt_enhancer']['enabled']=True;p['shots'][0]['label']='新しい名前'
@@ -46,7 +48,9 @@ def test_external_actual_value():
     p=plan();p['prompt_source']='external';t={'field':'global_prompt'}
     add(p,t,'外部の強化文','actual value A');p['prompt_enhancer']['enabled']=True
     assert resolve_prompt_text(p,t,'actual value A')==('外部の強化文','enhanced')
-    assert resolve_prompt_text(p,t,'actual value B')==('actual value B','stale')
+    assert resolve_prompt_text(p,t,'actual value B')==('外部の強化文','enhanced')
+    p['prompt_enhancer']['texts'][0]['inactive']=True
+    assert resolve_prompt_text(p,t,'actual value B')==('actual value B','off')
 
 def test_schema_roundtrip():
     p=plan();add(p,TARGET);p['prompt_enhancer']['enabled']=True

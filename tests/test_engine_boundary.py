@@ -62,9 +62,9 @@ def runtime(monkeypatch):
     monkeypatch.setattr(engine,'resolve_resolution',lambda *a:(64,32))
     return engine,Model,Clip,VAE,events,records
 
-def call(runtime,tmp_path,p,*,width=64,height=32):
+def call(runtime,tmp_path,p,*,width=64,height=32,**inputs):
     eng,M,C,V,events,records=runtime
-    result=eng.run_engine(model=M(),clip=C(),video_vae=V(),audio_vae=V(True),sampler=object(),sigmas=torch.tensor([1.,.5,0.]),timeline={'plan':p,'external_prompt':None},seed=123,width=width,height=height,input_root=tmp_path)
+    result=eng.run_engine(model=M(),clip=C(),video_vae=V(),audio_vae=V(True),sampler=object(),sigmas=torch.tensor([1.,.5,0.]),timeline={'plan':p,'external_prompt':None},seed=123,width=width,height=height,input_root=tmp_path,**inputs)
     return result
 
 def test_three_shots_original_context_and_cut(runtime,tmp_path):
@@ -106,14 +106,26 @@ def test_model_input_not_patched_globally(runtime,tmp_path):
     eng.run_engine(model=m,clip=C(),video_vae=V(),audio_vae=V(True),sampler=object(),sigmas=torch.tensor([1.,0.]),timeline={'plan':default_plan()},seed=0,megapixels=.1,aspect='16:9',input_root=tmp_path)
     assert m.model_options=={} and m.wrappers=={}
 
-def test_reference_and_first_image_numbers_match_core_path(runtime,tmp_path):
+@pytest.mark.parametrize('separate_decoder', [False, True])
+def test_reference_and_first_image_numbers_match_core_path(runtime,tmp_path,separate_decoder):
     from PIL import Image
     eng,M,C,V,events,records=runtime
     for n in ('first','ref'):Image.new('RGB',(96,64)).save(tmp_path/f'{n}.png')
     p=default_plan();p['assets']=[{'id':n,'kind':'image','label':n,'file':{'name':n+'.png','subfolder':'','type':'input'}} for n in ('first','ref')]
     p['first_image']='first';p['reference_slots'][0]='ref';p['global_refs']=[1];p['global_prompt']='The person in @R1 remains seated.'
     p['shots'].append({**p['shots'][0],'id':'s2','transition':'continue'})
-    call(runtime,tmp_path,p)
+    inputs = {}
+    if separate_decoder:
+        class Decoder(V):
+            def encode(self, _):
+                pytest.fail('The video decoder must never encode an image')
+
+            def decode(self, latent):
+                return super().decode(latent) * .5
+
+        inputs['video_decode_vae'] = Decoder()
+    images, *_ = call(runtime,tmp_path,p,**inputs)
+    assert float(images.mean()) == (.25 if separate_decoder else .5)
     first=records[0]['cond']['positive'][0][1];second=records[1]['cond']['positive'][0][1]
     assert 'The person in <Picture 2> remains seated.' in first['fixture_prompt']
     assert first['minimax_keyframes'][0]['resolved_frame_index']==0
