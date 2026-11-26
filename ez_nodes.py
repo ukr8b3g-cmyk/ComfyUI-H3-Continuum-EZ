@@ -104,7 +104,7 @@ class H3ContinuumEZEngine:
             'buffer_backend': (['Disk-backed', 'Auto', 'RAM'], {'default': 'Disk-backed', 'tooltip': 'Images mode: Disk-backed uses disk buffers to reduce RAM use. Auto selects RAM or disk based on available memory. RAM keeps buffers in memory. Long video always uses disk buffers.'}),
             'output_mode': (['Images', 'Long video'], {'default': 'Images', 'tooltip': 'Studio can choose the output format. Both modes provide an audio/video preview and video output. Long video writes in parts to reduce RAM use. If this workflow also needs image data, image output is enabled automatically without changing any connections.'}),
             'ai_instruction': ('STRING', {'forceInput': True, 'lazy': True, 'tooltip': 'Optional AI system instruction. Used only by Studio AI Generate; takes priority over the Studio instruction. Original video generation does not evaluate this input.'}),},
-            'hidden': {'prompt': 'PROMPT', 'unique_id': 'UNIQUE_ID'}}
+            'hidden': {'prompt': 'PROMPT', 'unique_id': 'UNIQUE_ID', 'extra_pnginfo': 'EXTRA_PNGINFO'}}
 
     @classmethod
     def VALIDATE_INPUTS(cls, width=None, height=None):
@@ -121,6 +121,9 @@ class H3ContinuumEZEngine:
         import folder_paths
         from .engine import run_engine
         prompt, unique_id = kwargs.pop('prompt', None), kwargs.pop('unique_id', None)
+        extra_pnginfo = kwargs.pop('extra_pnginfo', None)
+        workflow = extra_pnginfo.get('workflow') if isinstance(extra_pnginfo, dict) else None
+        workflow_id = workflow.get('id') if isinstance(workflow, dict) else None
         kwargs.pop('prompt_clip', None)
         kwargs.pop('ai_instruction', None)
         timeline = kwargs.get('timeline')
@@ -136,7 +139,7 @@ class H3ContinuumEZEngine:
         exported = {}
         from .progress import GenerationProgress
         from .preview_session import PreviewSession
-        progress = GenerationProgress(timeline or {}, unique_id)
+        progress = GenerationProgress(timeline or {}, unique_id, workflow_id=workflow_id)
         with PreviewSession(getattr(folder_paths,'get_temp_directory',lambda:None)(),
                             folder_paths.get_output_directory(),progress.run_id) as session:
             try:

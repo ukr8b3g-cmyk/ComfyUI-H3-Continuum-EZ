@@ -19,6 +19,8 @@ const SIZE_SOURCE='H3ContinuumEZ.Output.SizeSource';
 const sizeSource=()=>app.extensionManager?.setting?.get?.(SIZE_SOURCE)??app.ui?.settings?.getSettingValue?.(SIZE_SOURCE);
 const mounted=new WeakSet(),editors=new WeakMap(),opening=new WeakSet();
 const queueEditors=new Map();
+const appliedVideoOrder=new WeakMap();
+let videoOrder=0;
 let queueTimer=null,queueRequest=null,queueAgain=false;
 const rootGraph=()=>app.rootGraph||app.graph;
 const seedHosts=new WeakSet();
@@ -80,7 +82,7 @@ function timelineNode(id){
   return (target?.comfyClass||target?.type)===NODE?target:null;
 }
 function onProgress({detail}){
-  if(detail?.node_id==null)return;
+  if(detail?.node_id==null||!detail.workflow_id||detail.workflow_id!==activeWorkflowId())return;
   const node=timelineNode(detail.node_id);if(!node)return;
   if(detail.event==='start'){
     try{if(JSON.stringify(read(widget(node).value))!==JSON.stringify(detail.plan))return;}catch{return;}
@@ -93,15 +95,31 @@ function activeWorkflowId(){
   const workflow=app.extensionManager?.workflow?.activeWorkflow;
   return workflow?.activeState?.id ?? workflow?.initialState?.id;
 }
-function onVideoExecuted({detail}){
-  if(!detail || (detail.workflow_id && detail.workflow_id!==activeWorkflowId()))return;
+async function onVideoExecuted({detail}){
+  const workflowId=activeWorkflowId();
+  if(!detail || !workflowId || (detail.workflow_id!=null && detail.workflow_id!==workflowId))return;
   const record=detail.output?.h3ez_video?.[0];
   if(record?.node_id!=null){
     // Use the Timeline's execution id even when the Engine is inside another subgraph.
     const target=timelineNode(record.node_id);
-    if((target?.comfyClass||target?.type)!==NODE)return;
+    if(!target)return;
     const video=resultVideo(api,record);
     if(!video)return;
+    const order=++videoOrder;
+    if(detail.workflow_id==null){
+      const promptId=detail.prompt_id;
+      if(typeof promptId!=='string'||!promptId)return;
+      try{
+        // Core's executed event carries a prompt ID. The job owns the workflow ID.
+        const response=await api.fetchApi('/jobs/'+encodeURIComponent(promptId));
+        if(!response.ok)return;
+        const job=await response.json();
+        if(job?.id!==promptId||job.workflow_id!==workflowId)return;
+      }catch{return;}
+    }
+    if(activeWorkflowId()!==workflowId||timelineNode(record.node_id)!==target||
+        order<(appliedVideoOrder.get(target)??0))return;
+    appliedVideoOrder.set(target,order);
     target._h3ez_resultVideo=video;
     target._h3ez_progress=null;
     editors.get(target)?.setResult(video);

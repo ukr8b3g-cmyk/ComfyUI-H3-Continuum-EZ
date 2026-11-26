@@ -15,15 +15,25 @@ def test_engine_publishes_preview_without_changing_outputs(monkeypatch, tmp_path
     from h3ezstudio import engine, preview
     monkeypatch.setitem(sys.modules, 'folder_paths', types.SimpleNamespace(
         get_input_directory=lambda: str(tmp_path), get_output_directory=lambda: str(tmp_path)))
+    sent = []
+    server = types.SimpleNamespace(client_id='client', send_sync=lambda *args: sent.append(args))
+    monkeypatch.setitem(sys.modules, 'server', types.SimpleNamespace(PromptServer=types.SimpleNamespace(instance=server)))
     result = (object(), object(), 24., 'report')
-    monkeypatch.setattr(engine, 'run_engine', lambda **kwargs: result)
+    def run(**kwargs):
+        kwargs['progress']('start')
+        return result
+    monkeypatch.setattr(engine, 'run_engine', run)
     monkeypatch.setattr(preview, 'save_preview', lambda *args: {'filename': 'test.mp4', 'subfolder':'h3_continuum_ez'})
     monkeypatch.setitem(sys.modules, 'comfy_api.latest', types.SimpleNamespace(InputImpl=types.SimpleNamespace(VideoFromFile=lambda path: path)))
-    output = ez_nodes.H3ContinuumEZEngine().generate(timeline={'plan': {}, 'source_plan': {'schema': 1}, 'node_id': '42'})
+    output = ez_nodes.H3ContinuumEZEngine().generate(
+        timeline={'plan': {}, 'source_plan': {'schema': 1}, 'node_id': '42'},
+        extra_pnginfo={'workflow': {'id': 'workflow-a'}})
     assert output['result'][:4] == result
     assert output['result'][4].endswith('test.mp4')
     assert output['ui']['h3ez_video'][0]['node_id'] == '42'
     assert output['ui']['h3ez_video'][0]['plan'] == {'schema': 1}
+    assert [detail['event'] for _, detail, _ in sent] == ['start', 'finished']
+    assert all(detail['workflow_id'] == 'workflow-a' for _, detail, _ in sent)
 
 
 def test_failed_export_preserves_generated_outputs(monkeypatch, tmp_path):
