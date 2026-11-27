@@ -29,7 +29,7 @@ def parse_control(value):
         token(control[key])
     if control['candidate'] is not None:
         token(control['candidate'])
-    if control['action'] not in ('next', 'retry', 'resume', 'preview'):
+    if control['action'] not in ('next', 'retry', 'resume', 'preview', 'save'):
         raise ReviewError('Unknown review command')
     if type(control['revision']) is not int or control['revision'] < 0:
         raise ReviewError('Invalid review revision')

@@ -167,6 +167,31 @@ def test_export_resume_uses_checkpoints_without_sampling(runtime, tmp_path, monk
     assert state['complete'] and len(state['accepted']) == len(samples) == 3
 
 
+def test_downstream_save_failure_can_retry_completed_export_without_sampling(runtime, tmp_path):
+    operation, _, _, samples, run, binding = run_review(runtime, tmp_path, 'Long video')
+    for _ in range(3):
+        operation('next')
+    original_samples = len(samples)
+
+    def execute_save(action, *, fail):
+        result, state, _ = operation(action)
+        assert result is not None
+        assert state['complete'] and state['pending'] is None
+        if fail:
+            raise OSError('downstream SaveVideo failed')
+        return state
+
+    with pytest.raises(OSError, match='downstream SaveVideo'):
+        execute_save('next', fail=True)
+    store = ReviewStore(tmp_path, run, binding)
+    accepted = store.read()['accepted']
+    assert store.status()['can_save']
+    with pytest.raises(OSError, match='downstream SaveVideo'):
+        execute_save('save', fail=True)
+    assert execute_save('save', fail=False)['accepted'] == accepted
+    assert len(samples) == len(accepted) == original_samples
+
+
 def test_review_lock_and_checkpoint_integrity(runtime, tmp_path):
     operation, _, _, samples, run, binding = run_review(runtime, tmp_path)
     _, view, _ = operation('next')

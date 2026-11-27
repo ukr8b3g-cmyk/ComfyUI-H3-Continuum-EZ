@@ -57,6 +57,36 @@ test('only the compiled linked Engine is used and final export keeps the seed ex
   assert.equal(JSON.parse(calls[1].prompt['5:8'].inputs.execution_control).candidate,candidate.id);
 });
 
+test('a failed downstream save leaves the completed review available for saving again',async()=>{
+  const {review,calls,states,set,api}=fixture();
+  await review.dispatch('next');
+  const original=api.fetchApi.bind(api);
+  let attempt=0;
+  api.fetchApi=async(route,options)=>{
+    if(route==='/prompt'){
+      const answer=await original(route,options);
+      set({revision:2+attempt,total:2,accepted:2,pending:null,complete:true,can_save:true});
+      attempt++;
+      return answer;
+    }
+    if(route.startsWith('/history/')&&attempt===1){
+      return response({[route.split('/').at(-1)]:{status:{status_str:'error',
+        messages:[['execution_error',{exception_message:'SaveVideo failed'}]]}}});
+    }
+    return original(route,options);
+  };
+  await review.dispatch('next');
+  assert.equal(states.at(-1).error,'SaveVideo failed');
+  assert.equal(states.at(-1).state.can_save,true);
+  await review.dispatch('save');
+  assert.equal(states.at(-1).error,'');
+  assert.equal(calls[2].h3ez_review_export,'5:8');
+  const control=JSON.parse(calls[2].prompt['5:8'].inputs.execution_control);
+  assert.equal(control.action,'save');
+  assert.equal(control.revision,2);
+  assert.equal(control.candidate,null);
+});
+
 test('a refresh cannot silently adopt a different candidate',async()=>{
   const {review,calls,states,set}=fixture();
   await review.dispatch('next');

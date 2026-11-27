@@ -102,6 +102,7 @@ class ReviewStore:
             'candidate': {k: candidate.get(k) for k in ('id', 'preview', 'join', 'record')} if candidate else None,
             'pending': pending['kind'] if pending else None,
             'complete': data.get('complete', False),
+            'can_save': data.get('complete', False) and data.get('can_save', True),
         }
 
     def _commit(self):
@@ -140,7 +141,10 @@ class ReviewStore:
         if command['candidate'] != (candidate['id'] if candidate else None):
             raise ReviewError('The selected candidate changed')
         pending = data['pending']
-        if action == 'resume':
+        if action == 'save':
+            if not data['complete'] or pending is not None or not data.get('can_save', True):
+                raise ReviewError('There is no completed review to save again')
+        elif action == 'resume':
             if pending is None:
                 raise ReviewError('There is no unfinished review operation')
         elif action == 'preview' and candidate and pending is None:
@@ -160,7 +164,7 @@ class ReviewStore:
             raise ReviewError('This action is unavailable in the current review state')
         data['commands'][command_id] = command
         self._commit()
-        return data['pending']['kind']
+        return 'export' if action == 'save' else data['pending']['kind']
 
     def save_raw(self, latent, record):
         from safetensors.torch import save_file
@@ -192,7 +196,8 @@ class ReviewStore:
         self.state['pending'] = None
         self._commit()
 
-    def finish(self):
+    def finish(self, *, can_save=True):
+        self.state['can_save'] = can_save
         self.state['pending'] = None
         self.state['complete'] = True
         self._commit()

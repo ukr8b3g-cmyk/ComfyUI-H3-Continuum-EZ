@@ -198,6 +198,7 @@ const messages = {
   reviewAccept: ["Accept and Continue", "採用して次へ"],
   reviewExport: ["Accept and Export", "採用して書き出す"],
   reviewResume: ["Resume Review", "処理を再開"],
+  reviewSaveAgain: ["Retry Saving", "保存をやり直す"],
   reviewRebuildPreview: ["Rebuild Preview", "プレビューを作り直す"],
   reviewNew: ["New Review", "新しく確認"],
   reviewNewHelp: ["Start a new review? A previously saved workflow can reopen the current review.", "新しい確認を開始しますか？現在の確認は、保存済みのワークフローから開けます。"],

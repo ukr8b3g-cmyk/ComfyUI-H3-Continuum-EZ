@@ -64,7 +64,7 @@ export function createReview({api,node,workflow,nodeIds,compile,attached,signal,
       guard();
       if((state?.revision??0)!==(initial?.revision??0))throw new Error('reviewStateChanged');
       const final=action==='next'&&state?.candidate&&state.accepted+1===state.total||
-        action==='resume'&&state?.pending==='export';
+        action==='resume'&&state?.pending==='export'||action==='save';
       // Serialize the uint64 from one prompt without asking ComfyUI to advance its widget.
       const id=crypto.randomUUID();
       engine.inputs.execution_control=JSON.stringify({

@@ -1573,8 +1573,9 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
         if(!dirty()||await applyDraft(false))await review.dispatch(action);
       },'secondary');b.disabled=working;b.title=t(label);return b;
     };
+    const canSave=state?.complete&&state.can_save!==false;
     const status=el('span','ez-review-status');status.setAttribute('role','status');
-    status.textContent=working?t('reviewBusy'):state?.complete?t('reviewComplete'):record?
+    status.textContent=working?t('reviewBusy'):canSave&&error?t('reviewPending'):state?.complete?t('reviewComplete'):record?
       t('reviewTarget',record.shot,record.part_index+1,record.part_count):state?.pending?t('reviewPending'):'';
     const items=[el('strong','ez-review-heading',t('reviewCandidates')),status];
     if(!active||!state)items.push(command('reviewStart','next'));
@@ -1586,6 +1587,7 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       if(!state.pending||state.pending==='part')items.push(command(state.accepted+1===state.total?'reviewExport':'reviewAccept','next'));
     }
     if(state?.pending)items.push(command('reviewResume','resume'));
+    if(canSave)items.push(command('reviewSaveAgain','save'));
     if(active){
       const detach=btn(t('reviewNew'),()=>{if(state?.complete||globalThis.confirm(t('reviewNewHelp')))review.replace();});
       detach.disabled=working;detach.title=t('reviewNewHelp');items.push(detach);

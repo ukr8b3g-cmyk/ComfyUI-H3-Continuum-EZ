@@ -197,7 +197,11 @@ class H3ContinuumEZEngine:
         from comfy_api.latest import InputImpl
         video = InputImpl.VideoFromFile(str(Path(folder_paths.get_output_directory()) / preview['subfolder'] / preview['filename']))
         if review:
-            review[0].finish()
+            from .prompt_queue import _review_targets
+
+            engine_id = str(unique_id)
+            can_save = bool(prompt and engine_id in prompt and len(_review_targets(prompt, engine_id)) > 1)
+            review[0].finish(can_save=can_save)
         return {'ui': {'h3ez_video': [preview]}, 'result': (*result, video, not streaming)}
 
 NODE_CLASS_MAPPINGS = {'H3ContinuumEZTimeline': H3ContinuumEZTimeline, 'H3ContinuumEZEngine': H3ContinuumEZEngine}
