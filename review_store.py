@@ -8,8 +8,22 @@ import re
 from uuid import uuid4
 
 
+# Bump when a saved review's conditions or latents cease to be compatible.
+REVIEW_CHECKPOINT_VERSION = 1
+
+
 class ReviewError(ValueError):
     pass
+
+
+def _stored_identity(identity):
+    # Map only the two releases known to have written this checkpoint contract.
+    if 'checkpoint_version' not in identity and identity.get('engine_version') in ('0.13.6', '0.13.7'):
+        legacy = identity.copy()
+        legacy.pop('engine_version')
+        legacy['checkpoint_version'] = 1
+        return legacy
+    return identity
 
 
 def token(value):
@@ -123,11 +137,7 @@ class ReviewStore:
                 'variation': 0, 'commands': {},
             }
         data = self.state
-        saved_identity = data['identity']
-        # The initial v0.13.7 GitHub ZIP still reported 0.13.6. Its review data is compatible.
-        if saved_identity.get('engine_version') == '0.13.6' and identity.get('engine_version') == '0.13.7':
-            saved_identity = {**saved_identity, 'engine_version': '0.13.7'}
-        if saved_identity != identity or data['total'] != total:
+        if _stored_identity(data['identity']) != identity or data['total'] != total:
             raise ReviewError('Generation conditions changed. Restore the inputs or start a new review.')
         if data['seed'] != str(seed):
             raise ReviewError('Seed changed. Restore the original seed or start a new review.')

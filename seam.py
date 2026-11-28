@@ -1,7 +1,7 @@
 """Bounded fixed-time seam correction using Continuum's CPU guards and blend.
 
-Only two previous frames and five current frames are inspected. Never rewind
-the timeline: streamed frames and original audio keep their exact positions.
+The original five-frame guard handles flash and motion. The exposure ramp
+uses reduced comparison frames and patches at most six images at their original times.
 """
 import math
 from dataclasses import replace
@@ -10,6 +10,8 @@ from .vendor.continuum.v2.seam_guard import (
     _auto_rejection_reason, _boundary_metrics, _downsample_rgb, _luma,
     _seam_window_peak, apply_color_guard, apply_video_blend, choose_video_blend,
 )
+
+from .vendor.continuum.review_video_seam import _downsample_rgb as _analysis_rgb, analyze_video_boundary
 
 TAIL_FRAMES = 2
 HEAD_FRAMES = 5
@@ -143,3 +145,86 @@ def correct_boundary(previous_tail, current):
         report['method'] = (report['method']+'+' if report['method']!='native' else '')+'continuum-motion-blend'
         report.update(motion)
     return prefix, report
+
+def exposure_reference(frames):
+    """Keep the analysis history at Continuum's comparison resolution."""
+    return _analysis_rgb(frames[-4:])
+
+
+def _stable_luma_shift(previous, current):
+    """Measure luminance only in tiles with matching spatial detail."""
+    luma = _luma(torch.cat((previous, current)))
+    grid_rows, grid_cols = 6, 8
+    frames, height, width = luma.shape
+    tile_h, tile_w = height // grid_rows, width // grid_cols
+    if min(tile_h, tile_w) < 2:
+        return 0.0
+    tiled = luma[:, :grid_rows * tile_h, :grid_cols * tile_w]
+    tiled = tiled.reshape(frames, grid_rows, tile_h, grid_cols, tile_w)
+    left, right = tiled.permute(0, 1, 3, 2, 4).flatten(1, 2).flatten(2).chunk(2)
+    before, after = left.mean(-1), right.mean(-1)
+    correlation = torch.nn.functional.cosine_similarity(left - before[..., None],
+                                                        right - after[..., None], dim=-1)
+    stable = (correlation > .925) & (left.std(-1) > .012) & (right.std(-1) > .012)
+    if stable.sum().item() < .35 * stable.numel():
+        return 0.0
+    differences = (after - before)[stable]
+    shift = float(differences.median())
+    if abs(shift) < .01 or float((differences * math.copysign(1, shift) > .002).float().mean()) < .8:
+        return 0.0
+    return shift
+
+
+def correct_exposure_ramp(previous, current, overlap):
+    """Fade a verified exposure step over six frames at the original timestamps."""
+    correction_frames = 6
+    if len(previous) < 4 or len(current) <= correction_frames:
+        return None, None
+
+    head = _analysis_rgb(current[:12])
+    analysis = analyze_video_boundary(previous, head, trim_frames=0)
+    if analysis.classification not in ('clean_boundary', 'exposure_ramp', 'motion_hitch'):
+        return None, None
+    boundary_shift = _stable_luma_shift(previous[-1:], head[:1])
+    if not boundary_shift:
+        return None, None
+    # At the same output times, exposure changes in the decoded overlap are
+    # evidence of decoder drift even if the short-window analyzer marks it clean.
+    if analysis.classification != 'exposure_ramp':
+        if len(overlap) < 2:
+            return None, None
+        overlap_shift = _stable_luma_shift(previous[-2:], _analysis_rgb(overlap[-2:]))
+        if not (.4 <= (boundary_shift / overlap_shift if overlap_shift else 0.) <= 1.7):
+            return None, None
+
+    luma_means = _luma(torch.cat((previous[-1:], head[:correction_frames + 1]))).mean((1, 2))
+    fractions = torch.arange(1, correction_frames + 1, dtype=torch.float32) / (correction_frames + 1)
+    targets = torch.lerp(luma_means[0], luma_means[-1], fractions)
+    gains = targets / luma_means[1:-1].clamp_min(.08)
+    if float((gains - 1).abs().max()) > .08:
+        return None, None
+
+    patch = current[:correction_frames].clone()
+    for original, frame, gain in zip(current, patch, gains.tolist()):
+        frame.mul_(gain)
+        if gain > 1 and float(((frame > 1) & (original < .998)).float().mean()) > .005:
+            return None, None
+        frame.clamp_(0, 1)
+
+    candidate = torch.cat((_analysis_rgb(patch), head[correction_frames:]))
+    before = _boundary_metrics(previous, head)
+    after = _boundary_metrics(previous, candidate)
+    peak_before = _exposure_window_peak(previous, head)
+    peak_after = _exposure_window_peak(previous, candidate)
+    result = analyze_video_boundary(previous, candidate, trim_frames=0)
+    if (peak_after > peak_before * .90 or result.flash_luma_shift > analysis.flash_luma_shift * .70
+            or after.edge_norm > before.edge_norm * 1.02 + .0001):
+        return None, None
+    return patch, dict(method='continuum-exposure-ramp', peak_before=peak_before,
+                       peak_after=peak_after, luma_before=analysis.flash_luma_shift,
+                       luma_after=result.flash_luma_shift, frames=correction_frames)
+
+
+def _exposure_window_peak(previous, head):
+    frames = torch.cat((previous[-1:], head))
+    return float(frames.diff(dim=0).abs().mean((1, 2, 3)).max())

@@ -94,3 +94,21 @@ def test_cut_does_not_apply_boundary_correction(runtime,tmp_path,monkeypatch):
     monkeypatch.setattr(eng,'correct_boundary',forbidden)
     eng.run_engine(model=M(),clip=C(),video_vae=V(),audio_vae=V(True),sampler=object(),
         sigmas=torch.tensor([1.,0.]),timeline={'plan':plan},seed=123,width=64,height=32,input_root=tmp_path)
+
+def test_exposure_step_requires_matching_tiles_and_preserves_frame_times():
+    from h3ezstudio.seam import correct_exposure_ramp, exposure_reference
+    generator = torch.Generator().manual_seed(31)
+    texture = torch.rand((48, 64, 3), generator=generator) * .35 + .25
+    previous = texture.repeat(4, 1, 1, 1)
+    current = (texture * 1.06).repeat(24, 1, 1, 1)
+    overlap = (texture * 1.07).repeat(2, 1, 1, 1)
+    before = current.clone()
+    prefix, report = correct_exposure_ramp(exposure_reference(previous), current, overlap)
+    assert prefix.shape[0] == 6 and torch.equal(current, before)
+    assert report['method'] == 'continuum-exposure-ramp'
+    assert report['peak_after'] < report['peak_before'] * .90
+    assert report['luma_after'] < report['luma_before'] * .70
+    unrelated = torch.roll(current, 13, dims=1)
+    assert correct_exposure_ramp(exposure_reference(previous), unrelated, overlap) == (None, None)
+    assert correct_exposure_ramp(exposure_reference(previous), previous.repeat(4, 1, 1, 1),
+                                 overlap) == (None, None)

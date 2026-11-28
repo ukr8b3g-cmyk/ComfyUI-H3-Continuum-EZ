@@ -51,6 +51,8 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
   let previewRunId=null;
   let reviewStatus=null,reviewClip=null,reviewPreviewError=false;
   const reviewPanel=el('div','ez-review');
+  const joinDiagnosis=el('div','ez-join-diagnosis');
+  joinDiagnosis.setAttribute('role','status');
   // Compare the plan only after edits or incoming generation records, never per animation frame.
   let planText=JSON.stringify(p),resultPlanText=resultVideo?JSON.stringify(read(resultVideo.plan)):null,
       generationPlanText=generation?JSON.stringify(generation.plan):null;
@@ -96,6 +98,8 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     activeVideo=source||null;
     if(changed&&activeVideo){videoSize=null;video.src=activeVideo.url;video.currentTime=reviewing?0:Math.max(0,playhead-videoOffset());}
     if(!resultActive()&&!video.paused)pause();
+    joinDiagnosis.hidden=!(reviewing&&reviewClip.diagnosis);
+    joinDiagnosis.textContent=joinDiagnosis.hidden?'':reviewClip.diagnosis;
     video.hidden=!resultActive();
     syncVideoLoop();
     if(!wasSynced && resultActive() && resultMatches)video.currentTime=Math.max(0,playhead-videoOffset());
@@ -1559,9 +1563,25 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
     if(!restored&&resultActive()&&resultMatches)seek(playhead);
     renderTimeline();
   }
-  function playReview(clip){
-      const source=review.makePreview(clip,{part:t('reviewCandidate'),join:position=>t('reviewJoinAt',position.toFixed(2))});
-      if(source){pause();reviewClip=source;previewMode='review';updateResultState();}
+  async function playReview(clip){
+    const source=review.makePreview(clip,{part:t('reviewCandidate'),join:position=>t('reviewJoinAt',position.toFixed(2))});
+    if(!source)return;
+    const isJoin=clip.boundary!=null;
+    if(isJoin)source.diagnosis=t('reviewDiagnosisLoading');
+    pause();reviewClip=source;previewMode='review';updateResultState();
+    if(!isJoin)return;
+    try{
+      const result=await review.diagnoseJoin(clip);
+      if(result.available){
+        const finding=t('reviewClass_'+result.classification);
+        const cut=result.planned_cut?' · '+t('reviewPlannedCut'):'';
+        source.diagnosis=t('reviewDiagnosisResult',result.timeline_seconds.toFixed(2),finding+cut,
+          (result.flash_luma_shift*100).toFixed(1),result.motion_jump_ratio.toFixed(3));
+      }else source.diagnosis=t('reviewDiagnosisShort');
+    }catch{
+      source.diagnosis=t('reviewDiagnosisUnavailable');
+    }
+    if(!closed&&previewMode==='review'&&reviewClip===source)updateResultState();
   }
   function renderReview(){
     if(!review||!reviewStatus)return;
@@ -1593,10 +1613,10 @@ export function openStudio({value,mediaUrl,upload,onApply,onQueue,externalConnec
       detach.disabled=working;detach.title=t('reviewNewHelp');items.push(detach);
     }
     if(error){const detail=el('span','ez-review-error',errorText(error,t));detail.setAttribute('role','alert');items.push(detail);}
-    reviewPanel.replaceChildren(...items);
+    reviewPanel.replaceChildren(...items,joinDiagnosis);
   }
   function setReview(status){
-    if(reviewStatus?.state?.candidate?.id!==status.state?.candidate?.id&&previewMode==='review'){
+    if(previewMode==='review'&&(!status.active||reviewStatus?.state?.candidate?.id!==status.state?.candidate?.id)){
       reviewClip=null;previewMode='layout';updateResultState();
     }
     if(reviewStatus?.state?.candidate?.preview?.filename!==status.state?.candidate?.preview?.filename)reviewPreviewError=false;

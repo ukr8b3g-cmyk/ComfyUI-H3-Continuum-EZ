@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from .review_store import ReviewError, sha_file, token
+from .review_store import REVIEW_CHECKPOINT_VERSION, ReviewError, sha_file, token
 
 
 _FILES = {
@@ -90,11 +90,10 @@ def graph_identity(prompt, engine_id):
 
 def run_identity(timeline, input_root, width, height, sigmas, mode, graph):
     from .plan import fingerprint
-    from .version import __version__
 
     return {
         'plan': fingerprint(timeline['plan'], input_root),
         'external_prompt': hashlib.sha256((timeline.get('external_prompt') or '').encode()).hexdigest(),
         'size': [width, height], 'sigmas': sigmas.detach().cpu().tolist(),
-        'output_mode': mode, 'graph': graph, 'engine_version': __version__,
+        'output_mode': mode, 'graph': graph, 'checkpoint_version': REVIEW_CHECKPOINT_VERSION,
     }

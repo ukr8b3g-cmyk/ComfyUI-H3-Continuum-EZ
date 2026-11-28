@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.8
+
+- Show Continuum boundary diagnostics with **View Join** for saved candidate and accepted previews.
+- Fade qualified brightness steps over six frames in consecutive chunks of a queued render.
+- Retry saving compatible completed reviews from v0.13.7 using the existing accepted chunks.
+- Record the short-join improvement and the residual brightness and pose changes in the 30.67-second GPU comparison. [Validation](docs/RELEASE_v0.13.8_VALIDATION_JA.md).
+
 ## 0.13.7
 
 - Add the PRISM DMAD PDMD + Sol workflow with selectable 8, 7, and 6 steps and an optional separate video decoder VAE.

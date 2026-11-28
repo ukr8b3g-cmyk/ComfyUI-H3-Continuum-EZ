@@ -1,4 +1,4 @@
-[English](README.md) · [v0.13.7 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.7) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.7/ComfyUI-H3-Continuum-EZ-v0.13.7.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
+[English](README.md) · [v0.13.8 リリース](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.8) · [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.8/ComfyUI-H3-Continuum-EZ-v0.13.8.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,7 +6,7 @@
 
 ## はじめに
 
-1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.7/ComfyUI-H3-Continuum-EZ-v0.13.7.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
+1. [配布ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.8/ComfyUI-H3-Continuum-EZ-v0.13.8.zip) を展開し、`ComfyUI-H3-Continuum-EZ` フォルダーを `ComfyUI/custom_nodes/` に置きます。Gitから入れる場合は `custom_nodes` で `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` を実行します。既存のGit導入版は `git pull --ff-only` で更新できます。導入・更新後はComfyUIを再起動し、ブラウザーを更新します。
 2. [FastH3 OmniRef版のワークフローJSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) を保存して、ComfyUIへドラッグします。リンクを右クリックして **名前を付けてリンク先を保存** を選び、拡張子は `.json` のままにします。
 3. 下のモデル表に沿ってモデルを入れ、サブグラフ上のファイル名を確認します。「H3 Continuum EZ Timeline」の **タイムラインStudio** を開きます。テンプレートには1:1・0.5 MPで歌う10秒のショットが入っています。参照画像を使う場合は、手持ちの素材やComfyUIの `example.png` を追加します。
 
@@ -55,6 +55,10 @@ Studio右側の **候補** にある **区間ごとに確認** から始めま�
 途中で閉じる場合はComfyUI側でワークフローを保存します。同じワークフローでStudioを開くと候補と進捗を読み込みます。**処理を再開** は、途切れた生成、表示、書き出しを続けます。`.h3ez.json` は編集内容の保存用です。生成中間データはComfyUI出力の `h3_continuum_ez/runs` に保存されます。
 
 区間確認は付属のFastH3／REF2VA／PRISMテンプレートのモデル読み込み構成に対応します。同じ確認を再開する場合は、生成条件・モデル・素材・シードを揃えてください。他のモデル読み込み構成では従来の **反映・キュー追加** を使用できます。 [確認と検証の詳細](docs/REVIEW_RUNTIME_JA.md)
+
+**つなぎを見る** またはタイムラインの **⋈** を押すと、保存済みの境界プレビューと通常版Continuumの判定が **候補** 欄に出ます。採用済みの区間も確認できます。診断はCPUで行い、生成キューは使いません。
+
+最後の区間を採用した後にComfyUIの **Save Video** で失敗した場合は、出力先を直して **保存をやり直す** を選びます。v0.13.7で保存した互換データは、v0.13.8へ更新した後も再生成せずに書き出しを再試行できます。
 
 ## AI指示
 
@@ -124,6 +128,10 @@ Studio上部の **プロジェクト** から **新規プロジェクト／プ�
 
 未反映の編集がある状態でStudioを閉じるときは、**下書き保存して閉じる／破棄して閉じる／キャンセル** を選べます。同じブラウザーで同じタイムラインを開くと下書きが復元されます。ノード反映やプロジェクトファイルの書き出しは行いません。
 
+## 継続チャンクの境界補正
+
+**反映・キュー追加** で生成する際、継続境界で明るさの段差が検出され、映像の細部やフレーム間の変化量が許容範囲に収まる場合は、境界直後の6フレームで明るさをなじませます。判定には通常版Continuumの境界診断と、同じ時刻の重複フレームを使います。採用済みの区間を書き出すときは、確認時の補正を使います。長い区間で徐々に進む明るさや姿勢の変化は残る場合があります。
+
 ## 音声編集
 
 音声ファイルを音声トラックに直接ドロップするか、素材一覧からドラッグします。クリップは元の長さで0秒に配置し、重なる場合は先頭から探して入る最初の空き位置に置きます。動画ファイルも音声だけ取り込めます。映像はタイムラインへ追加しません。
@@ -135,6 +143,10 @@ Studio上部の **プロジェクト** から **新規プロジェクト／プ�
 詳しい記入例は [プロンプトガイド](docs/EASY_PROMPTS_JA.md) を参照してください。AI文は動画向けに調整した実験機能です。内容を確認してから使ってください。
 
 ## 今回の検証
+
+v0.13.8のFastH3実GPU比較では、10.33秒の映像で継続境界の平均輝度差が **1.51%から0.31%** に減り、境界前後の最大フレーム変化も **約21%** 減りました。**30.67秒・4チャンク** の映像では3つの境界で従来の補正が適用され、全736フレームと音声が修正前後で一致しました。終盤の画面全体の平均輝度は冒頭より **約2.5ポイント** 高く、顔の向きと手の位置の変化も両方に残りました。モデル配線、入力、シードは比較ごとに同一です。[v0.13.8の実GPU検証記録](docs/RELEASE_v0.13.8_VALIDATION_JA.md)。
+
+### 過去のバージョン
 
 v0.13.4はStudio内のキュー操作の反応を明確にしました。ボタンを**確認中・送信中**へ切り替え、送信できない場合は赤色の**未送信**、受付後は緑色と**✓**を表示します。具体的な入力エラーをボタン付近へ表示し、実行・完了・中断の状態とは分離。取りこぼした終了状態は一致する履歴から復元します。普段のComfyUIで実際のマウスクリックから受付・緑✓・Runningを確認し、その後ユーザー自身が停止したと確認しました。生成完了や画質の検証ではありません。公開時の追加の実画面確認・GPU生成は行っていません。[v0.13.4検証記録](docs/RELEASE_v0.13.4_VALIDATION_JA.md)。
 

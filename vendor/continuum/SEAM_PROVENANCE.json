@@ -6,5 +6,13 @@
     "v2/seam_guard.py": "2fd811794c4cc0f2ce050250b80484876454926b9f20fce6af3a97d728e5acdf",
     "v2/seam_types.py": "be0d8585fa57e0ccd6d02577bbc7299629e5bfe20e186747f571fccc98b67d7e"
   },
-  "mode": "byte-identical"
+  "mode": "byte-identical",
+  "review_diagnostics": {
+    "source_distribution": "v3.10.4",
+    "upstream_path": "v3/video_seam.py",
+    "upstream_git_blob": "d4038dcd35993332c6703c3a346824e438c276f2",
+    "mode": "Read-only single-boundary functions and constants extracted unchanged; assembly, correction and plan import omitted.",
+    "path": "review_video_seam.py",
+    "sha256": "2f02add1fb7efcf5466a11b92dcaf03a0b9d2b45743d6360d983e3e3326457a5"
+  }
 }

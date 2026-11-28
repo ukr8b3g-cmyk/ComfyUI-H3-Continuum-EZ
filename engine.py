@@ -31,7 +31,7 @@ from .vendor.continuum.v2.sampling import sample_chunk, latent_to_cpu, latent_fr
 from .vendor.continuum.v2.motion import choose_context_frames
 from .vendor.continuum.v2.seeds import derive_chunk_seed
 from .vendor.continuum.decode_base import decode_video, decode_audio
-from .seam import correct_boundary, TAIL_FRAMES
+from .seam import correct_boundary, correct_exposure_ramp, exposure_reference, TAIL_FRAMES
 
 LOG = logging.getLogger('h3_continuum_ez')
 
@@ -173,7 +173,7 @@ def _sample_part(plan, g, shot_layout, *, model, clip, video_vae, audio_vae,
     return stored, next_state, record
 
 
-def _decode_part(video_vae, latent, *, width, height, record, previous_tail):
+def _decode_part(video_vae, latent, *, width, height, record, previous_tail, refine_exposure=False):
     """Trim the reproduced context and apply the existing seam correction."""
     physical = record['physical_frames']
     trim = record['context_frames']
@@ -185,14 +185,20 @@ def _decode_part(video_vae, latent, *, width, height, record, previous_tail):
     if part.shape[0] != record['frames']: raise RuntimeError('Decoded video count mismatch')
     if previous_tail is not None:
         _cancel()
-        prefix, seam = correct_boundary(previous_tail, part)
+        tail, exposure = previous_tail
+        prefix, seam = correct_boundary(tail, part)
+        if prefix is None and exposure is not None:
+            patch, diagnosis = correct_exposure_ramp(exposure, part, raw[max(0, trim - 2):trim])
+            if patch is not None:
+                prefix, seam = patch, diagnosis
         if prefix is not None:
             part[:prefix.shape[0]].copy_(prefix)
         record['seam'] = seam
         LOG.info('EZ boundary part %d: %s', record['index']+1, seam)
         del prefix
     # A clone is essential: a view would pin the entire decoded chunk in RAM.
-    return part, part[-TAIL_FRAMES:].clone().contiguous()
+    analysis = exposure_reference(part) if refine_exposure else None
+    return part, (part[-TAIL_FRAMES:].clone().contiguous(), analysis)
 
 
 def _audio_window(audio_vae, latent, record, master):
@@ -408,6 +414,8 @@ def run_engine(*, model, clip, video_vae, audio_vae, sampler, sigmas,
         emit('decoding', **event)
         part, previous_tail = _decode_part(
             video_decoder, latent, width=width, height=height, record=record, previous_tail=previous_tail,
+            # Saved reviews retain their original preview and export treatment.
+            refine_exposure=review_store is None,
         )
         if not streaming:
             if frames_out is None:

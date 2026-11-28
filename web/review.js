@@ -115,5 +115,12 @@ export function createReview({api,node,workflow,nodeIds,compile,attached,signal,
     }finally{busy=false;show();}
   }
   const start=()=>{show();return refresh().catch(e=>{error=e.message;show();});};
-  return {start,dispatch,replace,makePreview:(record,labels)=>reviewPreview(api,record,labels)};
+  function diagnoseJoin(clip){
+    guard();
+    const binding=saved();
+    if(!binding||clip.subfolder!==`h3_continuum_ez/runs/${binding.run}/previews`)throw new Error('reviewDiagnosisUnavailable');
+    return json(ROUTE+binding.run+'/join/'+encodeURIComponent(clip.filename),
+      {headers:{'X-H3EZ-Binding':binding.binding},cache:'no-store'});
+  }
+  return {start,dispatch,replace,diagnoseJoin,makePreview:(record,labels)=>reviewPreview(api,record,labels)};
 }

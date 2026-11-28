@@ -44,6 +44,9 @@ def verify():
         if hashlib.sha256((ROOT/'vendor/continuum'/name).read_bytes()).hexdigest()!=expected:
             raise SystemExit('Seam provenance mismatch: '+name)
         preserved+=1
+    analysis=seams['review_diagnostics']
+    if hashlib.sha256((ROOT/'vendor/continuum'/analysis['path']).read_bytes()).hexdigest()!=analysis['sha256']:
+        raise SystemExit('Review diagnosis provenance mismatch')
     print(json.dumps({'package_files':len(records),'preserved_upstream_modules':preserved,'sha256':'PASS','inventory':'PASS'},ensure_ascii=False))
 
 if __name__=='__main__':verify()

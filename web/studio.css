@@ -141,6 +141,7 @@
 .h3ez-studio .ez-review{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-width:0;flex-shrink:0}
 .h3ez-studio .ez-review button{padding:3px 7px;font-size:12px}
 .h3ez-studio .ez-review-status{font-size:12px}
+.h3ez-studio .ez-join-diagnosis{flex-basis:100%;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
 .h3ez-studio .ez-review-status:empty{display:none}
 .h3ez-studio .ez-review-error{flex-basis:100%;overflow-wrap:anywhere;color:#ffc39a;font-size:12px}
 .h3ez-studio .ez-preview-sources{display:grid;min-width:0;gap:5px;flex-shrink:0}

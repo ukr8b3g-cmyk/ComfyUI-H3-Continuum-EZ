@@ -1,4 +1,4 @@
-[日本語](README_JA.md) · [v0.13.7 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.7) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.7/ComfyUI-H3-Continuum-EZ-v0.13.7.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
+[日本語](README_JA.md) · [v0.13.8 release](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/tag/v0.13.8) · [ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.8/ComfyUI-H3-Continuum-EZ-v0.13.8.zip) · [FastH3 OmniRef JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) · [REF2VA JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_REF2VA.json) · [PRISM Sol JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_PRISM_Sol.json)
 
 # H3 Continuum EZ Studio
 
@@ -6,7 +6,7 @@ An interactive ComfyUI timeline powered by the [H3 Continuum](https://github.com
 
 ## Get started
 
-1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.7/ComfyUI-H3-Continuum-EZ-v0.13.7.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
+1. Extract the [release ZIP](https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/releases/download/v0.13.8/ComfyUI-H3-Continuum-EZ-v0.13.8.zip) and place `ComfyUI-H3-Continuum-EZ` in `ComfyUI/custom_nodes/`. For a Git install, run `git clone https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ.git` from `custom_nodes`. Update a Git install with `git pull --ff-only`. Restart ComfyUI and refresh the browser after installing or updating.
 2. Download the [FastH3 OmniRef workflow JSON](https://raw.githubusercontent.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ/refs/heads/main/examples/H3_Continuum_EZ_Studio_FastH3_OmniRef.json) and drag it into ComfyUI. To save it directly, right-click the link and choose **Save link as…**. Keep the `.json` extension.
 3. Install the models below and check their file selections on the subgraph. Open **Timeline Studio** on the H3 Continuum EZ Timeline node. The template starts with a 10-second singing shot at 1:1 and 0.5 MP. For an image reference, add your own image or ComfyUI's `example.png` if available.
 
@@ -53,6 +53,10 @@ Select **Review Each Part** in **Candidates** on the right. Use **View Part** or
 Save the workflow in ComfyUI before closing. Reopen Studio from that workflow to see the current candidate and progress. **Resume Review** resumes interrupted sampling, preview creation, or export. The `.h3ez.json` file stores the edit. Review state is saved in ComfyUI’s `h3_continuum_ez/runs` output directory.
 
 The supplied FastH3, REF2VA and PRISM template loader graphs support review. Keep the same models, assets, generation settings, and seed when resuming a review. For other loader graphs, use the usual **Apply and Queue** action. [Review and verification notes](docs/REVIEW_RUNTIME_JA.md)
+
+**View Join** and the **⋈** marker on the timeline show the saved join preview and its Continuum boundary diagnosis in **Candidates**. This works with accepted parts and runs on CPU without queueing a generation job.
+
+If ComfyUI's **Save Video** fails after the last part is accepted, fix the output destination and choose **Retry Saving**. A compatible review saved by v0.13.7 can retry the export with its existing checkpoints after upgrading to v0.13.8.
 
 ## AI instructions
 
@@ -122,7 +126,7 @@ When closing Studio with unapplied edits, choose **Save Draft and Close**, **Dis
 
 ## Continuation boundaries
 
-Continuation boundaries use automatic, conservative CPU correction based on Continuum's seam metrics and color guard. Only two previous frames and five current frames are inspected. An isolated brightness pulse in the first new frame can be corrected when the surrounding frames support it and all safety checks improve. Scene cuts, frame counts, seeds and audio positions stay intact; unsafe candidates retain the original frames. Long-video output does not allocate a full-length RGB buffer for this correction.
+Continuation boundaries use Continuum's conservative CPU checks for motion and brightness. In **Apply and Queue** renders, v0.13.8 can fade a qualified brightness step over the first six frames after a join. It uses a short analysis window and keeps the timeline and audio timing intact. Review exports keep the treatment used by their accepted parts. A gradual change over a longer section can still occur.
 
 ## Audio editing
 
@@ -136,7 +140,11 @@ See the [prompt guide](docs/EASY_PROMPTS_EN.md) for more examples. AI text is an
 
 ## Verification
 
-v0.13.4 makes queue actions visible inside Studio: the button changes while checking/submitting, shows a red **Not submitted** result on rejection, and a green check after acceptance. Specific input errors appear near the button, independently of the running/completed/stopped job status. A missed terminal event can be recovered from matching queue history. Real mouse input in the usual ComfyUI confirmed acceptance, the green check and **Running**; the user then intentionally stopped the tests. This verifies queue acceptance and execution start, not a finished render. No further live UI checks or GPU runs were performed for publication. [v0.13.7 validation](docs/RELEASE_v0.13.4_VALIDATION_JA.md).
+In ComfyUI_W, the v0.13.8 FastH3 test reduced the mean brightness step at a short continuation boundary from **1.51% to 0.31%** and the peak frame change near the join by **21%**. In a **30.67-second, four-chunk** test, the three joins used the existing corrections. All 736 decoded frames and audio packets matched the previous build. The ending was about **2.5 percentage points brighter** than the opening in both renders, and the gradual changes in head angle and hand position remained. Both comparisons used the same model graph, inputs, and seed. [v0.13.8 validation](docs/RELEASE_v0.13.8_VALIDATION_JA.md).
+
+### Earlier releases
+
+v0.13.4 makes queue actions visible inside Studio: the button changes while checking/submitting, shows a red **Not submitted** result on rejection, and a green check after acceptance. Specific input errors appear near the button, independently of the running/completed/stopped job status. A missed terminal event can be recovered from matching queue history. Real mouse input in the usual ComfyUI confirmed acceptance, the green check and **Running**; the user then intentionally stopped the tests. This verifies queue acceptance and execution start, not a finished render. No further live UI checks or GPU runs were performed for publication. [v0.13.4 validation](docs/RELEASE_v0.13.4_VALIDATION_JA.md).
 
 Previous v0.13.3 checks:
 

@@ -43,13 +43,14 @@ def run_review(runtime, tmp_path, mode='Images', seconds=10):
     return operation, engine, kwargs, samples, run_id, binding
 
 
-def test_review_retry_resume_and_export(runtime, tmp_path, monkeypatch):
-    from h3ezstudio import version
-
-    operation, engine, kwargs, samples, run, _ = run_review(runtime, tmp_path)
-    with monkeypatch.context() as patch:
-        patch.setattr(version, '__version__', '0.13.6')
-        _, first, first_command = operation('next')
+@pytest.mark.parametrize('legacy_version', ['0.13.6', '0.13.7'])
+def test_review_retry_resume_and_export(runtime, tmp_path, monkeypatch, legacy_version):
+    operation, engine, kwargs, samples, run, binding = run_review(runtime, tmp_path)
+    _, first, first_command = operation('next')
+    first['identity'].pop('checkpoint_version')
+    first['identity']['engine_version'] = legacy_version
+    store = ReviewStore(tmp_path, run, binding)
+    store.manifest.write_text(json.dumps(first), encoding='utf-8')
     assert operation('next', command=first_command)[0] is None
     assert len(samples) == 1
     _, second, _ = operation('next')
@@ -89,6 +90,29 @@ def test_review_retry_resume_and_export(runtime, tmp_path, monkeypatch):
     assert public['accepted_previews'][1]['join'] == retried['candidate']['join']
     assert set(public['accepted_previews'][1]) == {'join', 'record'}
     assert result[1]['waveform'].shape[-1] == round(299 * 32000 / 24)
+
+
+def test_join_diagnosis_tracks_saved_candidate_and_accepted_preview(runtime, tmp_path):
+    from h3ezstudio.review_join import diagnose_join
+
+    operation, _, _, samples, run, binding = run_review(runtime, tmp_path)
+    store = ReviewStore(tmp_path, run, binding)
+    operation('next')
+    _, state, _ = operation('next')
+    join = state['candidate']['join']['filename']
+    unchanged = sha_file(store.manifest)
+    result = diagnose_join(store, join)
+    assert result['available'] and result['timeline_seconds'] == state['candidate']['record']['start']
+    assert (result['previous_frames'], result['next_frames'], result['planned_cut']) == (8, 6, False)
+    assert len(samples) == 2 and sha_file(store.manifest) == unchanged
+    with pytest.raises(ReviewError):
+        diagnose_join(store, state['candidate']['preview']['filename'])
+    with pytest.raises(ReviewError):
+        diagnose_join(ReviewStore(tmp_path, run, uuid4().hex), join)
+    _, following, _ = operation('next')
+    assert diagnose_join(store, join) == result
+    assert diagnose_join(store, following['candidate']['join']['filename'])['planned_cut']
+    assert len(samples) == 3
 
 
 def test_long_review_uses_original_audio_and_exact_legacy_output(runtime, tmp_path, monkeypatch):
